@@ -10,10 +10,10 @@ import {
 import { Colors } from '../constants/Colors';
 import { ProgressBar } from '../components/OnboardingComponents';
 
-const SectionHeader = ({ title }) => (
+const SectionHeader = ({ title, navigation, target }) => (
   <View style={styles.sectionHeader}>
     <Text style={styles.sectionTitle}>{title}</Text>
-    <TouchableOpacity>
+    <TouchableOpacity onPress={() => navigation.navigate(target)}>
       <Text style={styles.editText}>Edit</Text>
     </TouchableOpacity>
   </View>
@@ -37,7 +37,7 @@ const ReviewSubmitScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.card}>
-          <SectionHeader title="Business information" />
+          <SectionHeader title="Business information" navigation={navigation} target="Step1" />
           <InfoRow label="Name" value="Mama's Kitchen" />
           <InfoRow label="Category" value="Local dishes" />
           <InfoRow label="Phone" value="+2348000000000" />
@@ -46,7 +46,7 @@ const ReviewSubmitScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.card}>
-          <SectionHeader title="Opening hours" />
+          <SectionHeader title="Opening hours" navigation={navigation} target="Step2" />
           {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
             <InfoRow key={day} label={day} value="0800 - 1700" />
           ))}
@@ -55,7 +55,7 @@ const ReviewSubmitScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.card}>
-          <SectionHeader title="Payout account" />
+          <SectionHeader title="Payout account" navigation={navigation} target="Step4" />
           <InfoRow label="Bank" value="Access Bank" />
           <InfoRow label="Account name" value="Mama's Kitchen Ltd" />
           <InfoRow label="Account number" value="63636363633663" />

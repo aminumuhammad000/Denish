@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 
 import VendorWelcomeScreen from './src/vendor/VendorWelcomeScreen';
+import VendorLoginScreen from './src/vendor/VendorLoginScreen';
 import SignupScreen from './src/vendor/SignupScreen';
 import BusinessInfoScreen from './src/vendor/BusinessInfoScreen';
 import OpeningHoursScreen from './src/vendor/OpeningHoursScreen';
@@ -20,6 +21,7 @@ export default function App() {
       <StatusBar style="auto" />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Welcome" component={VendorWelcomeScreen} />
+        <Stack.Screen name="Login" component={VendorLoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="Step1" component={BusinessInfoScreen} />
         <Stack.Screen name="Step2" component={OpeningHoursScreen} />
