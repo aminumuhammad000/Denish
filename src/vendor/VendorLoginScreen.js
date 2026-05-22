@@ -14,7 +14,9 @@ import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 
 const VendorLoginScreen = ({ navigation }) => {
-  const [authType, setAuthType] = useState('Email'); // 'Email' or 'Phone'
+  const [authType, setAuthType] = useState('Email');
+  const [email, setEmail] = useState('emeka@mamaskitchen.ng');
+  const [password, setPassword] = useState('demo1234');
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -48,6 +50,8 @@ const VendorLoginScreen = ({ navigation }) => {
               <Text style={styles.label}>{authType}</Text>
               <TextInput
                 style={styles.input}
+                value={email}
+                onChangeText={setEmail}
                 placeholder={authType === 'Email' ? 'you@email.com' : 'Phone number'}
                 autoCapitalize="none"
               />
@@ -56,13 +60,15 @@ const VendorLoginScreen = ({ navigation }) => {
             <View style={styles.inputGroup}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Password</Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
                   <Text style={styles.forgotPassword}>Forgot password?</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={styles.passwordInput}
+                  value={password}
+                  onChangeText={setPassword}
                   placeholder="••••••"
                   secureTextEntry
                 />
@@ -70,7 +76,7 @@ const VendorLoginScreen = ({ navigation }) => {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.button}>
+            <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Dashboard')}>
               <Text style={styles.buttonText}>Sign in</Text>
             </TouchableOpacity>
           </View>

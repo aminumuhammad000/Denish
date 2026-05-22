@@ -12,6 +12,12 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 
 const SignupScreen = ({ navigation }) => {
+  const [name, setName]       = useState('Emeka Okafor');
+  const [email, setEmail]     = useState('emeka@mamaskitchen.ng');
+  const [phone, setPhone]     = useState('+234909090909');
+  const [password, setPassword] = useState('demo1234');
+  const [showPass, setShowPass] = useState(false);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -23,26 +29,26 @@ const SignupScreen = ({ navigation }) => {
         <View style={styles.form}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Full name</Text>
-            <TextInput style={styles.input} placeholder="Emeka Okafor" />
+            <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Emeka Okafor" />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
-            <TextInput style={styles.input} placeholder="you@email.com" keyboardType="email-address" autoCapitalize="none" />
+            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="you@email.com" keyboardType="email-address" autoCapitalize="none" />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Phone</Text>
-            <TextInput style={styles.input} placeholder="+234909090909" keyboardType="phone-pad" />
+            <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="+234909090909" keyboardType="phone-pad" />
           </View>
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>Password</Text>
-              <TouchableOpacity>
-                <Text style={styles.forgotPassword}>Forgot password?</Text>
-              </TouchableOpacity>
-            </View>
+            <View style={styles.inputGroup}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Password</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                  <Text style={styles.forgotPassword}>Forgot password?</Text>
+                </TouchableOpacity>
+              </View>
             <View style={styles.passwordContainer}>
-              <TextInput style={styles.passwordInput} placeholder="At least 6 characters" secureTextEntry />
-              <Ionicons name="eye-off-outline" size={20} color="#999" />
+              <TextInput style={styles.passwordInput} value={password} onChangeText={setPassword} placeholder="At least 6 characters" secureTextEntry={!showPass} />
+              <Ionicons name={showPass ? 'eye-outline' : 'eye-off-outline'} size={20} color="#999" onPress={() => setShowPass(!showPass)} />
             </View>
           </View>
 

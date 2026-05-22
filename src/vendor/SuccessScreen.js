@@ -20,7 +20,7 @@ const SuccessScreen = () => {
         <Text style={styles.title}>Application under review</Text>
         <Text style={styles.subtitle}>Welcome to Denish. Let's get you started</Text>
 
-        <TouchableOpacity style={styles.button}>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Dashboard')}>
           <Text style={styles.buttonText}>Go to dashboard</Text>
         </TouchableOpacity>
       </View>
