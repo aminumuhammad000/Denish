@@ -22,7 +22,7 @@ const FeatureCard = ({ icon, title, subtitle, iconContainerColor }) => (
   </View>
 );
 
-const VendorWelcomeScreen = () => {
+const VendorWelcomeScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -56,7 +56,10 @@ const VendorWelcomeScreen = () => {
 
         {/* Footer Actions */}
         <View style={styles.footer}>
-          <TouchableOpacity style={styles.button}>
+          <TouchableOpacity 
+            style={styles.button}
+            onPress={() => navigation.navigate('Signup')}
+          >
             <Text style={styles.buttonText}>Get started</Text>
           </TouchableOpacity>
           <Text style={styles.approvalText}>Approval typically takes 24 hours.</Text>
