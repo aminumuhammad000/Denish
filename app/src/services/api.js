@@ -155,4 +155,26 @@ export const uploadVendorImages = async (logoUri, coverUri) => {
   }
 };
 
+export const getBanks = async () => {
+  try {
+    const response = await api.get('/payment/banks');
+    return response.data;
+  } catch (error) {
+    console.error('API getBanks error:', error);
+    throw error;
+  }
+};
+
+export const verifyAccount = async (bankCode, accountNumber) => {
+  try {
+    const response = await api.get('/payment/verify-account', {
+      params: { bankCode, accountNumber }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API verifyAccount error:', error);
+    throw error;
+  }
+};
+
 export default api;

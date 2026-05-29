@@ -11,13 +11,71 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { ProgressBar } from '../components/OnboardingComponents';
+import { getBanks, verifyAccount } from '../services/api';
+import { 
+  Modal, 
+  FlatList, 
+  ActivityIndicator 
+} from 'react-native';
 
 const PayoutAccountScreen = ({ navigation }) => {
   const [formData, setFormData] = useState({
     bank: '',
+    bankCode: '',
     accountName: '',
     accountNumber: '',
   });
+
+  const [banks, setBanks] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [loadingBanks, setLoadingBanks] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [errorHeader, setErrorHeader] = useState('');
+
+  React.useEffect(() => {
+    loadBanks();
+  }, []);
+
+  const loadBanks = async () => {
+    setLoadingBanks(true);
+    try {
+      const result = await getBanks();
+      if (result.success) {
+        setBanks(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to load banks', err);
+    } finally {
+      setLoadingBanks(false);
+    }
+  };
+
+  const handleBankSelect = (bank) => {
+    setFormData({ ...formData, bank: bank.name, bankCode: bank.code, accountName: '' });
+    setModalVisible(false);
+  };
+
+  const handleAccountChange = async (val) => {
+    setFormData({ ...formData, accountNumber: val, accountName: '' });
+    
+    // Auto-verify when 10 digits are reached and bank is selected
+    if (val.length === 10 && formData.bankCode) {
+      setVerifying(true);
+      setErrorHeader('');
+      try {
+        const result = await verifyAccount(formData.bankCode, val);
+        if (result.success) {
+          setFormData(prev => ({ ...prev, accountName: result.data.accountName, accountNumber: val }));
+        } else {
+          setErrorHeader(result.message || 'Verification failed');
+        }
+      } catch (err) {
+        setErrorHeader('Could not verify account. Please check details.');
+      } finally {
+        setVerifying(false);
+      }
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -30,43 +88,86 @@ const PayoutAccountScreen = ({ navigation }) => {
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Bank</Text>
-            <TouchableOpacity style={styles.dropdown}>
-              <Text style={styles.inputText}>{formData.bank}</Text>
+            <Text style={styles.label}>Select Bank</Text>
+            <TouchableOpacity 
+              style={styles.dropdown}
+              onPress={() => setModalVisible(true)}
+            >
+              <Text style={styles.inputText}>{formData.bank || 'Choose your bank'}</Text>
               <Ionicons name="chevron-down" size={20} color="#666" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Account name</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.accountName}
-              onChangeText={(val) => setFormData({ ...formData, accountName: val })}
-            />
+            <Text style={styles.label}>Account number (10 digits)</Text>
+            <View style={styles.accountInputWrapper}>
+              <TextInput
+                style={[styles.input, { flex: 1, borderColor: formData.accountNumber.length === 10 ? Colors.primary : '#CCC' }]}
+                value={formData.accountNumber}
+                placeholder="e.g. 0123456789"
+                keyboardType="number-pad"
+                maxLength={10}
+                onChangeText={handleAccountChange}
+              />
+              {verifying && <ActivityIndicator style={styles.loader} color={Colors.primary} />}
+            </View>
+            {errorHeader ? <Text style={styles.errorText}>{errorHeader}</Text> : null}
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Account number (10 digits)</Text>
-            <TextInput
-              style={[styles.input, { borderColor: formData.accountNumber.length < 10 ? '#FF8C00' : '#CCC' }]}
-              value={formData.accountNumber}
-              keyboardType="number-pad"
-              maxLength={10}
-              onChangeText={(val) => setFormData({ ...formData, accountNumber: val })}
-            />
-            {formData.accountNumber.length < 10 && (
-              <Text style={styles.errorText}>Must be 10 digits</Text>
-            )}
+            <Text style={styles.label}>Account name</Text>
+            <View style={[styles.input, styles.disabledInput]}>
+              <Text style={[styles.inputText, !formData.accountName && { color: '#999' }]}>
+                {formData.accountName || 'Enter account number to verify...'}
+              </Text>
+              {formData.accountName && <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />}
+            </View>
           </View>
 
           <TouchableOpacity 
-            style={styles.button}
+            style={[styles.button, !formData.accountName && { opacity: 0.5 }]}
             onPress={() => navigation.navigate('Step5')}
+            disabled={!formData.accountName}
           >
             <Text style={styles.buttonText}>Continue</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Bank Picker Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Choose your bank</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#000" />
+                </TouchableOpacity>
+              </View>
+              {loadingBanks ? (
+                <ActivityIndicator size="large" color={Colors.primary} style={{ margin: 20 }} />
+              ) : (
+                <FlatList
+                  data={banks}
+                  keyExtractor={(item) => item.code}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity 
+                      style={styles.bankItem}
+                      onPress={() => handleBankSelect(item)}
+                    >
+                      <Text style={styles.bankItemText}>{item.name}</Text>
+                      {formData.bankCode === item.code && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -128,9 +229,60 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
   },
   errorText: {
-    color: '#FF8C00',
+    color: '#FF3B30',
     fontSize: 12,
     fontWeight: '500',
+    marginTop: 4,
+  },
+  accountInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  loader: {
+    position: 'absolute',
+    right: 15,
+  },
+  disabledInput: {
+    backgroundColor: '#F8F9FA',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderColor: '#E9ECEF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    padding: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  bankItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderColor: '#F1F3F5',
+  },
+  bankItemText: {
+    fontSize: 16,
+    color: '#333',
   },
   button: {
     backgroundColor: Colors.primary,
