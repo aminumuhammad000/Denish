@@ -57,7 +57,7 @@ const CustomerWelcomeScreen = ({ navigation }) => {
         <View style={styles.footer}>
           <TouchableOpacity 
             style={styles.button}
-            onPress={() => navigation.navigate('CustomerLogin')}
+            onPress={() => navigation.navigate('CustomerSignup')}
           >
             <Text style={styles.buttonText}>Get started</Text>
           </TouchableOpacity>

@@ -85,6 +85,16 @@ export const customerLogin = async (email, password) => {
   }
 };
 
+export const customerSignup = async (name, email, phone, password) => {
+  try {
+    const response = await api.post('/auth/customer/signup', { name, email, phone, password });
+    return response.data;
+  } catch (error) {
+    console.error('API customerSignup error:', error);
+    throw error;
+  }
+};
+
 export const driverLogin = async (email, password) => {
   try {
     const response = await api.post('/auth/driver/login', { email, password });

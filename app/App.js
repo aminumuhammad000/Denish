@@ -22,6 +22,7 @@ import CustomerWelcomeScreen from './src/customer/CustomerWelcomeScreen';
 import CustomerHomeScreen from './src/customer/CustomerHomeScreen';
 import CustomerRestaurantScreen from './src/customer/CustomerRestaurantScreen';
 import CheckoutScreen from './src/customer/CheckoutScreen';
+import CustomerSignupScreen from './src/customer/SignupScreen';
 
 // Driver Screens
 import DriverWelcomeScreen from './src/driver/DriverWelcomeScreen';
@@ -62,6 +63,7 @@ export default function App() {
             
             {/* ── Customer App ── */}
             <Stack.Screen name="CustomerWelcome" component={CustomerWelcomeScreen} />
+            <Stack.Screen name="CustomerSignup" component={CustomerSignupScreen} />
             <Stack.Screen name="CustomerLogin" component={CustomerLoginScreen} />
             <Stack.Screen name="CustomerHome" component={CustomerHomeScreen} />
             <Stack.Screen name="CustomerRestaurant" component={CustomerRestaurantScreen} />

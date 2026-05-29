@@ -1,4 +1,5 @@
 const Vendor = require('../models/Vendor');
+const Customer = require('../models/Customer');
 
 const vendorLogin = async (req, res) => {
   try {
@@ -50,7 +51,34 @@ const vendorSignup = async (req, res) => {
 };
 
 const customerLogin = async (req, res) => {
-  res.status(200).json({ success: true, token: 'cust-token', user: { name: 'Customer' } });
+  try {
+    const { email, password } = req.body;
+    const customer = await Customer.findOne({ email });
+
+    if (!customer || customer.password !== password) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+
+    res.status(200).json({ success: true, token: 'cust-token-' + customer._id, user: customer });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const customerSignup = async (req, res) => {
+  try {
+    const { name, email, phone, password } = req.body;
+    
+    const existing = await Customer.findOne({ $or: [{ email }, { phone }] });
+    if (existing) {
+      return res.status(400).json({ success: false, error: 'Email or phone number already in use' });
+    }
+
+    const customer = await Customer.create({ name, email, phone, password });
+    res.status(201).json({ success: true, token: 'cust-token-' + customer._id, user: customer });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 const driverLogin = async (req, res) => {
@@ -61,5 +89,6 @@ module.exports = {
   vendorLogin,
   vendorSignup,
   customerLogin,
+  customerSignup,
   driverLogin
 };

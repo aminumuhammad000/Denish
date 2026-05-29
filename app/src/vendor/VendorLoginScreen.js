@@ -147,10 +147,10 @@ const styles = StyleSheet.create({
     padding: 16,
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingTop: 60,
   },
   header: {
-    marginTop: 20,
+    marginTop: 10,
     marginBottom: 24,
   },
   title: {

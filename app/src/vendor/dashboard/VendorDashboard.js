@@ -19,12 +19,12 @@ const VendorDashboard = () => {
         tabBarInactiveTintColor: '#999',
         tabBarStyle: {
           backgroundColor: '#fff',
-          borderTopColor: '#EEE',
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 4,
+          borderTopColor: '#F0F0F0',
+          height: 70,
+          paddingTop: 8,
+          paddingBottom: 20, // Simplified, but I'll use real safe area if possible
         },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
         tabBarIcon: ({ color, size }) => {
           const icons = {
             Home:     'home-outline',

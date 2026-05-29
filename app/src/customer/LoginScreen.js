@@ -140,7 +140,7 @@ const LoginScreen = ({ navigation }) => {
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>New here? </Text>
-            <TouchableOpacity onPress={() => {}}>
+            <TouchableOpacity onPress={() => navigation.navigate('CustomerSignup')}>
               <Text style={styles.createAccount}>Create an account</Text>
             </TouchableOpacity>
           </View>
@@ -160,6 +160,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
+    paddingTop: 50,
     flexGrow: 1,
   },
   header: {
