@@ -42,7 +42,8 @@ const SignupScreen = ({ navigation }) => {
         setErrorMsg(response.error || 'Registration failed');
       }
     } catch (err) {
-      setErrorMsg('Network error. Please try again.');
+      const serverMsg = err.response?.data?.error;
+      setErrorMsg(serverMsg || 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }

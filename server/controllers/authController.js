@@ -32,9 +32,14 @@ const vendorSignup = async (req, res) => {
     const { name, email, phone, password } = req.body;
     
     // Check if exists
-    const existing = await Vendor.findOne({ email });
-    if (existing) {
+    const existingEmail = await Vendor.findOne({ email });
+    if (existingEmail) {
        return res.status(400).json({ success: false, error: 'Email already in use' });
+    }
+
+    const existingPhone = await Vendor.findOne({ phone });
+    if (existingPhone) {
+       return res.status(400).json({ success: false, error: 'Phone number already in use' });
     }
 
     const vendor = await Vendor.create({ name, email, phone, password });

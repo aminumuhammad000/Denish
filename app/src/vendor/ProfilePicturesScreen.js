@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { ProgressBar } from '../components/OnboardingComponents';
 import { uploadVendorImages } from '../services/api';
-import { AnimatedLoadingText } from '../components/AnimatedLoadingText';
+import AnimatedLoadingText from '../components/AnimatedLoadingText';
 
 const UploadBox = ({ label, height, image, onPress }) => (
   <View style={styles.uploadContainer}>
@@ -57,7 +57,7 @@ const ProfilePicturesScreen = ({ navigation }) => {
 
   const pickImage = async (type) => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: type === 'cover' ? [16, 9] : [1, 1],
       quality: 0.8,
