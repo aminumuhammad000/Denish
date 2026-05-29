@@ -105,6 +105,16 @@ export const driverLogin = async (email, password) => {
   }
 };
 
+export const driverSignup = async (name, email, phone, password, vehicleType) => {
+  try {
+    const response = await api.post('/auth/driver/signup', { name, email, phone, password, vehicleType });
+    return response.data;
+  } catch (error) {
+    console.error('API driverSignup error:', error);
+    throw error;
+  }
+};
+
 export const updateVendorProfile = async (profileData) => {
   try {
     const response = await api.put('/vendor/profile', profileData);

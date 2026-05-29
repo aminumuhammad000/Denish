@@ -57,7 +57,7 @@ const DriverWelcomeScreen = ({ navigation }) => {
         <View style={styles.footer}>
           <TouchableOpacity 
             style={styles.button}
-            onPress={() => navigation.navigate('DriverLogin')}
+            onPress={() => navigation.navigate('DriverSignup')}
           >
             <Text style={styles.buttonText}>Get started</Text>
           </TouchableOpacity>

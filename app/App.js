@@ -27,6 +27,9 @@ import CustomerSignupScreen from './src/customer/SignupScreen';
 // Driver Screens
 import DriverWelcomeScreen from './src/driver/DriverWelcomeScreen';
 import DriverLoginScreen from './src/driver/DriverLoginScreen';
+import DriverSignupScreen from './src/driver/SignupScreen';
+import DriverStep1Personal from './src/driver/onboarding/DriverStep1Personal';
+import DriverStep2Vehicle from './src/driver/onboarding/DriverStep2Vehicle';
 import DriverDashboard from './src/driver/DriverDashboard';
 
 // Context
@@ -71,6 +74,9 @@ export default function App() {
 
             {/* ── Driver App ── */}
             <Stack.Screen name="DriverWelcome" component={DriverWelcomeScreen} />
+            <Stack.Screen name="DriverSignup" component={DriverSignupScreen} />
+            <Stack.Screen name="DriverStep1Personal" component={DriverStep1Personal} />
+            <Stack.Screen name="DriverStep2Vehicle" component={DriverStep2Vehicle} />
             <Stack.Screen name="DriverLogin" component={DriverLoginScreen} />
             <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
           </Stack.Navigator>

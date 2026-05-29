@@ -13,36 +13,42 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
-import { customerSignup } from '../services/api';
+import { driverSignup } from '../services/api';
 
-const SignupScreen = ({ navigation }) => {
+const DriverSignupScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [vehicle, setVehicle] = useState(''); // Car, Bike, Bicycle
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSignup = async () => {
-    if (!name || !email || !phone || password.length < 6) return;
+    if (!name || !email || !phone || !password || !vehicle) {
+      setErrorMsg('Please fill all fields');
+      return;
+    }
     
     setLoading(true);
     setErrorMsg('');
     try {
-      const response = await customerSignup(name, email, phone, password);
+      const response = await driverSignup(name, email, phone, password, vehicle);
       if (response && response.success) {
-        navigation.navigate('CustomerHome');
+        navigation.navigate('DriverStep1Personal');
       } else {
         setErrorMsg(response.error || 'Signup failed');
       }
     } catch (err) {
-      console.error('Signup error:', err);
+      console.error('Driver Signup error:', err);
       setErrorMsg(err.response?.data?.error || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  const vehicles = ['Bike', 'Bicycle', 'Car'];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -59,8 +65,8 @@ const SignupScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join Denish and start ordering today!</Text>
+            <Text style={styles.title}>Partner with Denish</Text>
+            <Text style={styles.subtitle}>Register as a driver and start earning</Text>
           </View>
 
           <View style={styles.form}>
@@ -98,6 +104,21 @@ const SignupScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.inputGroup}>
+              <Text style={styles.label}>Vehicle Type</Text>
+              <View style={styles.vehicleContainer}>
+                {vehicles.map(v => (
+                  <TouchableOpacity 
+                    key={v} 
+                    style={[styles.vehicleBtn, vehicle === v && styles.vehicleBtnActive]}
+                    onPress={() => setVehicle(v)}
+                  >
+                    <Text style={[styles.vehicleText, vehicle === v && styles.vehicleTextActive]}>{v}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
@@ -120,21 +141,21 @@ const SignupScreen = ({ navigation }) => {
             {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
             <TouchableOpacity 
-              style={[styles.button, (!name || !email || !phone || password.length < 6) && styles.buttonDisabled]}
+              style={[styles.button, (!name || !email || !phone || !vehicle || password.length < 6) && styles.buttonDisabled]}
               onPress={handleSignup}
-              disabled={loading || !name || !email || !phone || password.length < 6}
+              disabled={loading}
             >
               {loading ? (
-                <AnimatedLoadingText text="Creating account" style={styles.buttonText} />
+                <AnimatedLoadingText text="Registering" style={styles.buttonText} />
               ) : (
-                <Text style={styles.buttonText}>Sign Up</Text>
+                <Text style={styles.buttonText}>Register Now</Text>
               )}
             </TouchableOpacity>
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('CustomerLogin')}>
+            <Text style={styles.footerText}>Existing Driver? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('DriverLogin')}>
               <Text style={styles.linkText}>Login</Text>
             </TouchableOpacity>
           </View>
@@ -151,26 +172,26 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
-    paddingTop: 40,
+    paddingTop: 50,
   },
   backButton: {
-    marginBottom: 30,
+    marginBottom: 20,
   },
   header: {
-    marginBottom: 32,
+    marginBottom: 30,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#1a1a1a',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#666',
   },
   form: {
-    gap: 20,
+    gap: 18,
   },
   inputGroup: {
     gap: 8,
@@ -186,7 +207,7 @@ const styles = StyleSheet.create({
     borderColor: '#EEE',
     borderRadius: 12,
     padding: 14,
-    fontSize: 16,
+    fontSize: 15,
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -200,7 +221,32 @@ const styles = StyleSheet.create({
   passwordInput: {
     flex: 1,
     padding: 14,
-    fontSize: 16,
+    fontSize: 15,
+  },
+  vehicleContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  vehicleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EEE',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+  },
+  vehicleBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  vehicleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  vehicleTextActive: {
+    color: '#FFF',
   },
   button: {
     backgroundColor: Colors.primary,
@@ -220,12 +266,13 @@ const styles = StyleSheet.create({
   errorText: {
     color: 'red',
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: 13,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 30,
+    paddingBottom: 20,
   },
   footerText: {
     color: '#666',
@@ -236,4 +283,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SignupScreen;
+export default DriverSignupScreen;
