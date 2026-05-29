@@ -16,21 +16,29 @@ import AnimatedLoadingText from '../components/AnimatedLoadingText';
 import { driverLogin } from '../services/api';
 
 const DriverLoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      setErrorMsg('Please enter email and password');
+      return;
+    }
+
     setLoading(true);
+    setErrorMsg('');
     try {
       const response = await driverLogin(email, password);
       if (response && response.success) {
         navigation.navigate('DriverDashboard');
       } else {
-        alert('Login failed');
+        setErrorMsg(response.error || 'Login failed');
       }
     } catch (error) {
-       alert('Network error. Please try again.');
+      console.error('Driver Login error:', error);
+      setErrorMsg(error.response?.data?.error || 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -62,14 +70,25 @@ const DriverLoginScreen = ({ navigation }) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••"
-                secureTextEntry
-              />
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="••••••"
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons 
+                    name={showPassword ? "eye" : "eye-off"} 
+                    size={20} 
+                    color="#999" 
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
+
+            {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
             <TouchableOpacity 
               style={styles.button}
@@ -140,6 +159,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAFBFB',
+    borderWidth: 1,
+    borderColor: '#EEE',
+    borderRadius: 8,
+    paddingRight: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 14,
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   button: {
     backgroundColor: Colors.primary,

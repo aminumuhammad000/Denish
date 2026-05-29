@@ -30,6 +30,9 @@ import DriverLoginScreen from './src/driver/DriverLoginScreen';
 import DriverSignupScreen from './src/driver/SignupScreen';
 import DriverStep1Personal from './src/driver/onboarding/DriverStep1Personal';
 import DriverStep2Vehicle from './src/driver/onboarding/DriverStep2Vehicle';
+import DriverStep3Payout from './src/driver/onboarding/DriverStep3Payout';
+import DriverStep4Docs from './src/driver/onboarding/DriverStep4Docs';
+import DriverStep5Review from './src/driver/onboarding/DriverStep5Review';
 import DriverDashboard from './src/driver/DriverDashboard';
 
 // Context
@@ -77,6 +80,9 @@ export default function App() {
             <Stack.Screen name="DriverSignup" component={DriverSignupScreen} />
             <Stack.Screen name="DriverStep1Personal" component={DriverStep1Personal} />
             <Stack.Screen name="DriverStep2Vehicle" component={DriverStep2Vehicle} />
+            <Stack.Screen name="DriverStep3Payout" component={DriverStep3Payout} />
+            <Stack.Screen name="DriverStep4Docs" component={DriverStep4Docs} />
+            <Stack.Screen name="DriverStep5Review" component={DriverStep5Review} />
             <Stack.Screen name="DriverLogin" component={DriverLoginScreen} />
             <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
           </Stack.Navigator>
