@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { ProgressBar } from '../components/OnboardingComponents';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const TIMES = [
   '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00',
@@ -54,15 +55,20 @@ const DayRow = ({ day, data, onToggle, onTimePress }) => (
 );
 
 const OpeningHoursScreen = ({ navigation }) => {
-  const [hours, setHours] = useState({
-    Monday:    { isOpen: true, openAt: '08:00', closeAt: '22:00' },
-    Tuesday:   { isOpen: true, openAt: '08:00', closeAt: '22:00' },
-    Wednesday: { isOpen: true, openAt: '08:00', closeAt: '22:00' },
-    Thursday:  { isOpen: true, openAt: '08:00', closeAt: '22:00' },
-    Friday:    { isOpen: true, openAt: '08:00', closeAt: '22:00' },
-    Saturday:  { isOpen: true, openAt: '08:00', closeAt: '22:00' },
-    Sunday:    { isOpen: false, openAt: '08:00', closeAt: '22:00' },
-  });
+  const { onboardingData, updateOnboardingData } = useOnboarding();
+  const [hours, setHours] = useState(
+    Object.keys(onboardingData.openingHours || {}).length > 0
+      ? onboardingData.openingHours
+      : {
+          Monday:    { isOpen: true, openAt: '08:00', closeAt: '22:00' },
+          Tuesday:   { isOpen: true, openAt: '08:00', closeAt: '22:00' },
+          Wednesday: { isOpen: true, openAt: '08:00', closeAt: '22:00' },
+          Thursday:  { isOpen: true, openAt: '08:00', closeAt: '22:00' },
+          Friday:    { isOpen: true, openAt: '08:00', closeAt: '22:00' },
+          Saturday:  { isOpen: true, openAt: '08:00', closeAt: '22:00' },
+          Sunday:    { isOpen: false, openAt: '08:00', closeAt: '22:00' },
+        }
+  );
 
   const [modalVisible, setModalVisible] = useState(false);
   const [activeDay, setActiveDay] = useState(null);
@@ -130,7 +136,10 @@ const OpeningHoursScreen = ({ navigation }) => {
 
         <TouchableOpacity 
           style={styles.button}
-          onPress={() => navigation.navigate('Step3')}
+          onPress={() => {
+            updateOnboardingData({ openingHours: hours });
+            navigation.navigate('Step3');
+          }}
         >
           <Text style={styles.buttonText}>Continue</Text>
         </TouchableOpacity>

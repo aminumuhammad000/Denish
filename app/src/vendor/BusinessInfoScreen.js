@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { ProgressBar } from '../components/OnboardingComponents';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const FOOD_CATEGORIES = [
   'Local Nigerian Dishes',
@@ -29,14 +30,15 @@ const FOOD_CATEGORIES = [
 ];
 
 const BusinessInfoScreen = ({ navigation }) => {
+  const { onboardingData, updateOnboardingData } = useOnboarding();
   const [formData, setFormData] = useState({
-    businessName: '',
-    category: '',
-    phone: '',
-    email: '',
-    address: '',
-    about: '',
-    customCategory: '',
+    businessName: onboardingData.businessName || '',
+    category: onboardingData.category || '',
+    phone: onboardingData.phone || '',
+    email: onboardingData.email || '',
+    address: onboardingData.address || '',
+    about: onboardingData.about || '',
+    customCategory: onboardingData.customCategory || '',
   });
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -142,7 +144,10 @@ const BusinessInfoScreen = ({ navigation }) => {
 
             <TouchableOpacity 
               style={styles.button}
-              onPress={() => navigation.navigate('Step2')}
+              onPress={() => {
+                updateOnboardingData(formData);
+                navigation.navigate('Step2');
+              }}
             >
               <Text style={styles.buttonText}>Continue</Text>
             </TouchableOpacity>

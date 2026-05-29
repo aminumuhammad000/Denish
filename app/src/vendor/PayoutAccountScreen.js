@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { ProgressBar } from '../components/OnboardingComponents';
 import { getBanks, verifyAccount } from '../services/api';
+import { useOnboarding } from '../context/OnboardingContext';
 import { 
   Modal, 
   FlatList, 
@@ -19,11 +20,12 @@ import {
 } from 'react-native';
 
 const PayoutAccountScreen = ({ navigation }) => {
+  const { onboardingData, updateOnboardingData } = useOnboarding();
   const [formData, setFormData] = useState({
-    bank: '',
-    bankCode: '',
-    accountName: '',
-    accountNumber: '',
+    bank: onboardingData.bank || '',
+    bankCode: onboardingData.bankCode || '',
+    accountName: onboardingData.accountName || '',
+    accountNumber: onboardingData.accountNumber || '',
   });
 
   const [banks, setBanks] = useState([]);
@@ -31,6 +33,7 @@ const PayoutAccountScreen = ({ navigation }) => {
   const [loadingBanks, setLoadingBanks] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [errorHeader, setErrorHeader] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   React.useEffect(() => {
     loadBanks();
@@ -53,7 +56,12 @@ const PayoutAccountScreen = ({ navigation }) => {
   const handleBankSelect = (bank) => {
     setFormData({ ...formData, bank: bank.name, bankCode: bank.code, accountName: '' });
     setModalVisible(false);
+    setSearchQuery('');
   };
+
+  const filteredBanks = banks.filter(b => 
+    b.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleAccountChange = async (val) => {
     setFormData({ ...formData, accountNumber: val, accountName: '' });
@@ -126,7 +134,10 @@ const PayoutAccountScreen = ({ navigation }) => {
 
           <TouchableOpacity 
             style={[styles.button, !formData.accountName && { opacity: 0.5 }]}
-            onPress={() => navigation.navigate('Step5')}
+            onPress={() => {
+              updateOnboardingData(formData);
+              navigation.navigate('Step5');
+            }}
             disabled={!formData.accountName}
           >
             <Text style={styles.buttonText}>Continue</Text>
@@ -144,16 +155,37 @@ const PayoutAccountScreen = ({ navigation }) => {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Choose your bank</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <TouchableOpacity onPress={() => {
+                  setModalVisible(false);
+                  setSearchQuery('');
+                }}>
                   <Ionicons name="close" size={24} color="#000" />
                 </TouchableOpacity>
               </View>
+
+              <View style={styles.searchWrapper}>
+                <Ionicons name="search" size={18} color="#666" />
+                <TextInput 
+                  style={styles.searchInput}
+                  placeholder="Search bank name..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoCorrect={false}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={18} color="#999" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
               {loadingBanks ? (
                 <ActivityIndicator size="large" color={Colors.primary} style={{ margin: 20 }} />
               ) : (
                 <FlatList
-                  data={banks}
+                  data={filteredBanks}
                   keyExtractor={(item) => item.code}
+                  keyboardShouldPersistTaps="handled"
                   renderItem={({ item }) => (
                     <TouchableOpacity 
                       style={styles.bankItem}
@@ -282,6 +314,22 @@ const styles = StyleSheet.create({
   },
   bankItemText: {
     fontSize: 16,
+    color: '#333',
+  },
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F3F5',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 35,
+    fontSize: 15,
     color: '#333',
   },
   button: {

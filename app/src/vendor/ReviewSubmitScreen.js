@@ -12,6 +12,7 @@ import { ProgressBar } from '../components/OnboardingComponents';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
 
 import { updateVendorProfile } from '../services/api';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const SectionHeader = ({ title, navigation, target }) => (
   <View style={styles.sectionHeader}>
@@ -30,6 +31,7 @@ const InfoRow = ({ label, value }) => (
 );
 
 const ReviewSubmitScreen = ({ navigation }) => {
+  const { onboardingData } = useOnboarding();
   const [loading, setLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState('');
 
@@ -37,12 +39,21 @@ const ReviewSubmitScreen = ({ navigation }) => {
     setLoading(true);
     setErrorMsg('');
     try {
-      // Send the mock payload to the backend
+      // Send the actual collected data to the backend
       const response = await updateVendorProfile({
-        businessName: "",
-        address: "",
-        phone: "",
-        payoutAccount: { bank: "", accName: "", accNum: "" }
+        businessName: onboardingData.businessName,
+        address: onboardingData.address,
+        phone: onboardingData.phone,
+        category: onboardingData.category,
+        about: onboardingData.about,
+        logoUrl: onboardingData.logoUrl,
+        coverUrl: onboardingData.coverUrl,
+        openingHours: onboardingData.openingHours,
+        payoutAccount: { 
+          bank: onboardingData.bank, 
+          accName: onboardingData.accountName, 
+          accNum: onboardingData.accountNumber 
+        }
       });
       if (response && response.success) {
         navigation.navigate('Success');
@@ -67,27 +78,32 @@ const ReviewSubmitScreen = ({ navigation }) => {
 
         <View style={styles.card}>
           <SectionHeader title="Business information" navigation={navigation} target="Step1" />
-          <InfoRow label="Name" value="---" />
-          <InfoRow label="Category" value="---" />
-          <InfoRow label="Phone" value="---" />
-          <InfoRow label="Email" value="---" />
-          <InfoRow label="Address" value="---" />
+          <InfoRow label="Name" value={onboardingData.businessName} />
+          <InfoRow label="Category" value={onboardingData.category} />
+          <InfoRow label="Phone" value={onboardingData.phone} />
+          <InfoRow label="Email" value={onboardingData.email} />
+          <InfoRow label="Address" value={onboardingData.address} />
         </View>
 
         <View style={styles.card}>
           <SectionHeader title="Opening hours" navigation={navigation} target="Step2" />
-          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
-            <InfoRow key={day} label={day} value="0800 - 1700" />
-          ))}
-          <InfoRow label="Saturday" value="Closed" />
-          <InfoRow label="Sunday" value="Closed" />
+          {Object.keys(onboardingData.openingHours || {}).map(day => {
+            const h = onboardingData.openingHours[day];
+            return (
+              <InfoRow 
+                key={day} 
+                label={day} 
+                value={h.isOpen ? `${h.openAt} - ${h.closeAt}` : 'Closed'} 
+              />
+            );
+          })}
         </View>
 
         <View style={styles.card}>
           <SectionHeader title="Payout account" navigation={navigation} target="Step4" />
-          <InfoRow label="Bank" value="---" />
-          <InfoRow label="Account name" value="---" />
-          <InfoRow label="Account number" value="---" />
+          <InfoRow label="Bank" value={onboardingData.bank} />
+          <InfoRow label="Account name" value={onboardingData.accountName} />
+          <InfoRow label="Account number" value={onboardingData.accountNumber} />
         </View>
 
         <Text style={styles.termsText}>

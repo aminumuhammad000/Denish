@@ -14,6 +14,7 @@ import { Colors } from '../constants/Colors';
 import { ProgressBar } from '../components/OnboardingComponents';
 import { uploadVendorImages } from '../services/api';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const UploadBox = ({ label, height, image, onPress }) => (
   <View style={styles.uploadContainer}>
@@ -40,8 +41,9 @@ const UploadBox = ({ label, height, image, onPress }) => (
 );
 
 const ProfilePicturesScreen = ({ navigation }) => {
-  const [coverImage, setCoverImage] = useState(null);
-  const [profileImage, setProfileImage] = useState(null);
+  const { onboardingData, updateOnboardingData } = useOnboarding();
+  const [coverImage, setCoverImage] = useState(onboardingData.coverUrl || null);
+  const [profileImage, setProfileImage] = useState(onboardingData.logoUrl || null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -74,7 +76,10 @@ const ProfilePicturesScreen = ({ navigation }) => {
     try {
       const result = await uploadVendorImages(profileImage, coverImage);
       if (result.success) {
-        // We could save the URLs here or pass them to the next screen/save in global state
+        updateOnboardingData({ 
+          logoUrl: result.logoUrl, 
+          coverUrl: result.coverUrl 
+        });
         navigation.navigate('Step4');
       } else {
         alert('Upload failed: ' + (result.error || 'Unknown error'));
