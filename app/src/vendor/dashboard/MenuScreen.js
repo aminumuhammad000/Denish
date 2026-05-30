@@ -22,9 +22,9 @@ const MenuScreen = () => {
       setLoading(true);
       const response = await getVendorMenu();
       if (response.success) {
-        setItems(response.data.items);
-        setCategories(response.data.categories);
-        setStatus(response.data.status);
+        setItems(response.data.items || []);
+        setCategories(response.data.categories || []);
+        setStatus(response.data.status || '');
       }
     } catch (err) {
       console.error(err);
