@@ -11,6 +11,7 @@ const MenuScreen = () => {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState('');
 
   useEffect(() => {
     fetchMenu();
@@ -23,6 +24,7 @@ const MenuScreen = () => {
       if (response.success) {
         setItems(response.data.items);
         setCategories(response.data.categories);
+        setStatus(response.data.status);
       }
     } catch (err) {
       console.error(err);
@@ -31,7 +33,10 @@ const MenuScreen = () => {
     }
   };
 
+  const isPending = status === 'Pending';
+
   const toggleAvailable = async (id) => {
+    if (isPending) return; // Prevent action if pending
     // Optimistic UI update
     setItems(items.map(item => item._id === id ? { ...item, available: !item.available } : item));
     try {
@@ -62,7 +67,10 @@ const MenuScreen = () => {
           <Text style={styles.headerTitle}>Menu</Text>
           <Text style={styles.headerSub}>Available items for order</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn}>
+        <TouchableOpacity 
+          style={[styles.addBtn, isPending && { backgroundColor: '#ccc' }]} 
+          disabled={isPending}
+        >
           <Ionicons name="add" size={18} color="#fff" />
           <Text style={styles.addBtnText}>Add</Text>
         </TouchableOpacity>
@@ -113,12 +121,17 @@ const MenuScreen = () => {
               <Switch
                 value={item.available}
                 onValueChange={() => toggleAvailable(item._id)}
+                disabled={isPending}
                 trackColor={{ true: Colors.primary, false: '#ccc' }}
                 style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
               />
               <View style={styles.actionIcons}>
-                <TouchableOpacity><Ionicons name="create-outline" size={20} color="#666" /></TouchableOpacity>
-                <TouchableOpacity><Ionicons name="trash-outline" size={20} color="#E74C3C" /></TouchableOpacity>
+                <TouchableOpacity disabled={isPending} style={{ opacity: isPending ? 0.4 : 1 }}>
+                  <Ionicons name="create-outline" size={20} color="#666" />
+                </TouchableOpacity>
+                <TouchableOpacity disabled={isPending} style={{ opacity: isPending ? 0.4 : 1 }}>
+                  <Ionicons name="trash-outline" size={20} color="#E74C3C" />
+                </TouchableOpacity>
               </View>
             </View>
           </View>

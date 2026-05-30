@@ -26,27 +26,23 @@ const getVendorDashboard = async (req, res) => {
           { day: 'Saturday', orders: 23, amount: 68000 },
           { day: 'Sunday', orders: 13, amount: 38000 },
         ],
-        barData: [18, 24, 28, 14, 20, 22, 17]
+        barData: [18, 24, 28, 14, 20, 22, 17],
+        status: 'Pending'
       });
     }
 
     const customData = {
        ...vendor.toObject(),
-       storeOpen: true,
+       storeOpen: vendor.status === 'Approved', // Only open if approved
        stats: {
-           new: 2,
-           cooking: 2,
-           ready: 1
+           new: 0,
+           cooking: 0,
+           ready: 0
        },
-       todayRevenue: 17000,
-       delivered: 2,
-       lowStock: 1,
-       liveOrders: [
-         { id: 'ORD-2451', customer: 'Aisha Mohammed', items: '2 items', amount: '₦10,000', status: 'new' },
-         { id: 'ORD-2452', customer: 'Chidi Okafor', items: '3 items', amount: '₦10,000', status: 'new' },
-         { id: 'ORD-2448', customer: 'Fatima Bello', items: '2 items', amount: '₦10,000', status: 'preparing' },
-         { id: 'ORD-2431', customer: 'Aisha Mohammed', items: '2 items', amount: '₦10,000', status: 'new' },
-       ]
+       todayRevenue: 0,
+       delivered: 0,
+       lowStock: 0,
+       liveOrders: []
     }
 
     res.status(200).json({ success: true, data: customData });

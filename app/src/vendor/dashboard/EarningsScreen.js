@@ -43,7 +43,7 @@ const EarningsScreen = () => {
   }
 
   const barDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const maxBar = Math.max(...data.barData);
+  const maxBar = Math.max(...(data.barData || [0]));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -58,9 +58,12 @@ const EarningsScreen = () => {
         {/* Balance Card */}
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available balance</Text>
-          <Text style={styles.balanceAmount}>₦{data.earnings.availableBalance.toLocaleString()}</Text>
+          <Text style={styles.balanceAmount}>₦{(data.earnings?.availableBalance || 0).toLocaleString()}</Text>
           <Text style={styles.balanceSub}>Min payout ₦5,000 | Settles in 24h</Text>
-          <TouchableOpacity style={styles.payoutBtn}>
+          <TouchableOpacity 
+            style={[styles.payoutBtn, data.status === 'Pending' && { opacity: 0.6 }]}
+            disabled={data.status === 'Pending'}
+          >
             <Ionicons name="download-outline" size={16} color={Colors.primary} />
             <Text style={styles.payoutBtnText}>Request payout</Text>
           </TouchableOpacity>
@@ -98,7 +101,7 @@ const EarningsScreen = () => {
               ))}
             </View>
             <View style={styles.bars}>
-              {data.barData.map((h, i) => (
+              {(data.barData || [0,0,0,0,0,0,0]).map((h, i) => (
                 <View key={i} style={styles.barCol}>
                   <View style={[styles.bar, {
                     height: maxBar > 0 ? (h / maxBar) * 100 : 0,

@@ -21,6 +21,8 @@ const customerSchema = new mongoose.Schema({
   },
   address: String,
   profilePic: String,
+  resetPasswordOTP: String,
+  resetPasswordExpires: Date,
 }, { timestamps: true });
 
 module.exports = mongoose.model('Customer', customerSchema);

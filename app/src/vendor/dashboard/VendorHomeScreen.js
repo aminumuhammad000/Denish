@@ -44,17 +44,27 @@ const VendorHomeScreen = () => {
 
   if (!data) return null;
 
+  const isPending = data.status === 'Pending';
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scroll}>
+      {isPending && (
+        <View style={styles.pendingBanner}>
+          <Ionicons name="information-circle" size={20} color="#fff" />
+          <Text style={styles.pendingText}>Your account is pending approval. Some features are restricted.</Text>
+        </View>
+      )}
+      <ScrollView style={[styles.scroll, isPending && { opacity: 0.8 }]}>
         {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.headerLabel}>Restaurant name</Text>
-            <Text style={styles.headerTitle}>{data.businessName}</Text>
+            <Text style={styles.headerTitle}>{data.businessName || 'Your Restaurant'}</Text>
           </View>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{data.businessName.substring(0, 2).toUpperCase()}</Text>
+            <Text style={styles.avatarText}>
+              {(data.businessName || 'VR').substring(0, 2).toUpperCase()}
+            </Text>
           </View>
         </View>
 
@@ -69,7 +79,8 @@ const VendorHomeScreen = () => {
           </View>
           <Switch
             value={isOpen}
-            onValueChange={setIsOpen}
+            onValueChange={isPending ? null : setIsOpen}
+            disabled={isPending}
             trackColor={{ true: Colors.primary, false: '#ccc' }}
           />
         </View>
@@ -135,7 +146,7 @@ const VendorHomeScreen = () => {
         <View style={styles.chartCard}>
           <Text style={styles.chartSubLabel}>Last 7 days</Text>
           <View style={styles.chart}>
-            {data.barData.map((h, i) => (
+            {(data.barData || []).map((h, i) => (
               <View key={i} style={styles.barCol}>
                 <View style={[styles.bar, { height: h * 3, backgroundColor: i === 2 ? Colors.primary : '#FFDBB5' }]} />
                 <Text style={styles.barLabel}>{barDays[i]}</Text>
@@ -189,6 +200,20 @@ const VendorHomeScreen = () => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F7F7F7' },
+  pendingBanner: {
+    backgroundColor: '#FF8C00',
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  pendingText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   scroll: { flex: 1 },
   header: { backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 30 },
   headerLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },

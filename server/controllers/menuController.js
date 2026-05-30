@@ -21,7 +21,7 @@ const getVendorMenu = async (req, res) => {
 
     const categories = ['All', 'Rice', 'Soups', 'Grills', 'Drinks', 'Snacks'];
 
-    res.status(200).json({ success: true, data: { items: menuItems, categories } });
+    res.status(200).json({ success: true, data: { items: menuItems, categories, status: vendor.status } });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

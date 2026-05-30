@@ -29,6 +29,8 @@ const driverSchema = new mongoose.Schema({
     enum: ['Pending', 'Active', 'Suspended'],
     default: 'Pending',
   },
+  resetPasswordOTP: String,
+  resetPasswordExpires: Date,
 }, { timestamps: true });
 
 module.exports = mongoose.model('Driver', driverSchema);

@@ -22,6 +22,13 @@ const vendorSchema = new mongoose.Schema({
     }
   ],
   barData: [Number], // e.g. for weekly chart [22, 30, 28, 14, 35, 28, 25]
+  resetPasswordOTP: String,
+  resetPasswordExpires: Date,
+  status: {
+    type: String,
+    enum: ['Pending', 'Approved', 'Suspended'],
+    default: 'Pending',
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Vendor', vendorSchema);
