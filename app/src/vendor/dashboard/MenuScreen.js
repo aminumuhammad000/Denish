@@ -112,7 +112,7 @@ const MenuScreen = () => {
               <Text style={styles.itemName}>{item.name}</Text>
               <Text style={styles.itemDesc} numberOfLines={1}>{item.description}</Text>
               <View style={styles.itemBottom}>
-                <Text style={styles.itemPrice}>₦{item.price.toLocaleString()}</Text>
+                 <Text style={styles.itemPrice}>₦{(item.price || 0).toLocaleString()}</Text>
                 {item.stock === 0
                   ? <View style={styles.outBadge}><Text style={styles.outText}>Out</Text></View>
                   : <Text style={styles.itemStock}>{item.stock} left</Text>}
