@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, Switch, ActivityIndicator
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { getVendorMenu, toggleVendorMenuItem } from '../../services/api';
