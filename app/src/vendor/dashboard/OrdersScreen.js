@@ -37,7 +37,9 @@ const OrdersScreen = () => {
 
   const getFilteredOrders = () => {
     if (activeTab === 'All') return orders;
-    return orders.filter(order => order.status.toLowerCase() === activeTab.toLowerCase());
+    return orders.filter(order => 
+      order && order.status && order.status.toLowerCase() === activeTab.toLowerCase()
+    );
   };
 
   const filteredOrders = getFilteredOrders();

@@ -54,9 +54,10 @@ const DriverStep3Payout = ({ navigation }) => {
     setSearchQuery('');
   };
 
-  const filteredBanks = (banks || []).filter(b => 
-    b && b.name && b.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredBanks = (banks || []).filter(b => {
+    const q = (searchQuery || '').toString().toLowerCase();
+    return b && b.name && b.name.toLowerCase().includes(q);
+  });
 
   const handleAccountChange = async (val) => {
     setFormData({ ...formData, accountNumber: val, accountName: '' });

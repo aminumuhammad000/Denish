@@ -32,7 +32,8 @@ const VendorDashboard = () => {
             Earnings: 'wallet-outline',
             Menu:     'restaurant-outline',
           };
-          return <Ionicons name={icons[route.name]} size={size} color={color} />;
+          const iconName = icons[route.name] || 'help-outline';
+          return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
     >
