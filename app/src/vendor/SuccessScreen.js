@@ -4,8 +4,8 @@ import {
   Text,
   View,
   TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 
@@ -14,7 +14,7 @@ const SuccessScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.iconCircle}>
-          <Ionicons name="checkmark" size={60} color="#27AE60" />
+          <Ionicons name="checkmark-circle" size={60} color="#27AE60" />
         </View>
 
         <Text style={styles.title}>Application under review</Text>
