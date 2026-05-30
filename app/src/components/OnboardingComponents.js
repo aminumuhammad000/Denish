@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../constants/Colors';
 
 export const ProgressBar = ({ currentStep, totalSteps, title }) => {
-  const progress = currentStep / totalSteps;
+  const progress = totalSteps > 0 ? currentStep / totalSteps : 0;
   
   return (
     <View style={styles.container}>
