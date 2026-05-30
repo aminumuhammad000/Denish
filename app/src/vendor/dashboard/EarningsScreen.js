@@ -72,9 +72,21 @@ const EarningsScreen = () => {
         {/* Summary Stats */}
         <View style={styles.statsRow}>
           {[
-            { icon: 'pulse-outline', value: `₦${(data.earnings.weeklyRevenue / 1000).toFixed(1)}K`, label: 'Weekly revenue' },
-            { icon: 'calendar-outline', value: data.earnings.totalOrders.toString(), label: 'Orders' },
-            { icon: 'tablet-portrait-outline', value: `₦${data.earnings.avgOrders.toLocaleString()}`, label: 'Avg. orders' },
+            { 
+              icon: 'pulse-outline', 
+              value: `₦${(((data.earnings?.weeklyRevenue || 0) / 1000)).toFixed(1)}K`, 
+              label: 'Weekly revenue' 
+            },
+            { 
+              icon: 'calendar-outline', 
+              value: (data.earnings?.totalOrders || 0).toString(), 
+              label: 'Orders' 
+            },
+            { 
+              icon: 'tablet-portrait-outline', 
+              value: `₦${(data.earnings?.avgOrders || 0).toLocaleString()}`, 
+              label: 'Avg. orders' 
+            },
           ].map((s) => (
             <View key={s.label} style={styles.statCard}>
               <Ionicons name={s.icon} size={20} color={Colors.primary} />

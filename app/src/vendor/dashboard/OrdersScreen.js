@@ -24,7 +24,7 @@ const OrdersScreen = () => {
       try {
         const response = await getVendorOrders();
         if (response.success) {
-          setOrders(response.data);
+          setOrders(response.data || []);
         }
       } catch (err) {
         console.error(err);
@@ -91,7 +91,7 @@ const OrdersScreen = () => {
                 <Text style={styles.customerName}>{order.customerName}</Text>
                 <Text style={styles.orderMeta}>{order.itemsCount} items</Text>
                 <View style={styles.orderFooter}>
-                  <Text style={styles.orderAmount}>₦{order.amount.toLocaleString()}</Text>
+                  <Text style={styles.orderAmount}>₦{(order.amount || 0).toLocaleString()}</Text>
                   <Ionicons name="arrow-forward" size={16} color="#ccc" />
                 </View>
               </TouchableOpacity>

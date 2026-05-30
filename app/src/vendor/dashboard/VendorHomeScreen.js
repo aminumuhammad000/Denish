@@ -89,9 +89,9 @@ const VendorHomeScreen = () => {
         <Text style={styles.sectionLabel}>Today</Text>
         <View style={styles.statsRow}>
           {[
-            { label: 'New', value: data.stats.new, icon: 'bag-outline' },
-            { label: 'Cooking', value: data.stats.cooking, icon: 'flame-outline' },
-            { label: 'Ready', value: data.stats.ready, icon: 'checkmark-circle-outline' }
+            { label: 'New', value: data.stats?.new || 0, icon: 'bag-outline' },
+            { label: 'Cooking', value: data.stats?.cooking || 0, icon: 'flame-outline' },
+            { label: 'Ready', value: data.stats?.ready || 0, icon: 'checkmark-circle-outline' }
           ].map((s) => (
             <View key={s.label} style={styles.statCard}>
               <Ionicons name={s.icon} size={20} color={Colors.primary} />
@@ -105,9 +105,9 @@ const VendorHomeScreen = () => {
         <View style={styles.revenueRow}>
           <View>
             <Text style={styles.sectionLabel}>Today's revenue</Text>
-            <Text style={styles.revenueAmount}>₦{data.todayRevenue.toLocaleString()}</Text>
+            <Text style={styles.revenueAmount}>₦{(data.todayRevenue || 0).toLocaleString()}</Text>
           </View>
-          <Text style={styles.deliveredBadge}>{data.delivered} delivered</Text>
+          <Text style={styles.deliveredBadge}>{data.delivered || 0} delivered</Text>
         </View>
 
         {/* Low Stock */}
@@ -122,7 +122,7 @@ const VendorHomeScreen = () => {
           <Text style={styles.sectionLabel}>Live order queue</Text>
           <TouchableOpacity><Text style={styles.viewAll}>View all</Text></TouchableOpacity>
         </View>
-        {data.liveOrders.map((o, i) => (
+        {(data.liveOrders || []).map((o, i) => (
           <TouchableOpacity key={i} style={styles.orderRow} onPress={() => { setSelectedOrder(o); setModalVisible(true); }}>
             <View style={styles.orderLeft}>
               <Text style={styles.orderId}>{o.id}</Text>
