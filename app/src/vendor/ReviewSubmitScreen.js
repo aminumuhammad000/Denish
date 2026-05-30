@@ -56,7 +56,7 @@ const ReviewSubmitScreen = ({ navigation }) => {
         }
       });
       if (response && response.success) {
-        navigation.navigate('Success');
+        navigation.navigate('Login');
       } else {
         setErrorMsg(response?.error || 'Failed to update profile');
       }

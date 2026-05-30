@@ -12,7 +12,6 @@ import OpeningHoursScreen      from './src/vendor/OpeningHoursScreen';
 import ProfilePicturesScreen   from './src/vendor/ProfilePicturesScreen';
 import PayoutAccountScreen     from './src/vendor/PayoutAccountScreen';
 import ReviewSubmitScreen      from './src/vendor/ReviewSubmitScreen';
-import SuccessScreen           from './src/vendor/SuccessScreen';
 import ForgotPasswordScreen    from './src/vendor/ForgotPasswordScreen';
 import VendorDashboard         from './src/vendor/dashboard/VendorDashboard';
 
@@ -62,7 +61,6 @@ export default function App() {
             <Stack.Screen name="Step3" component={ProfilePicturesScreen} />
             <Stack.Screen name="Step4" component={PayoutAccountScreen} />
             <Stack.Screen name="Step5" component={ReviewSubmitScreen} />
-            <Stack.Screen name="Success" component={SuccessScreen} />
             
             {/* ── Vendor App ── */}
             <Stack.Screen name="Dashboard" component={VendorDashboard} />
