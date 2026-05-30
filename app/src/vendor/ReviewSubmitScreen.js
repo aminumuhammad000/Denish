@@ -58,7 +58,7 @@ const ReviewSubmitScreen = ({ navigation }) => {
       if (response && response.success) {
         navigation.navigate('Success');
       } else {
-        setErrorMsg('Failed to update profile');
+        setErrorMsg(response?.error || 'Failed to update profile');
       }
     } catch (err) {
       setErrorMsg('Network error. Check connection.', err);

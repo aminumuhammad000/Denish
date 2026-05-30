@@ -14,7 +14,7 @@ const SuccessScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.iconCircle}>
-          <Ionicons name="checkmark-circle" size={60} color="#27AE60" />
+          <Text style={{ fontSize: 40 }}>✅</Text>
         </View>
 
         <Text style={styles.title}>Application under review</Text>
