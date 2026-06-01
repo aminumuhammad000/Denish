@@ -15,9 +15,9 @@ import AnimatedLoadingText from '../components/AnimatedLoadingText';
 import { vendorSignup } from '../services/api';
 
 const SignupScreen = ({ navigation }) => {
-  const [name, setName]       = useState('');
-  const [email, setEmail]     = useState('');
-  const [phone, setPhone]     = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,7 +31,7 @@ const SignupScreen = ({ navigation }) => {
   const canContinue = name.length > 2 && validateEmail(email) && validatePhone(phone) && password.length >= 6;
 
   const handleSignup = async () => {
-    if(!canContinue) return;
+    if (!canContinue) return;
     setLoading(true);
     setErrorMsg('');
     try {
@@ -64,39 +64,39 @@ const SignupScreen = ({ navigation }) => {
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
-            <TextInput 
-              style={[styles.input, !isEmailValid && styles.inputError]} 
-              value={email} 
-              onChangeText={setEmail} 
-              placeholder="you@email.com" 
-              keyboardType="email-address" 
-              autoCapitalize="none" 
+            <TextInput
+              style={[styles.input, !isEmailValid && styles.inputError]}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
             {!isEmailValid && <Text style={styles.inlineError}>Please enter a valid email</Text>}
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Phone</Text>
-            <TextInput 
-              style={[styles.input, !isPhoneValid && styles.inputError]} 
-              value={phone} 
-              onChangeText={setPhone} 
-              placeholder="+234909090909" 
-              keyboardType="phone-pad" 
+            <TextInput
+              style={[styles.input, !isPhoneValid && styles.inputError]}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+234909090909"
+              keyboardType="phone-pad"
               textContentType="telephoneNumber"
               autoComplete="tel"
             />
             {!isPhoneValid && <Text style={styles.inlineError}>Please enter a valid phone number</Text>}
           </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.passwordContainer}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
               <TextInput style={styles.passwordInput} value={password} onChangeText={setPassword} placeholder="At least 6 characters" secureTextEntry={!showPass} />
               <Ionicons name={showPass ? 'eye-outline' : 'eye-off-outline'} size={20} color="#999" onPress={() => setShowPass(!showPass)} />
             </View>
           </View>
 
           {errorMsg ? <Text style={{ color: 'red', marginBottom: 10, textAlign: 'center' }}>{errorMsg}</Text> : null}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.button, (!canContinue || loading) && styles.buttonDisabled]}
             onPress={handleSignup}
             disabled={!canContinue || loading}
