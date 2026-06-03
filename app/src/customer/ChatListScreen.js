@@ -71,7 +71,10 @@ const ChatListScreen = ({ navigation }) => {
         data={filteredChats}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.chatRow}>
+          <TouchableOpacity 
+            style={styles.chatRow} 
+            onPress={() => navigation.navigate('ChatDetail', { name: item.name, type: item.id === '1' ? 'Driver' : 'Vendor' })}
+          >
             <Image source={{ uri: item.avatar }} style={styles.avatar} />
             <View style={styles.chatInfo}>
               <View style={styles.nameRow}>
