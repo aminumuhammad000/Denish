@@ -71,7 +71,7 @@ const CustomerHomeScreen = ({ navigation }) => {
         <View style={styles.headerBackground}>
           <SafeAreaView>
             <View style={styles.headerTop}>
-              <View style={styles.profileRow}>
+              <TouchableOpacity style={styles.profileRow} onPress={() => navigation.navigate('CustomerProfile')}>
                 <Image
                   source={{ uri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }}
                   style={styles.profilePic}
@@ -80,7 +80,7 @@ const CustomerHomeScreen = ({ navigation }) => {
                   <Text style={styles.greetingText}>Good afternoon,</Text>
                   <Text style={styles.userName}>Emeka</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
               <View style={styles.headerIcons}>
                 <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('ChatList')}>
                   <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFF" />
@@ -182,7 +182,7 @@ const CustomerHomeScreen = ({ navigation }) => {
           <Ionicons name="chatbubble-ellipses-outline" size={24} color="#999" />
           <Text style={styles.tabLabel}>Chats</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate('CustomerProfile')}>
           <Ionicons name="person-outline" size={24} color="#999" />
           <Text style={styles.tabLabel}>Profile</Text>
         </TouchableOpacity>
