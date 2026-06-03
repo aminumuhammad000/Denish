@@ -152,7 +152,7 @@ const VendorHomeScreen = () => {
             <Text style={styles.sectionTitle}>Live order queue</Text>
             <TouchableOpacity><Text style={styles.viewAllText}>View all</Text></TouchableOpacity>
           </View>
-          
+
           {(data.liveOrders && data.liveOrders.length > 0 ? data.liveOrders : [
             { id: 'ORD-2451', status: 'new', customer: 'Aisha Mohammed', items: '2 items', amount: '₦10,000' },
             { id: 'ORD-2452', status: 'new', customer: 'Chidi Okeke', items: '3 items', amount: '₦10,000' },
@@ -192,7 +192,7 @@ const VendorHomeScreen = () => {
                 <Text style={styles.growthText}>+12%</Text>
               </View>
             </View>
-            
+
             <View style={styles.chartContainer}>
               {[25, 40, 30, 70, 20, 55, 45].map((h, i) => (
                 <View key={i} style={styles.chartBarCol}>
@@ -213,7 +213,7 @@ const VendorHomeScreen = () => {
               <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
-              
+
               <Text style={styles.modalOrderId}>{selectedOrder.id}</Text>
               <Text style={styles.modalOrderTime}>3min ago</Text>
 
@@ -417,12 +417,12 @@ const styles = StyleSheet.create({
   earningsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   earningsSubtitle: { fontSize: 12, color: '#888' },
   earningsAmount: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
-  growthBadge: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#E8F5E9', 
-    paddingHorizontal: 8, 
-    paddingVertical: 4, 
+  growthBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 12,
     gap: 2,
   },
@@ -434,8 +434,8 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowRadius: 20, shadowOpacity: 0.2, elevation: 10 },
-  modalCloseBtn: { 
-    alignSelf: 'flex-end', 
+  modalCloseBtn: {
+    alignSelf: 'flex-end',
     marginBottom: -10,
     padding: 10, // Added padding for better hit area
   },
