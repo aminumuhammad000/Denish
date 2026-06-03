@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getRestaurants } from '../services/api';
+import { ActivityIndicator } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -43,6 +45,22 @@ const FoodCard = ({ name, image }) => (
 const CustomerHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
+  const [vendors, setVendors] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchVendors = async () => {
+      try {
+        const res = await getRestaurants();
+        if (res.success) setVendors(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchVendors();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -116,24 +134,20 @@ const CustomerHomeScreen = ({ navigation }) => {
             <TouchableOpacity><Text style={styles.viewAll}>View all</Text></TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
-            <FeaturedCard
-              name="Temmy Store"
-              category="Provisions"
-              rating="4.8"
-              image="https://images.unsplash.com/photo-1542838132-92c53300491e?w=400"
-            />
-            <FeaturedCard
-              name="Mama's Kitchen"
-              category="Local Dishes"
-              rating="4.9"
-              image="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400"
-            />
-            <FeaturedCard
-              name="Gourmet Hub"
-              category="Continental"
-              rating="4.7"
-              image="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400"
-            />
+            {loading ? (
+              <ActivityIndicator color={Colors.primary} style={{ marginLeft: 20 }} />
+            ) : (
+              vendors.map((v) => (
+                <FeaturedCard
+                  key={v._id}
+                  name={v.businessName || v.name}
+                  category={v.category || "Provisions"}
+                  rating="4.8"
+                  image={v.logoUrl || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400"}
+                  onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: v._id })}
+                />
+              ))
+            )}
           </ScrollView>
 
           {/* Cooked Foods */}
@@ -186,9 +200,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    paddingBottom: 20,
+    paddingBottom: 10,
     paddingHorizontal: 16,
-    paddingTop: 40,
+    paddingTop: 10,
   },
   headerTop: {
     flexDirection: 'row',

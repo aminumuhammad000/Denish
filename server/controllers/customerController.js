@@ -1,6 +1,15 @@
 const Vendor = require('../models/Vendor');
 const MenuItem = require('../models/MenuItem');
 
+const getRestaurants = async (req, res) => {
+  try {
+    const vendors = await Vendor.find({ status: 'Approved' });
+    res.status(200).json({ success: true, data: vendors });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 const getRestaurantDetails = async (req, res) => {
   try {
     const vendorId = req.params.id;
@@ -69,6 +78,7 @@ const placeOrder = async (req, res) => {
 };
 
 module.exports = {
+  getRestaurants,
   getRestaurantDetails,
   placeOrder
 };

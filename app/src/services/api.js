@@ -167,6 +167,16 @@ export const updateVendorProfile = async (profileData) => {
   }
 };
 
+export const getRestaurants = async () => {
+  try {
+    const response = await api.get('/customer/restaurants');
+    return response.data;
+  } catch (error) {
+    console.error('API getRestaurants error:', error);
+    throw error;
+  }
+};
+
 export const getCustomerRestaurantDetails = async (restaurantId) => {
   try {
     const response = await api.get(`/customer/restaurant/${restaurantId}`);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
@@ -54,7 +54,11 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView>
         {/* Banner */}
-        <View style={styles.bannerPlaceholder}>
+        <View style={styles.bannerContainer}>
+          <Image 
+            source={{ uri: vendor.coverUrl || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800' }} 
+            style={styles.bannerImage} 
+          />
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
@@ -91,8 +95,8 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
                   <Text style={styles.menuItemDesc} numberOfLines={2}>{item.description}</Text>
                   <Text style={styles.menuItemPrice}>₦{item.price.toLocaleString()}</Text>
                 </View>
-                <View style={styles.menuItemImagePlaceholder}>
-                  <Ionicons name="fast-food-outline" size={24} color="#ccc" />
+                <View style={styles.menuItemImageContainer}>
+                  <Image source={{ uri: item.image || 'https://via.placeholder.com/150' }} style={styles.menuItemImage} />
                   <TouchableOpacity 
                     style={styles.addBtn}
                     onPress={() => addToCart(item, vendor._id)}
@@ -122,8 +126,9 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFF' },
-  bannerPlaceholder: { height: 200, backgroundColor: '#333', justifyContent: 'flex-start', padding: 16, paddingTop: 40 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  bannerContainer: { height: 200, backgroundColor: '#333', justifyContent: 'flex-start', position: 'relative' },
+  bannerImage: { width: '100%', height: '100%', position: 'absolute' },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', margin: 16, marginTop: 40 },
   infoContainer: { padding: 16, borderBottomWidth: 8, borderColor: '#FAFAFA' },
   restaurantName: { fontSize: 24, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 4 },
   restaurantTags: { fontSize: 14, color: '#888', marginBottom: 12 },
@@ -137,8 +142,9 @@ const styles = StyleSheet.create({
   menuItemName: { fontSize: 16, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 4 },
   menuItemDesc: { fontSize: 13, color: '#888', marginBottom: 8, lineHeight: 18 },
   menuItemPrice: { fontSize: 14, fontWeight: 'bold', color: Colors.primary },
-  menuItemImagePlaceholder: { width: 90, height: 90, borderRadius: 12, backgroundColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' },
-  addBtn: { position: 'absolute', bottom: -8, right: -8, width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 2 },
+  menuItemImageContainer: { width: 90, height: 90, borderRadius: 12, backgroundColor: '#F0F0F0', overflow: 'hidden' },
+  menuItemImage: { width: '100%', height: '100%' },
+  addBtn: { position: 'absolute', bottom: 4, right: 4, width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', elevation: 2 },
   cartFloatingContainer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#EEE' },
   cartBtn: { backgroundColor: Colors.primary, flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 12 },
   cartBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
