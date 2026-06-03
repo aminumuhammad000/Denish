@@ -55,6 +55,26 @@ export const toggleVendorMenuItem = async (id) => {
   }
 };
 
+export const addVendorMenuItem = async (itemData) => {
+  try {
+    const response = await api.post('/vendor/menu', itemData);
+    return response.data;
+  } catch (error) {
+    console.error('API addVendorMenuItem error:', error);
+    throw error;
+  }
+};
+
+export const updateVendorMenuItem = async (id, itemData) => {
+  try {
+    const response = await api.put(`/vendor/menu/${id}`, itemData);
+    return response.data;
+  } catch (error) {
+    console.error('API updateVendorMenuItem error:', error);
+    throw error;
+  }
+};
+
 export const vendorLogin = async (email, password) => {
   try {
     const response = await api.post('/auth/vendor/login', { email, password });

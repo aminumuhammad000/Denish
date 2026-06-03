@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { getVendorMenu, toggleVendorMenuItem } from '../../services/api';
 
-const MenuScreen = () => {
+const MenuScreen = ({ navigation }) => {
   const [selectedCat, setSelectedCat] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState([]);
@@ -15,23 +15,12 @@ const MenuScreen = () => {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
 
-  // Modal State
-  const [modalVisible, setModalVisible] = useState(false);
-  const [isEdit, setIsEdit] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    price: '',
-    stock: '0',
-    category: '',
-    image: null,
-    available: true
-  });
-
   useEffect(() => {
-    fetchMenu();
-  }, []);
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchMenu();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const fetchMenu = async () => {
     try {
@@ -53,33 +42,11 @@ const MenuScreen = () => {
   const isPending = status === 'Pending';
 
   const handleOpenAdd = () => {
-    setIsEdit(false);
-    setForm({ name: '', description: '', price: '', stock: '0', category: categories[1] || '', image: null, available: true });
-    setModalVisible(true);
+    navigation.navigate('ItemForm', { isEdit: false, categories });
   };
 
   const handleOpenEdit = (item) => {
-    setIsEdit(true);
-    setEditingId(item._id);
-    setForm({
-      name: item.name,
-      description: item.description,
-      price: (item.price || 0).toString(),
-      stock: (item.stock || 0).toString(),
-      category: item.category,
-      image: item.image,
-      available: item.available
-    });
-    setModalVisible(true);
-  };
-
-  const handleSubmit = async () => {
-    if (!form.name || !form.price) {
-      alert('Required fields missing');
-      return;
-    }
-    setModalVisible(false);
-    // Add server call here later
+    navigation.navigate('ItemForm', { isEdit: true, item, categories });
   };
 
   const toggleAvailable = async (id) => {
@@ -201,104 +168,6 @@ const MenuScreen = () => {
           </View>
         ))}
       </ScrollView>
-
-      {/* Add/Edit Modal */}
-      <Modal visible={modalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={20} color="#666" />
-            </TouchableOpacity>
-
-            <Text style={styles.modalTitle}>{isEdit ? 'Edit item' : 'Add item'}</Text>
-            <Text style={styles.modalSubtitle}>Changes are saved immediately</Text>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Name *</Text>
-                <TextInput 
-                  style={styles.modalInput} 
-                  placeholder="e.g. Suya Platter"
-                  value={form.name}
-                  onChangeText={v => setForm({...form, name: v})}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Description</Text>
-                <TextInput 
-                  style={[styles.modalInput, styles.textArea]} 
-                  multiline 
-                  numberOfLines={3}
-                  placeholder="Tell customers about this item..."
-                  value={form.description}
-                  onChangeText={v => setForm({...form, description: v})}
-                />
-              </View>
-
-              <View style={styles.row}>
-                <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
-                  <Text style={styles.inputLabel}>Price (₦)</Text>
-                  <TextInput 
-                    style={styles.modalInput} 
-                    keyboardType="numeric" 
-                    placeholder="3,500"
-                    value={form.price}
-                    onChangeText={v => setForm({...form, price: v})}
-                  />
-                </View>
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>Stock</Text>
-                  <TextInput 
-                    style={styles.modalInput} 
-                    keyboardType="numeric" 
-                    placeholder="24"
-                    value={form.stock}
-                    onChangeText={v => setForm({...form, stock: v})}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Category</Text>
-                <TouchableOpacity style={styles.mockPicker}>
-                  <Text style={styles.mockPickerText}>{form.category || 'Choose category'}</Text>
-                  <Ionicons name="chevron-down" size={16} color="#666" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Image</Text>
-                <TouchableOpacity style={styles.imagePickerBtn}>
-                  <Ionicons name="camera-outline" size={18} color="#999" />
-                  <Text style={styles.imagePickerText}>{form.image ? 'Change photo' : 'Choose photo'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.availableRow}>
-                <View>
-                  <Text style={styles.inputLabel}>Available</Text>
-                  <Text style={styles.inputSubLabel}>Show on customer menu</Text>
-                </View>
-                <Switch 
-                  value={form.available}
-                  onValueChange={v => setForm({...form, available: v})}
-                  trackColor={{ true: '#FF8C00', false: '#E0E0E0' }}
-                  thumbColor={form.available ? '#FFFFFF' : '#F4F4F4'}
-                />
-              </View>
-
-              <TouchableOpacity style={styles.mainSubmitBtn} onPress={handleSubmit}>
-                <Text style={styles.mainSubmitBtnText}>{isEdit ? 'Save changes' : 'Add item'}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -392,69 +261,6 @@ const styles = StyleSheet.create({
   miniBtn: {
     padding: 4,
   },
-  // Modal Styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#FFF', borderRadius: 24, padding: 24, maxHeight: '90%' },
-  modalCloseBtn: { alignSelf: 'flex-end', marginBottom: -10, padding: 10 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', color: '#1a1a1a' },
-  modalSubtitle: { textAlign: 'center', color: '#888', fontSize: 13, marginBottom: 25 },
-  inputGroup: { marginBottom: 20 },
-  inputLabel: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 8 },
-  inputSubLabel: { fontSize: 11, color: '#999' },
-  modalInput: { 
-    borderWidth: 1, 
-    borderColor: '#E0E0E0', 
-    borderRadius: 12, 
-    padding: 14, 
-    fontSize: 15, 
-    color: '#333',
-    backgroundColor: '#FAFAFA'
-  },
-  textArea: { height: 100, textAlignVertical: 'top' },
-  row: { flexDirection: 'row' },
-  mockPicker: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    padding: 14,
-    backgroundColor: '#FAFAFA'
-  },
-  mockPickerText: { fontSize: 15, color: '#333' },
-  imagePickerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    padding: 14,
-    backgroundColor: '#FAFAFA',
-    gap: 10,
-    borderStyle: 'dashed'
-  },
-  imagePickerText: { fontSize: 14, color: '#999' },
-  availableRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center',
-    marginBottom: 30,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderColor: '#F0F0F0'
-  },
-  mainSubmitBtn: { 
-    backgroundColor: '#FF8C00', 
-    borderRadius: 14, 
-    padding: 16, 
-    alignItems: 'center',
-    marginBottom: 10,
-    elevation: 2
-  },
-  mainSubmitBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  cancelBtn: { padding: 14, alignItems: 'center' },
-  cancelBtnText: { color: '#666', fontSize: 15, fontWeight: '600' },
 });
 
 export default MenuScreen;

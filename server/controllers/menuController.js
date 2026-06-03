@@ -41,7 +41,45 @@ const toggleMenuItem = async (req, res) => {
   }
 };
 
+const addMenuItem = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne(); // In real app, get from auth token
+    const { name, description, price, stock, category, image, available } = req.body;
+
+    const newItem = await MenuItem.create({
+      vendorId: vendor._id,
+      name,
+      description,
+      price,
+      stock,
+      category,
+      image,
+      available
+    });
+
+    res.status(201).json({ success: true, data: newItem });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const updateMenuItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedItem = await MenuItem.findByIdAndUpdate(id, req.body, { new: true });
+    
+    if (!updatedItem) return res.status(404).json({ success: false, error: 'Item not found' });
+
+    res.status(200).json({ success: true, data: updatedItem });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getVendorMenu,
-  toggleMenuItem
+  toggleMenuItem,
+  addMenuItem,
+  updateMenuItem
 };
+
