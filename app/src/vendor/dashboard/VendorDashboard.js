@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
 
 import VendorHomeScreen from './VendorHomeScreen';
@@ -11,29 +12,37 @@ import MenuScreen from './MenuScreen';
 const Tab = createBottomTabNavigator();
 
 const VendorDashboard = () => {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: '#999',
+        tabBarActiveTintColor: '#FF8C00',
+        tabBarInactiveTintColor: '#AAA',
         tabBarStyle: {
           backgroundColor: '#fff',
-          borderTopColor: '#F0F0F0',
-          height: 70,
-          paddingTop: 8,
-          paddingBottom: 20, // Simplified, but I'll use real safe area if possible
+          borderTopWidth: 1,
+          borderTopColor: '#F5F5F5',
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          paddingTop: 10,
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
-        tabBarIcon: ({ color, size }) => {
+        tabBarLabelStyle: { 
+          fontSize: 11, 
+          fontWeight: '600',
+          marginTop: -5,
+          marginBottom: 5
+        },
+        tabBarIcon: ({ focused, color, size }) => {
           const icons = {
-            Home:     'home-outline',
-            Orders:   'cart-outline',
-            Earnings: 'wallet-outline',
-            Menu:     'restaurant-outline',
+            Home:     focused ? 'home' : 'home-outline',
+            Orders:   focused ? 'cart' : 'cart-outline',
+            Earnings: focused ? 'wallet' : 'wallet-outline',
+            Menu:     focused ? 'restaurant' : 'restaurant-outline',
           };
           const iconName = icons[route.name] || 'help-outline';
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={24} color={color} />;
         },
       })}
     >

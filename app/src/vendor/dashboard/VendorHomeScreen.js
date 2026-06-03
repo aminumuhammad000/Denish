@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
-  Switch, Modal, ActivityIndicator
+  Switch, Modal, ActivityIndicator, StatusBar
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { getVendorDashboardData } from '../../services/api';
+
 
 const statusColor = { new: '#FF8C00', preparing: '#27AE60' };
 const barDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -15,6 +16,7 @@ const VendorHomeScreen = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -35,6 +37,16 @@ const VendorHomeScreen = () => {
     fetchDashboard();
   }, []);
 
+  const toggleStoreStatus = () => {
+    if (isPending) return;
+    setIsOpen(!isOpen);
+    // In a real app, call API here: await updateVendorProfile({ storeOpen: !isOpen });
+  };
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -49,231 +61,405 @@ const VendorHomeScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" />
       {isPending && (
         <View style={styles.pendingBanner}>
-          <Ionicons name="information-circle" size={20} color="#fff" />
-          <Text style={styles.pendingText}>Your account is pending approval. Some features are restricted.</Text>
+          <Ionicons name="information-circle" size={16} color="#fff" />
+          <Text style={styles.pendingText}>Your account is pending approval.</Text>
         </View>
       )}
-      <ScrollView style={[styles.scroll, isPending && { opacity: 0.8 }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerLabel}>Restaurant name</Text>
-            <Text style={styles.headerTitle}>{data.businessName || 'Your Restaurant'}</Text>
-          </View>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(data.businessName || 'VR').substring(0, 2).toUpperCase()}
-            </Text>
-          </View>
-        </View>
-
-        {/* Store Status Card */}
-        <View style={styles.storeCard}>
-          <View style={styles.storeCardLeft}>
-            <Ionicons name="power-outline" size={22} color={Colors.primary} />
-            <View style={{ marginLeft: 12 }}>
-              <Text style={styles.storeOpenText}>{isOpen ? 'Store is open' : 'Store is closed'}</Text>
-              <Text style={styles.storeSubText}>{isOpen ? 'Accepting orders' : 'Not accepting orders'}</Text>
-            </View>
-          </View>
-          <Switch
-            value={isOpen}
-            onValueChange={isPending ? null : setIsOpen}
-            disabled={isPending}
-            trackColor={{ true: Colors.primary, false: '#ccc' }}
-          />
-        </View>
-
-        {/* Today Stats */}
-        <Text style={styles.sectionLabel}>Today</Text>
-        <View style={styles.statsRow}>
-          {[
-            { label: 'New', value: data.stats?.new || 0, icon: 'bag-outline' },
-            { label: 'Cooking', value: data.stats?.cooking || 0, icon: 'flame-outline' },
-            { label: 'Ready', value: data.stats?.ready || 0, icon: 'checkmark-circle-outline' }
-          ].map((s) => (
-            <View key={s.label} style={styles.statCard}>
-              <Ionicons name={s.icon} size={20} color={Colors.primary} />
-              <Text style={styles.statValue}>{s.value}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Revenue */}
-        <View style={styles.revenueRow}>
-          <View>
-            <Text style={styles.sectionLabel}>Today's revenue</Text>
-            <Text style={styles.revenueAmount}>₦{(data.todayRevenue || 0).toLocaleString()}</Text>
-          </View>
-          <Text style={styles.deliveredBadge}>{data.delivered || 0} delivered</Text>
-        </View>
-
-        {/* Low Stock */}
-        <TouchableOpacity style={styles.lowStockCard}>
-          <Ionicons name="warning-outline" size={18} color={Colors.primary} />
-          <Text style={styles.lowStockText}>{data.lowStock} item low on stock</Text>
-          <Ionicons name="arrow-forward" size={18} color={Colors.primary} style={{ marginLeft: 'auto' }} />
-        </TouchableOpacity>
-
-        {/* Live Order Queue */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>Live order queue</Text>
-          <TouchableOpacity><Text style={styles.viewAll}>View all</Text></TouchableOpacity>
-        </View>
-        {(data.liveOrders || []).map((o, i) => (
-          <TouchableOpacity key={i} style={styles.orderRow} onPress={() => { setSelectedOrder(o); setModalVisible(true); }}>
-            <View style={styles.orderLeft}>
-              <Text style={styles.orderId}>{o.id}</Text>
-              <View style={[styles.statusBadge, { backgroundColor: statusColor[o.status] + '22' }]}>
-                <Text style={[styles.statusText, { color: statusColor[o.status] }]}>{o.status}</Text>
+      <ScrollView showsVerticalScrollIndicator={false} style={[styles.scroll, isPending && { opacity: 0.9 }]}>
+        {/* Header Section */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerTop}>
+            <View style={styles.headerUserInfo}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {(data.businessName || 'VR').substring(0, 2).toUpperCase()}
+                </Text>
               </View>
-              <Text style={styles.orderCustomer}>{o.customer} | {o.items}</Text>
+              <View style={{ marginLeft: 12 }}>
+                <Text style={styles.welcomeText}>Welcome back,</Text>
+                <Text style={styles.businessName}>{data.businessName || "Mama's Kitchen"}</Text>
+              </View>
             </View>
-            <View style={styles.orderRight}>
-              <Text style={styles.orderAmount}>{o.amount}</Text>
-              <Ionicons name="arrow-forward" size={16} color="#ccc" />
-            </View>
-          </TouchableOpacity>
-        ))}
+            <TouchableOpacity style={styles.settingsBtn} onPress={toggleTheme}>
+              <Ionicons name={isDarkMode ? "moon" : "sunny-outline"} size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
 
-        {/* Earnings Chart */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>Earnings</Text>
-          <TouchableOpacity><Text style={styles.viewAll}>View all</Text></TouchableOpacity>
+          {/* Store Status Card - Floating */}
+          <View style={styles.storeCard}>
+            <View style={styles.storeCardLeft}>
+              <View style={styles.powerIconBg}>
+                <Ionicons name="power-outline" size={20} color="#4CAF50" />
+              </View>
+              <View style={{ marginLeft: 12 }}>
+                <Text style={styles.storeOpenText}>{isOpen ? 'Store is open' : 'Store is closed'}</Text>
+                <Text style={styles.storeSubText}>{isOpen ? 'Accepting orders' : 'Not accepting orders'}</Text>
+              </View>
+            </View>
+            <Switch
+              value={isOpen}
+              onValueChange={toggleStoreStatus}
+              disabled={isPending}
+              trackColor={{ true: '#4CAF50', false: '#ccc' }}
+              thumbColor="#fff"
+            />
+          </View>
         </View>
-        <View style={styles.chartCard}>
-          <Text style={styles.chartSubLabel}>Last 7 days</Text>
-          <View style={styles.chart}>
-            {(data.barData || []).map((h, i) => (
-              <View key={i} style={styles.barCol}>
-                <View style={[styles.bar, { height: h * 3, backgroundColor: i === 2 ? Colors.primary : '#FFDBB5' }]} />
-                <Text style={styles.barLabel}>{barDays[i]}</Text>
+
+        <View style={styles.contentBody}>
+          {/* Today Summary */}
+          <Text style={styles.sectionTitle}>Today</Text>
+          <View style={styles.statsGrid}>
+            {[
+              { label: 'New', value: data.stats?.new || 2, icon: 'time-outline', color: '#FFF5E6', iconColor: '#FF8C00' },
+              { label: 'Cooking', value: data.stats?.cooking || 2, icon: 'flame-outline', color: '#E8F5E9', iconColor: '#27AE60' },
+              { label: 'Ready', value: data.stats?.ready || 1, icon: 'checkmark-circle-outline', color: '#E3F2FD', iconColor: '#2196F3' }
+            ].map((s) => (
+              <View key={s.label} style={styles.statBox}>
+                <View style={[styles.statIconBg, { backgroundColor: s.color }]}>
+                  <Ionicons name={s.icon} size={18} color={s.iconColor} />
+                </View>
+                <Text style={styles.statValue}>{s.value}</Text>
+                <Text style={styles.statLabel}>{s.label}</Text>
               </View>
             ))}
+          </View>
+
+          {/* Revenue */}
+          <View style={styles.revenueHeader}>
+            <Text style={styles.revenueLabel}>Today's revenue</Text>
+            <Text style={styles.deliveredCount}>{data.delivered || 2} delivered</Text>
+          </View>
+          <Text style={styles.revenueValue}>₦{(data.todayRevenue || 17000).toLocaleString()}</Text>
+
+          {/* Stock Warning */}
+          <TouchableOpacity style={styles.warningCard}>
+            <View style={styles.warningIconBg}>
+              <Ionicons name="alert-circle" size={18} color="#FF8C00" />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.warningTitle}>{data.lowStock || 1} item low on stock</Text>
+              <Text style={styles.warningSubText}>Puff Puff (8pcs)</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#FF8C00" />
+          </TouchableOpacity>
+
+          {/* Live Order Queue */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Live order queue</Text>
+            <TouchableOpacity><Text style={styles.viewAllText}>View all</Text></TouchableOpacity>
+          </View>
+          
+          {(data.liveOrders && data.liveOrders.length > 0 ? data.liveOrders : [
+            { id: 'ORD-2451', status: 'new', customer: 'Aisha Mohammed', items: '2 items', amount: '₦10,000' },
+            { id: 'ORD-2452', status: 'new', customer: 'Chidi Okeke', items: '3 items', amount: '₦10,000' },
+          ]).map((o, i) => (
+            <TouchableOpacity key={i} style={styles.orderRow} onPress={() => { setSelectedOrder(o); setModalVisible(true); }}>
+              <View style={styles.orderMainInfo}>
+                <View style={styles.orderIdRow}>
+                  <Text style={styles.orderIdText}>{o.id}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: o.status === 'new' ? '#FFF5E6' : '#E8F5E9' }]}>
+                    <Text style={[styles.statusBadgeText, { color: o.status === 'new' ? '#FF8C00' : '#27AE60' }]}>
+                      {o.status.toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.orderCustomerText}>{o.customer} | {o.items}</Text>
+              </View>
+              <View style={styles.orderRightSide}>
+                <Text style={styles.orderAmountText}>{o.amount}</Text>
+                <Ionicons name="chevron-forward" size={16} color="#DDD" />
+              </View>
+            </TouchableOpacity>
+          ))}
+
+          {/* Earnings Section */}
+          <View style={[styles.sectionHeader, { marginTop: 20 }]}>
+            <Text style={styles.sectionTitle}>Earnings</Text>
+            <TouchableOpacity><Text style={styles.viewAllText}>View all</Text></TouchableOpacity>
+          </View>
+          <View style={styles.earningsCard}>
+            <View style={styles.earningsHeader}>
+              <View>
+                <Text style={styles.earningsSubtitle}>Last 7 days</Text>
+                <Text style={styles.earningsAmount}>₦42,000 earned</Text>
+              </View>
+              <View style={styles.growthBadge}>
+                <Ionicons name="trending-up" size={12} color="#27AE60" />
+                <Text style={styles.growthText}>+12%</Text>
+              </View>
+            </View>
+            
+            <View style={styles.chartContainer}>
+              {[25, 40, 30, 70, 20, 55, 45].map((h, i) => (
+                <View key={i} style={styles.chartBarCol}>
+                  <View style={[styles.chartBar, { height: h, backgroundColor: h > 60 ? '#FF8C00' : '#FFDAB9' }]} />
+                  <Text style={styles.chartBarLabel}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Order Detail Modal */}
+      {/* Modal for Order Detail */}
       <Modal visible={modalVisible} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
+        <View style={styles.modalOverlay}>
           {selectedOrder && (
-            <View style={styles.modalCard}>
-              <TouchableOpacity style={styles.closeBtn} onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={20} color="#333" />
+            <View style={styles.modalContent}>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
+              
               <Text style={styles.modalOrderId}>{selectedOrder.id}</Text>
-              <Text style={styles.modalTime}>3min ago</Text>
-              <Text style={styles.modalCustomer}>{selectedOrder.customer}</Text>
-              <Text style={styles.modalPhone}>+2340905838929</Text>
-              <Text style={styles.modalAddress}>12 Marina Road, Lagos</Text>
-              <Text style={styles.modalItemsLabel}>Order items</Text>
-              {[{ name: 'Jollof Rice x 2', price: '₦6,000' }, { name: 'Egusi Soup x 1', price: '₦3,800' }].map((item, i) => (
-                <View key={i} style={styles.modalItemRow}>
-                  <Text style={styles.modalItemName}>{item.name}</Text>
-                  <Text style={styles.modalItemPrice}>{item.price}</Text>
+              <Text style={styles.modalOrderTime}>3min ago</Text>
+
+              <View style={styles.customerInfoBlock}>
+                <Text style={styles.modalCustomerName}>{selectedOrder.customer}</Text>
+                <Text style={styles.modalCustomerPhone}>+2340905838929</Text>
+                <Text style={styles.modalCustomerAddress}>12 Marina Road, Lagos</Text>
+              </View>
+
+              <Text style={styles.modalItemsTitle}>Order items</Text>
+              <View style={styles.modalItemsList}>
+                <View style={styles.modalItemRow}>
+                  <Text style={styles.modalItemLabel}>Jollof Rice x 2</Text>
+                  <Text style={styles.modalItemPrice}>₦6,000</Text>
                 </View>
-              ))}
-              <View style={styles.modalTotalRow}>
-                <Text style={styles.modalTotalLabel}>Total</Text>
-                <Text style={styles.modalTotalValue}>₦8,000</Text>
+                <View style={styles.modalItemRow}>
+                  <Text style={styles.modalItemLabel}>Egusi Soup x 1</Text>
+                  <Text style={styles.modalItemPrice}>₦3,800</Text>
+                </View>
+                <View style={[styles.modalItemRow, { borderTopWidth: 1, borderColor: '#EEE', paddingTop: 10, marginTop: 4 }]}>
+                  <Text style={styles.modalTotalLabel}>Total</Text>
+                  <Text style={styles.modalTotalPrice}>₦9,800</Text>
+                </View>
               </View>
-              <View style={styles.instructionsBox}>
-                <Text style={styles.instructionsLabel}>SPECIAL INSTRUCTIONS</Text>
-                <Text style={styles.instructionsText}>Extra spicy please</Text>
+
+              <View style={styles.specialInstructionsBox}>
+                <Text style={styles.specialInstructionsHeader}>SPECIAL INSTRUCTIONS</Text>
+                <Text style={styles.specialInstructionsText}>Extra spicy please</Text>
               </View>
-              <TouchableOpacity style={styles.acceptBtn} onPress={() => setModalVisible(false)}>
-                <Text style={styles.acceptBtnText}>Accept order</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.rejectBtn} onPress={() => setModalVisible(false)}>
-                <Text style={styles.rejectBtnText}>Reject</Text>
-              </TouchableOpacity>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={styles.acceptOrderBtn} onPress={() => setModalVisible(false)}>
+                  <Text style={styles.acceptOrderBtnText}>Accept order</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.rejectOrderBtn} onPress={() => setModalVisible(false)}>
+                  <Text style={styles.rejectOrderBtnText}>Reject</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
-        </TouchableOpacity>
+        </View>
       </Modal>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F7F7F7' },
+  safeArea: { flex: 1, backgroundColor: '#FDFDFD' },
   pendingBanner: {
     backgroundColor: '#FF8C00',
-    padding: 10,
+    padding: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
-  pendingText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
+  pendingText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   scroll: { flex: 1 },
-  header: { backgroundColor: Colors.primary, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 30 },
-  headerLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
-  headerTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.3)', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  storeCard: { margin: 16, backgroundColor: '#fff', borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
+  headerContainer: {
+    backgroundColor: '#FF8C00',
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 25,
+    borderBottomLeftRadius: 35,
+    borderBottomRightRadius: 35,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  headerUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  welcomeText: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },
+  businessName: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  settingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storeCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+    marginBottom: 5, // Extra breathing room inside the curve
+  },
   storeCardLeft: { flexDirection: 'row', alignItems: 'center' },
-  storeOpenText: { fontWeight: 'bold', fontSize: 15 },
+  powerIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storeOpenText: { fontWeight: 'bold', fontSize: 15, color: '#1a1a1a' },
   storeSubText: { color: '#888', fontSize: 12 },
-  sectionLabel: { fontSize: 15, fontWeight: '700', color: '#1a1a1a', marginHorizontal: 16, marginTop: 8, marginBottom: 8 },
-  statsRow: { flexDirection: 'row', marginHorizontal: 16, gap: 12, marginBottom: 16 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 14, alignItems: 'center', elevation: 1 },
-  statValue: { fontSize: 22, fontWeight: 'bold', marginTop: 4 },
+  contentBody: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 12 },
+  statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  statBox: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  statIconBg: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statValue: { fontSize: 20, fontWeight: 'bold', color: '#1a1a1a' },
   statLabel: { fontSize: 12, color: '#888' },
-  revenueRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginHorizontal: 16, marginBottom: 12 },
-  revenueAmount: { fontSize: 28, fontWeight: 'bold', color: '#000' },
-  deliveredBadge: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
-  lowStockCard: { marginHorizontal: 16, backgroundColor: '#FFF8F0', borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16, borderWidth: 1, borderColor: '#FFE0B2' },
-  lowStockText: { color: Colors.primary, fontWeight: '600', fontSize: 14 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 16, marginBottom: 8 },
-  viewAll: { color: Colors.primary, fontSize: 13, fontWeight: '600' },
-  orderRow: { marginHorizontal: 16, backgroundColor: '#fff', borderRadius: 10, padding: 14, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  orderLeft: { gap: 2 },
-  orderId: { fontWeight: 'bold', fontSize: 14 },
-  statusBadge: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  statusText: { fontSize: 11, fontWeight: '600' },
-  orderCustomer: { color: '#888', fontSize: 12 },
-  orderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  orderAmount: { fontWeight: 'bold', fontSize: 14 },
-  chartCard: { marginHorizontal: 16, backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 100, elevation: 1 },
-  chartSubLabel: { color: '#888', fontSize: 12, marginBottom: 12 },
-  chart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 80 },
-  barCol: { alignItems: 'center', flex: 1 },
-  bar: { width: 22, borderRadius: 4, marginBottom: 4 },
-  barLabel: { fontSize: 10, color: '#888' },
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%' },
-  closeBtn: { alignSelf: 'flex-end' },
-  modalOrderId: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginTop: 4 },
-  modalTime: { textAlign: 'center', color: '#888', fontSize: 12, marginBottom: 16 },
-  modalCustomer: { fontWeight: 'bold', fontSize: 15 },
-  modalPhone: { color: Colors.primary, fontSize: 13 },
-  modalAddress: { color: '#666', fontSize: 13, marginBottom: 16 },
-  modalItemsLabel: { fontSize: 12, color: '#888', fontWeight: '600', marginBottom: 8 },
-  modalItemRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  modalItemName: { fontSize: 14 },
-  modalItemPrice: { fontSize: 14, fontWeight: '600' },
-  modalTotalRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderColor: '#EEE', paddingTop: 10, marginTop: 6 },
-  modalTotalLabel: { fontWeight: 'bold' },
-  modalTotalValue: { fontWeight: 'bold' },
-  instructionsBox: { backgroundColor: '#FFFBF0', borderRadius: 8, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#FFE699' },
-  instructionsLabel: { fontSize: 10, color: '#888', fontWeight: '700', marginBottom: 4 },
-  instructionsText: { fontSize: 13 },
-  acceptBtn: { backgroundColor: Colors.primary, borderRadius: 8, padding: 16, alignItems: 'center', marginTop: 16 },
-  acceptBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  rejectBtn: { padding: 14, alignItems: 'center' },
-  rejectBtnText: { color: '#333', fontSize: 15 },
+  revenueHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  revenueLabel: { fontSize: 14, color: '#666', fontWeight: '500' },
+  deliveredCount: { fontSize: 12, color: '#27AE60', fontWeight: '600' },
+  revenueValue: { fontSize: 32, fontWeight: '800', color: '#000', marginBottom: 20 },
+  warningCard: {
+    backgroundColor: '#FFF9F0',
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFECCF',
+    marginBottom: 24,
+  },
+  warningIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFF0DB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  warningTitle: { fontSize: 14, fontWeight: '700', color: '#FF8C00' },
+  warningSubText: { fontSize: 12, color: '#888' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  viewAllText: { color: '#FF8C00', fontSize: 13, fontWeight: '600' },
+  orderRow: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F5F5F5',
+  },
+  orderMainInfo: { gap: 4 },
+  orderIdRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  orderIdText: { fontWeight: 'bold', fontSize: 14, color: '#1a1a1a' },
+  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  statusBadgeText: { fontSize: 9, fontWeight: '800' },
+  orderCustomerText: { color: '#888', fontSize: 12 },
+  orderRightSide: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  orderAmountText: { fontWeight: 'bold', fontSize: 15, color: '#1a1a1a' },
+  earningsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    marginBottom: 100,
+  },
+  earningsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  earningsSubtitle: { fontSize: 12, color: '#888' },
+  earningsAmount: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
+  growthBadge: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#E8F5E9', 
+    paddingHorizontal: 8, 
+    paddingVertical: 4, 
+    borderRadius: 12,
+    gap: 2,
+  },
+  growthText: { color: '#27AE60', fontSize: 11, fontWeight: 'bold' },
+  chartContainer: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 80 },
+  chartBarCol: { alignItems: 'center', flex: 1 },
+  chartBar: { width: 22, borderRadius: 4, marginBottom: 6 },
+  chartBarLabel: { fontSize: 10, color: '#AAA' },
+  // Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#FFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowRadius: 20, shadowOpacity: 0.2, elevation: 10 },
+  modalCloseBtn: { 
+    alignSelf: 'flex-end', 
+    marginBottom: -10,
+    padding: 10, // Added padding for better hit area
+  },
+  modalOrderId: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', color: '#1a1a1a' },
+  modalOrderTime: { textAlign: 'center', color: '#888', fontSize: 12, marginBottom: 24 },
+  customerInfoBlock: { marginBottom: 24 },
+  modalCustomerName: { fontSize: 18, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 4 },
+  modalCustomerPhone: { color: '#FF8C00', fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  modalCustomerAddress: { color: '#666', fontSize: 14 },
+  modalItemsTitle: { fontSize: 12, color: '#AAA', fontWeight: '700', marginBottom: 12, letterSpacing: 0.5 },
+  modalItemsList: { marginBottom: 20 },
+  modalItemRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  modalItemLabel: { fontSize: 15, color: '#1a1a1a' },
+  modalItemPrice: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
+  modalTotalLabel: { fontSize: 16, fontWeight: 'bold', color: '#1a1a1a' },
+  modalTotalPrice: { fontSize: 18, fontWeight: '900', color: '#000' },
+  specialInstructionsBox: { backgroundColor: '#FFFBE6', borderRadius: 12, padding: 16, borderLeftWidth: 4, borderColor: '#FFE58F', marginBottom: 24 },
+  specialInstructionsHeader: { fontSize: 10, color: '#B88B00', fontWeight: '800', marginBottom: 4 },
+  specialInstructionsText: { fontSize: 14, color: '#1a1a1a', fontWeight: '500' },
+  modalActions: { gap: 12 },
+  acceptOrderBtn: { backgroundColor: '#FF8C00', borderRadius: 14, padding: 18, alignItems: 'center' },
+  acceptOrderBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  rejectOrderBtn: { padding: 14, alignItems: 'center' },
+  rejectOrderBtnText: { color: '#666', fontSize: 15, fontWeight: '600' },
 });
 
 export default VendorHomeScreen;
