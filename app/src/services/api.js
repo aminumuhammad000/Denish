@@ -65,6 +65,28 @@ export const addVendorMenuItem = async (itemData) => {
   }
 };
 
+export const uploadItemImage = async (uri) => {
+  try {
+    const formData = new FormData();
+    const uriParts = uri.split('.');
+    const fileType = uriParts[uriParts.length - 1];
+
+    formData.append('image', {
+      uri,
+      name: `item-image.${fileType}`,
+      type: `image/${fileType}`,
+    });
+
+    const response = await api.post('/vendor/upload-item-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API uploadItemImage error:', error);
+    throw error;
+  }
+};
+
 export const updateVendorMenuItem = async (id, itemData) => {
   try {
     const response = await api.put(`/vendor/menu/${id}`, itemData);

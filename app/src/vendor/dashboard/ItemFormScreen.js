@@ -4,7 +4,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { addVendorMenuItem, updateVendorMenuItem } from '../../services/api';
+import * as ImagePicker from 'expo-image-picker';
+import { addVendorMenuItem, updateVendorMenuItem, uploadItemImage } from '../../services/api';
 
 const ItemFormScreen = ({ navigation, route }) => {
   const { isEdit, item, categories = ['Main'] } = route.params || {};
@@ -23,6 +24,19 @@ const ItemFormScreen = ({ navigation, route }) => {
     available: item?.available ?? true
   });
 
+  const handlePickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setForm({ ...form, image: result.assets[0].uri });
+    }
+  };
+
   const handleSubmit = async () => {
     if (!form.name || !form.price || !form.category) {
       alert('Please fill in required fields');
@@ -31,8 +45,19 @@ const ItemFormScreen = ({ navigation, route }) => {
 
     setLoading(true);
     try {
+      let imageUrl = form.image;
+
+      // If it's a new local image, upload it first
+      if (form.image && form.image.startsWith('file://')) {
+        const uploadRes = await uploadItemImage(form.image);
+        if (uploadRes.success) {
+          imageUrl = uploadRes.imageUrl;
+        }
+      }
+
       const payload = {
         ...form,
+        image: imageUrl,
         price: parseFloat(form.price),
         stock: parseInt(form.stock)
       };
@@ -50,6 +75,7 @@ const ItemFormScreen = ({ navigation, route }) => {
       setLoading(false);
     }
   };
+
 
   const selectCategory = (cat) => {
     setForm({...form, category: cat});
@@ -129,7 +155,7 @@ const ItemFormScreen = ({ navigation, route }) => {
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Image</Text>
-            <TouchableOpacity style={styles.imagePicker}>
+            <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage}>
               {form.image ? (
                  <Image source={{ uri: form.image }} style={styles.previewImage} />
               ) : (
