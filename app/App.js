@@ -25,6 +25,7 @@ import CustomerLoginScreen from './src/customer/LoginScreen';
 import CustomerWelcomeScreen from './src/customer/CustomerWelcomeScreen';
 import CustomerHomeScreen from './src/customer/CustomerHomeScreen';
 import CustomerRestaurantScreen from './src/customer/CustomerRestaurantScreen';
+import ChatListScreen from './src/customer/ChatListScreen';
 import CheckoutScreen from './src/customer/CheckoutScreen';
 import CustomerSignupScreen from './src/customer/SignupScreen';
 
@@ -81,6 +82,7 @@ export default function App() {
               <Stack.Screen name="CustomerLogin" component={CustomerLoginScreen} />
               <Stack.Screen name="CustomerHome" component={CustomerHomeScreen} />
               <Stack.Screen name="CustomerRestaurant" component={CustomerRestaurantScreen} />
+              <Stack.Screen name="ChatList" component={ChatListScreen} />
               <Stack.Screen name="Checkout" component={CheckoutScreen} />
   
               {/* ── Driver App ── */}

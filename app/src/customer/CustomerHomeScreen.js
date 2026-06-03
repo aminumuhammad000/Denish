@@ -82,7 +82,7 @@ const CustomerHomeScreen = ({ navigation }) => {
                 </View>
               </View>
               <View style={styles.headerIcons}>
-                <TouchableOpacity style={styles.iconBtn}>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('ChatList')}>
                   <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFF" />
                   <View style={styles.badge}><Text style={styles.badgeText}>3</Text></View>
                 </TouchableOpacity>
@@ -178,7 +178,7 @@ const CustomerHomeScreen = ({ navigation }) => {
           <MaterialCommunityIcons name="shopping-outline" size={24} color="#999" />
           <Text style={styles.tabLabel}>Orders</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate('ChatList')}>
           <Ionicons name="chatbubble-ellipses-outline" size={24} color="#999" />
           <Text style={styles.tabLabel}>Chats</Text>
         </TouchableOpacity>
