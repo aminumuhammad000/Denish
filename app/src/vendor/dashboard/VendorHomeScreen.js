@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
-  Switch, Modal, ActivityIndicator, StatusBar
+  Switch, Modal, ActivityIndicator, StatusBar, Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -85,9 +85,10 @@ const VendorHomeScreen = ({ navigation }) => {
             <View style={styles.headerUserInfo}>
               <TouchableOpacity onPress={() => navigation.navigate('VendorProfile')}>
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {(data.businessName || 'VR').substring(0, 2).toUpperCase()}
-                  </Text>
+                  <Image 
+                    source={{ uri: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80' }} 
+                    style={styles.avatarImg} 
+                  />
                 </View>
               </TouchableOpacity>
               <View style={{ marginLeft: 12 }}>
@@ -309,9 +310,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.7)',
+    overflow: 'hidden',
   },
+  avatarImg: { width: '100%', height: '100%', borderRadius: 22 },
   avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   welcomeText: { color: 'rgba(255,255,255,0.85)', fontSize: 12 },
   businessNameHeader: { color: '#fff', fontSize: 18, fontWeight: 'bold' },

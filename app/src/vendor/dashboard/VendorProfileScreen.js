@@ -84,7 +84,7 @@ const VendorProfileScreen = ({ navigation }) => {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Business details</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('VendorEditProfile', { type: 'business' })}>
               <Text style={styles.editLink}>Edit ›</Text>
             </TouchableOpacity>
           </View>
@@ -109,7 +109,7 @@ const VendorProfileScreen = ({ navigation }) => {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Opening hours</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('VendorEditProfile', { type: 'hours' })}>
               <Text style={styles.editLink}>Edit ›</Text>
             </TouchableOpacity>
           </View>
@@ -131,7 +131,7 @@ const VendorProfileScreen = ({ navigation }) => {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Delivery locations</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('VendorEditProfile', { type: 'locations' })}>
               <Text style={styles.editLink}>Edit ›</Text>
             </TouchableOpacity>
           </View>
@@ -148,7 +148,7 @@ const VendorProfileScreen = ({ navigation }) => {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Payout account</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('VendorEditProfile', { type: 'payout' })}>
               <Text style={styles.editLink}>Edit ›</Text>
             </TouchableOpacity>
           </View>

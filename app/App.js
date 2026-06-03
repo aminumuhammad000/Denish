@@ -18,6 +18,7 @@ import VendorDashboard         from './src/vendor/dashboard/VendorDashboard';
 import ItemFormScreen         from './src/vendor/dashboard/ItemFormScreen';
 import RequestPayoutScreen    from './src/vendor/dashboard/RequestPayoutScreen';
 import VendorProfileScreen    from './src/vendor/dashboard/VendorProfileScreen';
+import VendorEditProfileScreen from './src/vendor/dashboard/VendorEditProfileScreen';
 
 // Customer Screens
 import CustomerLoginScreen from './src/customer/LoginScreen';
@@ -72,6 +73,7 @@ export default function App() {
               <Stack.Screen name="ItemForm" component={ItemFormScreen} />
               <Stack.Screen name="RequestPayout" component={RequestPayoutScreen} />
               <Stack.Screen name="VendorProfile" component={VendorProfileScreen} />
+              <Stack.Screen name="VendorEditProfile" component={VendorEditProfileScreen} />
               
               {/* ── Customer App ── */}
               <Stack.Screen name="CustomerWelcome" component={CustomerWelcomeScreen} />
