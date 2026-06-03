@@ -87,12 +87,21 @@ const updateVendorProfile = async (req, res) => {
     let vendor = await Vendor.findOne();
     if (!vendor) return res.status(404).json({ success: false, error: 'Vendor not found' });
     
-    // We are mocking this update to apply onto the demo vendor
-    const { businessName, address, phone, openingHours, payoutAccount } = req.body;
+    // Update fields from the demo/currently logged in vendor
+    const { 
+      businessName, address, phone, category, about,
+      openingHours, payoutAccount, deliveryLocations, notifications 
+    } = req.body;
     
     if (businessName) vendor.businessName = businessName;
-    if (address) vendor.address = address; // Note: Add address etc. to schema if not present
-    // You'd typically update fields like phone, hours, and payoutAccount directly on the document here.
+    if (address) vendor.address = address;
+    if (phone) vendor.phone = phone;
+    if (category) vendor.category = category;
+    if (about) vendor.about = about;
+    if (openingHours) vendor.openingHours = openingHours;
+    if (payoutAccount) vendor.payoutAccount = payoutAccount;
+    if (deliveryLocations) vendor.deliveryLocations = deliveryLocations;
+    if (notifications) vendor.notifications = notifications;
 
     await vendor.save();
     res.status(200).json({ success: true, data: vendor });

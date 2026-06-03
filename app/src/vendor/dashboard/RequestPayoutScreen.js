@@ -15,9 +15,13 @@ const PAYOUT_HISTORY = [
 ];
 
 const RequestPayoutScreen = ({ navigation, route }) => {
-  const { availableBalance = 248500 } = route?.params || {};
+  const { availableBalance = 248500, payoutAccount } = route?.params || {};
   const [amount, setAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const bankName = payoutAccount?.bank || 'GTBank';
+  const acctNum = payoutAccount?.accountNumber || '0123456789';
+  const acctName = payoutAccount?.accountName || "Mama's kitchen ltd";
 
   const handleConfirm = () => {
     const value = parseFloat(amount);
@@ -70,8 +74,8 @@ const RequestPayoutScreen = ({ navigation, route }) => {
             {/* Bank Info Box */}
             <View style={styles.bankBox}>
               <Text style={styles.bankLabel}>Payout to</Text>
-              <Text style={styles.bankName}>GTBank</Text>
-              <Text style={styles.bankMeta}>0123456789 | Mama's kitchen ltd</Text>
+              <Text style={styles.bankName}>{bankName}</Text>
+              <Text style={styles.bankMeta}>{acctNum} | {acctName}</Text>
             </View>
 
             {/* Amount */}

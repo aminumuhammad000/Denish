@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
-  TextInput, Alert, KeyboardAvoidingView, Platform
+  TextInput, Alert, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { updateVendorProfile } from '../../services/api';
 
 const VendorEditProfileScreen = ({ route, navigation }) => {
   const { type, initialData } = route.params || {};
@@ -21,14 +22,39 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      let payload = {};
+      if (type === 'business') {
+        payload = {
+          businessName: formData.businessName,
+          phone: formData.phone,
+          email: formData.email,
+          address: formData.address,
+          about: formData.about,
+          category: formData.category
+        };
+      } else if (type === 'payout') {
+        payload = { payoutAccount: formData };
+      } else if (type === 'hours') {
+        payload = { openingHours: formData };
+      } else if (type === 'locations') {
+        payload = { deliveryLocations: formData };
+      }
+
+      const response = await updateVendorProfile(payload);
+      if (response.success) {
+        Alert.alert('Success', 'Profile updated successfully!');
+        navigation.goBack();
+      } else {
+        throw new Error(response.error || 'Failed to update');
+      }
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Something went wrong');
+    } finally {
       setLoading(false);
-      Alert.alert('Success', 'Profile updated successfully!');
-      navigation.goBack();
-    }, 1000);
+    }
   };
 
   const renderFields = () => {
@@ -39,15 +65,23 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
             <Text style={styles.label}>Business Name</Text>
             <TextInput
               style={styles.input}
-              value={formData.businessName || "Mama's Kitchen"}
+              value={formData.businessName}
               onChangeText={(t) => setFormData({ ...formData, businessName: t })}
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Category</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.category}
+              onChangeText={(t) => setFormData({ ...formData, category: t })}
             />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Phone Number</Text>
             <TextInput
               style={styles.input}
-              value={formData.phone || "+234800000000"}
+              value={formData.phone}
               keyboardType="phone-pad"
               onChangeText={(t) => setFormData({ ...formData, phone: t })}
             />
@@ -56,7 +90,7 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
             <Text style={styles.label}>Email Address</Text>
             <TextInput
               style={styles.input}
-              value={formData.email || "info@mamaskitchen.ng"}
+              value={formData.email}
               keyboardType="email-address"
               autoCapitalize="none"
               onChangeText={(t) => setFormData({ ...formData, email: t })}
@@ -66,7 +100,7 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
             <Text style={styles.label}>Address</Text>
             <TextInput
               style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-              value={formData.address || "14 Secretariat Avenue, Ikeja, Lagos"}
+              value={formData.address}
               multiline
               onChangeText={(t) => setFormData({ ...formData, address: t })}
             />
@@ -75,7 +109,7 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
             <Text style={styles.label}>About</Text>
             <TextInput
               style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
-              value={formData.about || "Authentic Nigerian home-style cooking made fresh daily."}
+              value={formData.about}
               multiline
               onChangeText={(t) => setFormData({ ...formData, about: t })}
             />
@@ -91,15 +125,15 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
             <Text style={styles.label}>Bank Name</Text>
             <TextInput
               style={styles.input}
-              value={formData.bankName || "Access Bank"}
-              onChangeText={(t) => setFormData({ ...formData, bankName: t })}
+              value={formData.bank}
+              onChangeText={(t) => setFormData({ ...formData, bank: t })}
             />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Account Name</Text>
             <TextInput
               style={styles.input}
-              value={formData.accountName || "Mama's Kitchen Ltd"}
+              value={formData.accountName}
               onChangeText={(t) => setFormData({ ...formData, accountName: t })}
             />
           </View>
@@ -107,7 +141,7 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
             <Text style={styles.label}>Account Number</Text>
             <TextInput
               style={styles.input}
-              value={formData.accountNumber || "636363633663"}
+              value={formData.accountNumber}
               keyboardType="numeric"
               maxLength={10}
               onChangeText={(t) => setFormData({ ...formData, accountNumber: t })}
@@ -127,11 +161,7 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        {/* Header */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
@@ -143,12 +173,8 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
         <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 40 }}>
           {renderFields()}
 
-          <TouchableOpacity
-            style={[styles.saveBtn, loading && { opacity: 0.7 }]}
-            onPress={handleSave}
-            disabled={loading}
-          >
-            <Text style={styles.saveBtnText}>{loading ? 'Saving...' : 'Save Changes'}</Text>
+          <TouchableOpacity style={[styles.saveBtn, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
+            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -158,40 +184,14 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFF' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderColor: '#EEE',
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: '#EEE' },
   title: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
   backBtn: { padding: 4 },
   scroll: { padding: 20 },
   inputGroup: { marginBottom: 20 },
   label: { fontSize: 13, fontWeight: '600', color: '#666', marginBottom: 8 },
-  input: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#EEE',
-    padding: 14,
-    fontSize: 15,
-    color: '#1a1a1a',
-  },
-  saveBtn: {
-    backgroundColor: '#FF8C00',
-    borderRadius: 14,
-    padding: 18,
-    alignItems: 'center',
-    marginTop: 20,
-    shadowColor: '#FF8C00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
+  input: { backgroundColor: '#F8F8F8', borderRadius: 12, borderWidth: 1, borderColor: '#EEE', padding: 14, fontSize: 15, color: '#1a1a1a' },
+  saveBtn: { backgroundColor: '#FF8C00', borderRadius: 14, padding: 18, alignItems: 'center', marginTop: 20, shadowColor: '#FF8C00', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
   saveBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   placeholder: { alignItems: 'center', marginTop: 100 },
   placeholderText: { color: '#AAA', marginTop: 12, fontSize: 15 },

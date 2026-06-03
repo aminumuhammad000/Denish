@@ -95,7 +95,10 @@ const EarningsScreen = ({ navigation }) => {
           <Text style={styles.balanceMeta}>Min payout ₦5,000 | Settles in 24h</Text>
           <TouchableOpacity
             style={styles.payoutBtn}
-            onPress={() => navigation.navigate('RequestPayout', { availableBalance })}
+            onPress={() => navigation.navigate('RequestPayout', { 
+              availableBalance, 
+              payoutAccount: data.payoutAccount 
+            })}
           >
             <Ionicons name="download-outline" size={15} color="#FF8C00" />
             <Text style={styles.payoutBtnText}>Request payout</Text>
