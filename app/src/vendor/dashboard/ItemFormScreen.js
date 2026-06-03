@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, TextInput, Image, KeyboardAvoidingView, Platform
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, TextInput, Image, KeyboardAvoidingView, Platform, Modal, FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,14 +8,17 @@ import { addVendorMenuItem, updateVendorMenuItem } from '../../services/api';
 
 const ItemFormScreen = ({ navigation, route }) => {
   const { isEdit, item, categories = ['Main'] } = route.params || {};
+  // Filter out "All" from categories
+  const selectableCats = categories.filter(c => c !== 'All');
 
   const [loading, setLoading] = useState(false);
+  const [catModalVisible, setCatModalVisible] = useState(false);
   const [form, setForm] = useState({
     name: item?.name || '',
     description: item?.description || '',
     price: item?.price?.toString() || '',
     stock: item?.stock?.toString() || '0',
-    category: item?.category || categories[1] || 'Main',
+    category: item?.category || selectableCats[0] || 'Main',
     image: item?.image || null,
     available: item?.available ?? true
   });
@@ -48,6 +51,10 @@ const ItemFormScreen = ({ navigation, route }) => {
     }
   };
 
+  const selectCategory = (cat) => {
+    setForm({...form, category: cat});
+    setCatModalVisible(false);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -114,7 +121,7 @@ const ItemFormScreen = ({ navigation, route }) => {
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Category</Text>
-            <TouchableOpacity style={styles.mockPicker}>
+            <TouchableOpacity style={styles.mockPicker} onPress={() => setCatModalVisible(true)}>
               <Text style={styles.pickerText}>{form.category}</Text>
               <Ionicons name="chevron-down" size={16} color="#666" />
             </TouchableOpacity>
@@ -147,8 +154,8 @@ const ItemFormScreen = ({ navigation, route }) => {
             />
           </View>
 
-          <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-            <Text style={styles.submitBtnText}>{isEdit ? 'Save changes' : 'Add item'}</Text>
+          <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={loading}>
+            <Text style={styles.submitBtnText}>{loading ? 'Saving...' : (isEdit ? 'Save changes' : 'Add item')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
@@ -156,6 +163,34 @@ const ItemFormScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Category Selection Modal */}
+      <Modal visible={catModalVisible} transparent animationType="slide">
+        <View style={styles.catModalOverlay}>
+          <View style={styles.catModalContent}>
+            <View style={styles.catModalHeader}>
+              <Text style={styles.catModalTitle}>Select Category</Text>
+              <TouchableOpacity onPress={() => setCatModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
+            <FlatList 
+              data={selectableCats}
+              keyExtractor={item => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={[styles.catItem, form.category === item && styles.catItemActive]} 
+                  onPress={() => selectCategory(item)}
+                >
+                  <Text style={[styles.catItemText, form.category === item && styles.catItemTextActive]}>{item}</Text>
+                  {form.category === item && <Ionicons name="checkmark-circle" size={20} color="#FF8C00" />}
+                </TouchableOpacity>
+              )}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -232,7 +267,17 @@ const styles = StyleSheet.create({
   },
   submitBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
   cancelBtn: { padding: 15, alignItems: 'center' },
-  cancelBtnText: { color: '#666', fontSize: 15, fontWeight: '600' }
+  cancelBtnText: { color: '#666', fontSize: 15, fontWeight: '600' },
+  // Category Modal Styles
+  catModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  catModalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '60%' },
+  catModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  catModalTitle: { fontSize: 18, fontWeight: 'bold' },
+  catItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderColor: '#F5F5F5' },
+  catItemActive: { backgroundColor: '#FFF9F2' },
+  catItemText: { fontSize: 16, color: '#333' },
+  catItemTextActive: { color: '#FF8C00', fontWeight: 'bold' }
 });
 
 export default ItemFormScreen;
+
