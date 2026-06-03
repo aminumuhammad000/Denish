@@ -12,7 +12,7 @@ import { getVendorDashboardData } from '../../services/api';
 const statusColor = { new: '#FF8C00', preparing: '#27AE60' };
 const barDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-const VendorHomeScreen = () => {
+const VendorHomeScreen = ({ navigation }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
@@ -59,9 +59,19 @@ const VendorHomeScreen = () => {
 
   const isPending = data.status === 'Pending';
 
+  const theme = {
+    bg: isDarkMode ? '#121212' : '#FDFDFD',
+    text: isDarkMode ? '#FFFFFF' : '#1a1a1a',
+    subText: isDarkMode ? '#AAAAAA' : '#888888',
+    card: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+    border: isDarkMode ? '#333333' : '#F0F0F0',
+    headerBg: '#FF8C00', // Keeps orange as brand color
+    inputBg: isDarkMode ? '#2A2A2A' : '#F8F8F8',
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       {isPending && (
         <View style={styles.pendingBanner}>
           <Ionicons name="information-circle" size={16} color="#fff" />
@@ -73,30 +83,32 @@ const VendorHomeScreen = () => {
         <View style={styles.headerContainer}>
           <View style={styles.headerTop}>
             <View style={styles.headerUserInfo}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {(data.businessName || 'VR').substring(0, 2).toUpperCase()}
-                </Text>
-              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('VendorProfile')}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {(data.businessName || 'VR').substring(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+              </TouchableOpacity>
               <View style={{ marginLeft: 12 }}>
                 <Text style={styles.welcomeText}>Welcome back,</Text>
-                <Text style={styles.businessName}>{data.businessName || "Mama's Kitchen"}</Text>
+                <Text style={styles.businessNameHeader}>{data.businessName || "Mama's Kitchen"}</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.settingsBtn} onPress={toggleTheme}>
-              <Ionicons name={isDarkMode ? "moon" : "sunny-outline"} size={24} color="#fff" />
+              <Ionicons name={isDarkMode ? "sunny" : "moon"} size={22} color="#fff" />
             </TouchableOpacity>
           </View>
 
           {/* Store Status Card - Floating */}
-          <View style={styles.storeCard}>
+          <View style={[styles.storeCard, { backgroundColor: theme.card }]}>
             <View style={styles.storeCardLeft}>
-              <View style={styles.powerIconBg}>
+              <View style={[styles.powerIconBg, { backgroundColor: isDarkMode ? '#1B3022' : '#E8F5E9' }]}>
                 <Ionicons name="power-outline" size={20} color="#4CAF50" />
               </View>
               <View style={{ marginLeft: 12 }}>
-                <Text style={styles.storeOpenText}>{isOpen ? 'Store is open' : 'Store is closed'}</Text>
-                <Text style={styles.storeSubText}>{isOpen ? 'Accepting orders' : 'Not accepting orders'}</Text>
+                <Text style={[styles.storeOpenText, { color: theme.text }]}>{isOpen ? 'Store is open' : 'Store is closed'}</Text>
+                <Text style={[styles.storeSubText, { color: theme.subText }]}>{isOpen ? 'Accepting orders' : 'Not accepting orders'}</Text>
               </View>
             </View>
             <Switch
@@ -111,45 +123,45 @@ const VendorHomeScreen = () => {
 
         <View style={styles.contentBody}>
           {/* Today Summary */}
-          <Text style={styles.sectionTitle}>Today</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Today</Text>
           <View style={styles.statsGrid}>
             {[
-              { label: 'New', value: data.stats?.new || 2, icon: 'time-outline', color: '#FFF5E6', iconColor: '#FF8C00' },
-              { label: 'Cooking', value: data.stats?.cooking || 2, icon: 'flame-outline', color: '#E8F5E9', iconColor: '#27AE60' },
-              { label: 'Ready', value: data.stats?.ready || 1, icon: 'checkmark-circle-outline', color: '#E3F2FD', iconColor: '#2196F3' }
+              { label: 'New', value: data.stats?.new || 2, icon: 'time-outline', color: isDarkMode ? '#332200' : '#FFF5E6', iconColor: '#FF8C00' },
+              { label: 'Cooking', value: data.stats?.cooking || 2, icon: 'flame-outline', color: isDarkMode ? '#1B3022' : '#E8F5E9', iconColor: '#27AE60' },
+              { label: 'Ready', value: data.stats?.ready || 1, icon: 'checkmark-circle-outline', color: isDarkMode ? '#192834' : '#E3F2FD', iconColor: '#2196F3' }
             ].map((s) => (
-              <View key={s.label} style={styles.statBox}>
+              <View key={s.label} style={[styles.statBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <View style={[styles.statIconBg, { backgroundColor: s.color }]}>
                   <Ionicons name={s.icon} size={18} color={s.iconColor} />
                 </View>
-                <Text style={styles.statValue}>{s.value}</Text>
-                <Text style={styles.statLabel}>{s.label}</Text>
+                <Text style={[styles.statValue, { color: theme.text }]}>{s.value}</Text>
+                <Text style={[styles.statLabel, { color: theme.subText }]}>{s.label}</Text>
               </View>
             ))}
           </View>
 
           {/* Revenue */}
           <View style={styles.revenueHeader}>
-            <Text style={styles.revenueLabel}>Today's revenue</Text>
+            <Text style={[styles.revenueLabel, { color: theme.subText }]}>Today's revenue</Text>
             <Text style={styles.deliveredCount}>{data.delivered || 2} delivered</Text>
           </View>
-          <Text style={styles.revenueValue}>₦{(data.todayRevenue || 17000).toLocaleString()}</Text>
+          <Text style={[styles.revenueValue, { color: theme.text }]}>₦{(data.todayRevenue || 17000).toLocaleString()}</Text>
 
           {/* Stock Warning */}
-          <TouchableOpacity style={styles.warningCard}>
-            <View style={styles.warningIconBg}>
+          <TouchableOpacity style={[styles.warningCard, { backgroundColor: isDarkMode ? '#332200' : '#FFF9F0', borderColor: isDarkMode ? '#553300' : '#FFECCF' }]}>
+            <View style={[styles.warningIconBg, { backgroundColor: isDarkMode ? '#442A00' : '#FFF0DB' }]}>
               <Ionicons name="alert-circle" size={18} color="#FF8C00" />
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.warningTitle}>{data.lowStock || 1} item low on stock</Text>
-              <Text style={styles.warningSubText}>Puff Puff (8pcs)</Text>
+              <Text style={[styles.warningSubText, { color: isDarkMode ? '#CCC' : '#888' }]}>Puff Puff (8pcs)</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#FF8C00" />
           </TouchableOpacity>
 
           {/* Live Order Queue */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Live order queue</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>Live order queue</Text>
             <TouchableOpacity><Text style={styles.viewAllText}>View all</Text></TouchableOpacity>
           </View>
 
@@ -157,37 +169,37 @@ const VendorHomeScreen = () => {
             { id: 'ORD-2451', status: 'new', customer: 'Aisha Mohammed', items: '2 items', amount: '₦10,000' },
             { id: 'ORD-2452', status: 'new', customer: 'Chidi Okeke', items: '3 items', amount: '₦10,000' },
           ]).map((o, i) => (
-            <TouchableOpacity key={i} style={styles.orderRow} onPress={() => { setSelectedOrder(o); setModalVisible(true); }}>
+            <TouchableOpacity key={i} style={[styles.orderRow, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => { setSelectedOrder(o); setModalVisible(true); }}>
               <View style={styles.orderMainInfo}>
                 <View style={styles.orderIdRow}>
-                  <Text style={styles.orderIdText}>{o.id}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: o.status === 'new' ? '#FFF5E6' : '#E8F5E9' }]}>
+                  <Text style={[styles.orderIdText, { color: theme.text }]}>{o.id}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: o.status === 'new' ? (isDarkMode ? '#332200' : '#FFF5E6') : (isDarkMode ? '#1B3022' : '#E8F5E9') }]}>
                     <Text style={[styles.statusBadgeText, { color: o.status === 'new' ? '#FF8C00' : '#27AE60' }]}>
                       {o.status.toUpperCase()}
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.orderCustomerText}>{o.customer} | {o.items}</Text>
+                <Text style={[styles.orderCustomerText, { color: theme.subText }]}>{o.customer} | {o.items}</Text>
               </View>
               <View style={styles.orderRightSide}>
-                <Text style={styles.orderAmountText}>{o.amount}</Text>
-                <Ionicons name="chevron-forward" size={16} color="#DDD" />
+                <Text style={[styles.orderAmountText, { color: theme.text }]}>{o.amount}</Text>
+                <Ionicons name="chevron-forward" size={16} color={isDarkMode ? "#555" : "#DDD"} />
               </View>
             </TouchableOpacity>
           ))}
 
           {/* Earnings Section */}
           <View style={[styles.sectionHeader, { marginTop: 20 }]}>
-            <Text style={styles.sectionTitle}>Earnings</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>Earnings</Text>
             <TouchableOpacity><Text style={styles.viewAllText}>View all</Text></TouchableOpacity>
           </View>
-          <View style={styles.earningsCard}>
+          <View style={[styles.earningsCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={styles.earningsHeader}>
               <View>
-                <Text style={styles.earningsSubtitle}>Last 7 days</Text>
-                <Text style={styles.earningsAmount}>₦42,000 earned</Text>
+                <Text style={[styles.earningsSubtitle, { color: theme.subText }]}>Last 7 days</Text>
+                <Text style={[styles.earningsAmount, { color: theme.text }]}>₦42,000 earned</Text>
               </View>
-              <View style={styles.growthBadge}>
+              <View style={[styles.growthBadge, { backgroundColor: isDarkMode ? '#1B3022' : '#E8F5E9' }]}>
                 <Ionicons name="trending-up" size={12} color="#27AE60" />
                 <Text style={styles.growthText}>+12%</Text>
               </View>
@@ -196,7 +208,7 @@ const VendorHomeScreen = () => {
             <View style={styles.chartContainer}>
               {[25, 40, 30, 70, 20, 55, 45].map((h, i) => (
                 <View key={i} style={styles.chartBarCol}>
-                  <View style={[styles.chartBar, { height: h, backgroundColor: h > 60 ? '#FF8C00' : '#FFDAB9' }]} />
+                  <View style={[styles.chartBar, { height: h, backgroundColor: h > 60 ? '#FF8C00' : (isDarkMode ? '#444' : '#FFDAB9') }]} />
                   <Text style={styles.chartBarLabel}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</Text>
                 </View>
               ))}
@@ -209,39 +221,39 @@ const VendorHomeScreen = () => {
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           {selectedOrder && (
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
               <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#333" />
+                <Ionicons name="close" size={24} color={theme.text} />
               </TouchableOpacity>
 
-              <Text style={styles.modalOrderId}>{selectedOrder.id}</Text>
+              <Text style={[styles.modalOrderId, { color: theme.text }]}>{selectedOrder.id}</Text>
               <Text style={styles.modalOrderTime}>3min ago</Text>
 
               <View style={styles.customerInfoBlock}>
-                <Text style={styles.modalCustomerName}>{selectedOrder.customer}</Text>
+                <Text style={[styles.modalCustomerName, { color: theme.text }]}>{selectedOrder.customer}</Text>
                 <Text style={styles.modalCustomerPhone}>+2340905838929</Text>
-                <Text style={styles.modalCustomerAddress}>12 Marina Road, Lagos</Text>
+                <Text style={[styles.modalCustomerAddress, { color: theme.subText }]}>12 Marina Road, Lagos</Text>
               </View>
 
-              <Text style={styles.modalItemsTitle}>Order items</Text>
+              <Text style={styles.modalItemsTitle}>ORDER ITEMS</Text>
               <View style={styles.modalItemsList}>
                 <View style={styles.modalItemRow}>
-                  <Text style={styles.modalItemLabel}>Jollof Rice x 2</Text>
-                  <Text style={styles.modalItemPrice}>₦6,000</Text>
+                  <Text style={[styles.modalItemLabel, { color: theme.text }]}>Jollof Rice x 2</Text>
+                  <Text style={[styles.modalItemPrice, { color: theme.text }]}>₦6,000</Text>
                 </View>
                 <View style={styles.modalItemRow}>
-                  <Text style={styles.modalItemLabel}>Egusi Soup x 1</Text>
-                  <Text style={styles.modalItemPrice}>₦3,800</Text>
+                  <Text style={[styles.modalItemLabel, { color: theme.text }]}>Egusi Soup x 1</Text>
+                  <Text style={[styles.modalItemPrice, { color: theme.text }]}>₦3,800</Text>
                 </View>
-                <View style={[styles.modalItemRow, { borderTopWidth: 1, borderColor: '#EEE', paddingTop: 10, marginTop: 4 }]}>
-                  <Text style={styles.modalTotalLabel}>Total</Text>
-                  <Text style={styles.modalTotalPrice}>₦9,800</Text>
+                <View style={[styles.modalItemRow, { borderTopWidth: 1, borderColor: theme.border, paddingTop: 10, marginTop: 4 }]}>
+                  <Text style={[styles.modalTotalLabel, { color: theme.text }]}>Total</Text>
+                  <Text style={[styles.modalTotalPrice, { color: theme.text }]}>₦9,800</Text>
                 </View>
               </View>
 
-              <View style={styles.specialInstructionsBox}>
+              <View style={[styles.specialInstructionsBox, { backgroundColor: isDarkMode ? '#2A2610' : '#FFFBE6', borderColor: isDarkMode ? '#4D441D' : '#FFE58F' }]}>
                 <Text style={styles.specialInstructionsHeader}>SPECIAL INSTRUCTIONS</Text>
-                <Text style={styles.specialInstructionsText}>Extra spicy please</Text>
+                <Text style={[styles.specialInstructionsText, { color: theme.text }]}>Extra spicy please</Text>
               </View>
 
               <View style={styles.modalActions}>
@@ -249,7 +261,7 @@ const VendorHomeScreen = () => {
                   <Text style={styles.acceptOrderBtnText}>Accept order</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.rejectOrderBtn} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.rejectOrderBtnText}>Reject</Text>
+                  <Text style={[styles.rejectOrderBtnText, { color: theme.subText }]}>Reject</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -301,8 +313,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.5)',
   },
   avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  welcomeText: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },
-  businessName: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  welcomeText: { color: 'rgba(255,255,255,0.85)', fontSize: 12 },
+  businessNameHeader: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   settingsBtn: {
     width: 40,
     height: 40,

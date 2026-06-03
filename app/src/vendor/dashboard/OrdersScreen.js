@@ -1,34 +1,94 @@
 import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator
+  StyleSheet, Text, View, ScrollView,
+  TouchableOpacity, ActivityIndicator, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/Colors';
 import { getVendorOrders } from '../../services/api';
-import moment from 'moment'; // We mock time with moment or just use strings. If moment isn't installed we can just format the date.
 
-const statusInfo = {
-  new:       { color: '#FF8C00', bg: '#FFF3E0' },
-  preparing: { color: '#27AE60', bg: '#E8F5E9' },
-  ready:     { color: '#2980B9', bg: '#E8F4FD' },
-  delivered: { color: '#888',    bg: '#F5F5F5' },
+// Demo orders shown when no real orders exist
+const DEMO_ORDERS = [
+  {
+    _id: 'd1', orderId: 'ORD-2451', status: 'new',
+    customerName: 'Aisha Mohammed', itemsCount: 2,
+    items: '2x Jollof Rice & Chicken, 2x Chapman',
+    amount: 10000, createdAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+  },
+  {
+    _id: 'd2', orderId: 'ORD-2451', status: 'new',
+    customerName: 'Aisha Mohammed', itemsCount: 2,
+    items: '2x Jollof Rice & Chicken, 2x Chapman',
+    amount: 10000, createdAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
+  },
+  {
+    _id: 'd3', orderId: 'ORD-2448', status: 'preparing',
+    customerName: 'Emeka Obi', itemsCount: 3,
+    items: '1x Suya Platter, 2x Puff Puff',
+    amount: 5500, createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+  },
+  {
+    _id: 'd4', orderId: 'ORD-2447', status: 'preparing',
+    customerName: 'Fatima Bello', itemsCount: 1,
+    items: '1x Pepper Soup',
+    amount: 3500, createdAt: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
+  },
+  {
+    _id: 'd5', orderId: 'ORD-2446', status: 'preparing',
+    customerName: 'Chidi Okeke', itemsCount: 2,
+    items: '2x Fried Rice',
+    amount: 8000, createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
+  },
+  {
+    _id: 'd6', orderId: 'ORD-2444', status: 'delivered',
+    customerName: 'Ngozi Adeyemi', itemsCount: 4,
+    items: '4x Jollof Rice',
+    amount: 18000, createdAt: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+  },
+  {
+    _id: 'd7', orderId: 'ORD-2443', status: 'delivered',
+    customerName: 'Taiwo Hassan', itemsCount: 2,
+    items: '2x Suya Platter',
+    amount: 7000, createdAt: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
+  },
+  {
+    _id: 'd8', orderId: 'ORD-2440', status: 'cancelled',
+    customerName: 'Kemi Adio', itemsCount: 1,
+    items: '1x Pepper Soup',
+    amount: 3500, createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
+const TABS = ['New', 'Active', 'Completed', 'Cancelled'];
+
+const TAB_STATUS_MAP = {
+  New:       ['new'],
+  Active:    ['preparing', 'ready'],
+  Completed: ['delivered'],
+  Cancelled: ['cancelled'],
 };
+
+function timeAgo(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
 
 const OrdersScreen = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab] = useState('New');
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         const response = await getVendorOrders();
-        if (response.success) {
-          setOrders(response.data || []);
-        }
-      } catch (err) {
-        console.error(err);
+        const data = response?.data || [];
+        setOrders(data.length > 0 ? data : DEMO_ORDERS);
+      } catch {
+        setOrders(DEMO_ORDERS);
       } finally {
         setLoading(false);
       }
@@ -36,68 +96,125 @@ const OrdersScreen = () => {
     fetchOrders();
   }, []);
 
-  const getFilteredOrders = () => {
-    if (activeTab === 'All') return orders;
-    return orders.filter(order => 
-      order && order.status && order.status.toLowerCase() === activeTab.toLowerCase()
-    );
+  const countForTab = (tab) =>
+    orders.filter(o => TAB_STATUS_MAP[tab]?.includes(o.status)).length;
+
+  const filteredOrders = orders.filter(o =>
+    TAB_STATUS_MAP[activeTab]?.includes(o.status)
+  );
+
+  const handleAccept = (order) => {
+    Alert.alert('Order Accepted', `Order ${order.orderId} has been accepted.`);
   };
 
-  const filteredOrders = getFilteredOrders();
+  const handleReject = (order) => {
+    Alert.alert('Reject Order', `Cancel order ${order.orderId}?`, [
+      { text: 'No' },
+      { text: 'Yes, cancel', style: 'destructive', onPress: () => {} },
+    ]);
+  };
 
   if (loading) {
     return (
       <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color="#FF8C00" />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.topBar}>
-        <Text style={styles.topTitle}>Orders</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#1a1a1a" />
+        </TouchableOpacity>
+        <View>
+          <Text style={styles.headerTitle}>Orders</Text>
+          <Text style={styles.headerSub}>Manage orders</Text>
+        </View>
       </View>
 
-      {/* Filter tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-        {['All', 'New', 'Preparing', 'Ready', 'Delivered'].map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            onPress={() => setActiveTab(tab)}
-            style={[styles.filterTab, tab === activeTab && styles.filterTabActive]}
-          >
-            <Text style={[styles.filterText, tab === activeTab && styles.filterTextActive]}>{tab}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {filteredOrders.length === 0 ? (
-           <Text style={{textAlign: 'center', marginTop: 20, color: '#888'}}>No {activeTab.toLowerCase()} orders found.</Text>
-        ) : (
-          filteredOrders.map((order) => {
-            const s = statusInfo[order.status] || { color: '#888', bg: '#F5F5F5' };
-            // Mock a friendly time display
-            const timeAgo = new Date(order.createdAt).getTime() > 0 ? new Date(order.createdAt).toLocaleTimeString() : 'Just now';
+      {/* Tab Filter */}
+      <View style={styles.tabsWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsRow}>
+          {TABS.map(tab => {
+            const count = countForTab(tab);
+            const isActive = tab === activeTab;
             return (
-              <TouchableOpacity key={order._id} style={styles.orderCard}>
-                <View style={styles.orderRow}>
-                  <Text style={styles.orderId}>{order.orderId}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: s.bg }]}>
-                    <Text style={[styles.statusText, { color: s.color }]}>{order.status}</Text>
+              <TouchableOpacity
+                key={tab}
+                onPress={() => setActiveTab(tab)}
+                style={[styles.tab, isActive && styles.tabActive]}
+              >
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab}</Text>
+                {count > 0 && (
+                  <View style={[styles.badge, isActive ? styles.badgeActive : styles.badgeInactive]}>
+                    <Text style={[styles.badgeText, isActive && styles.badgeTextActive]}>{count}</Text>
                   </View>
-                  <Text style={styles.orderTime}>{timeAgo}</Text>
-                </View>
-                <Text style={styles.customerName}>{order.customerName}</Text>
-                <Text style={styles.orderMeta}>{order.itemsCount} items</Text>
-                <View style={styles.orderFooter}>
-                  <Text style={styles.orderAmount}>₦{(order.amount || 0).toLocaleString()}</Text>
-                  <Ionicons name="arrow-forward" size={16} color="#ccc" />
-                </View>
+                )}
               </TouchableOpacity>
             );
-          })
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Orders List */}
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {filteredOrders.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="receipt-outline" size={40} color="#DDD" />
+            <Text style={styles.emptyText}>No {activeTab.toLowerCase()} orders</Text>
+          </View>
+        ) : (
+          filteredOrders.map((order, idx) => (
+            <View key={order._id || idx} style={styles.orderCard}>
+              {/* Order top row */}
+              <View style={styles.orderTopRow}>
+                <View style={styles.orderTopLeft}>
+                  <Text style={styles.orderId}>{order.orderId}</Text>
+                  <Text style={styles.orderTime}>{timeAgo(order.createdAt)}</Text>
+                </View>
+                <Text style={styles.orderAmount}>₦{(order.amount || 0).toLocaleString()}</Text>
+              </View>
+
+              {/* Customer & items */}
+              <Text style={styles.customerName}>{order.customerName} | {order.itemsCount} items</Text>
+              <Text style={styles.itemsText}>{order.items || `${order.itemsCount} items`}</Text>
+
+              {/* Action buttons */}
+              {activeTab === 'New' && (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity style={styles.viewDetailsBtn}>
+                    <Text style={styles.viewDetailsBtnText}>View details</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.rejectBtn} onPress={() => handleReject(order)}>
+                    <Ionicons name="close" size={16} color="#E74C3C" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.acceptBtn} onPress={() => handleAccept(order)}>
+                    <Text style={styles.acceptBtnText}>Accept</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {activeTab === 'Active' && (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity style={styles.viewDetailsBtn}>
+                    <Text style={styles.viewDetailsBtnText}>View details</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.acceptBtn, { flex: 1 }]}>
+                    <Text style={styles.acceptBtnText}>Mark Ready</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {(activeTab === 'Completed' || activeTab === 'Cancelled') && (
+                <View style={styles.actionRow}>
+                  <TouchableOpacity style={[styles.viewDetailsBtn, { flex: 1 }]}>
+                    <Text style={styles.viewDetailsBtnText}>View details</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ))
         )}
       </ScrollView>
     </SafeAreaView>
@@ -105,25 +222,119 @@ const OrdersScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F7F7F7' },
-  topBar: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#EEE' },
-  topTitle: { fontSize: 22, fontWeight: 'bold' },
-  filterScroll: { backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderColor: '#EEE' },
-  filterTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#EEE', marginRight: 10, backgroundColor: '#fff' },
-  filterTabActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  filterText: { color: '#555', fontSize: 13 },
-  filterTextActive: { color: '#fff', fontWeight: 'bold' },
-  scroll: { padding: 16, paddingBottom: 100 },
-  orderCard: { backgroundColor: '#fff', borderRadius: 14, padding: 16, marginBottom: 14, elevation: 1 },
-  orderRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  orderId: { fontWeight: 'bold', fontSize: 15 },
-  statusBadge: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3 },
-  statusText: { fontSize: 12, fontWeight: '600' },
-  orderTime: { color: '#aaa', fontSize: 12, marginLeft: 'auto' },
-  customerName: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
-  orderMeta: { color: '#888', fontSize: 13, marginBottom: 10 },
-  orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  orderAmount: { fontWeight: 'bold', fontSize: 16, color: '#000' },
+  safeArea: { flex: 1, backgroundColor: '#F4F4F4' },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#FFF',
+    borderBottomWidth: 1,
+    borderColor: '#F0F0F0',
+    gap: 10,
+  },
+  backBtn: { padding: 4 },
+  headerTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
+  headerSub: { fontSize: 11, color: '#AAA', marginTop: 1 },
+
+  // Tabs
+  tabsWrapper: {
+    backgroundColor: '#FFF',
+    borderBottomWidth: 1,
+    borderColor: '#F0F0F0',
+    paddingVertical: 12,
+  },
+  tabsRow: { paddingHorizontal: 14, gap: 8 },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    backgroundColor: '#FFF',
+    gap: 6,
+  },
+  tabActive: {
+    backgroundColor: '#FF8C00',
+    borderColor: '#FF8C00',
+  },
+  tabText: { fontSize: 13, color: '#666', fontWeight: '500' },
+  tabTextActive: { color: '#FFF', fontWeight: '700' },
+  badge: {
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  badgeActive: { backgroundColor: 'rgba(255,255,255,0.3)' },
+  badgeInactive: { backgroundColor: '#FF8C00' },
+  badgeText: { fontSize: 11, fontWeight: '700', color: '#FFF' },
+  badgeTextActive: { color: '#FFF' },
+
+  // Scroll
+  scroll: { padding: 14, paddingBottom: 100 },
+
+  // Empty state
+  empty: { alignItems: 'center', marginTop: 60, gap: 10 },
+  emptyText: { fontSize: 14, color: '#BBB', fontWeight: '500' },
+
+  // Order Card
+  orderCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  orderTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  orderTopLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  orderId: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
+  orderTime: { fontSize: 12, color: '#AAA' },
+  orderAmount: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
+  customerName: { fontSize: 13, color: '#555', marginBottom: 3 },
+  itemsText: { fontSize: 12, color: '#AAA', marginBottom: 14 },
+
+  // Buttons
+  actionRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  viewDetailsBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  viewDetailsBtnText: { fontSize: 13, color: '#333', fontWeight: '500' },
+  rejectBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FADBD8',
+    backgroundColor: '#FEF9F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptBtn: {
+    backgroundColor: '#FF8C00',
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  acceptBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
 });
 
 export default OrdersScreen;
