@@ -10,14 +10,15 @@ const getVendorMenu = async (req, res) => {
 
     if (menuItems.length === 0) {
       const demoItems = [
-        { vendorId: vendor._id, name: 'Suya Platter', description: 'Spicy grilled beef skewers with onions', price: 3500, stock: 8, available: true, category: 'Grills' },
-        { vendorId: vendor._id, name: 'Pepper Soup', description: 'Hot and spicy beef pepper soup', price: 3500, stock: 0, available: false, category: 'Soups' },
-        { vendorId: vendor._id, name: 'Jollof Rice', description: 'Classic Nigerian Jollof', price: 4500, stock: 20, available: true, category: 'Rice' },
-        { vendorId: vendor._id, name: 'Fried Rice', description: 'Savory fried rice with mixed veggies', price: 4000, stock: 15, available: true, category: 'Rice' },
-        { vendorId: vendor._id, name: 'Puff Puff (6pcs)', description: 'Sweet, fluffy fried dough', price: 1000, stock: 3, available: true, category: 'Snacks' },
+        { vendorId: vendor._id, name: 'Suya Platter', description: 'Spicy grilled beef skewers with onions', price: 3500, stock: 8, available: true, category: 'Grills', image: 'https://res.cloudinary.com/dq4mxuz72/image/upload/v1717410000/suya.jpg' },
+        { vendorId: vendor._id, name: 'Pepper Soup', description: 'Hot and spicy beef pepper soup', price: 3500, stock: 0, available: false, category: 'Soups', image: 'https://res.cloudinary.com/dq4mxuz72/image/upload/v1717410000/soup.jpg' },
+        { vendorId: vendor._id, name: 'Jollof Rice', description: 'Classic Nigerian Jollof', price: 4500, stock: 20, available: true, category: 'Rice', image: 'https://res.cloudinary.com/dq4mxuz72/image/upload/v1717410000/jollof.jpg' },
+        { vendorId: vendor._id, name: 'Fried Rice', description: 'Savory fried rice with mixed veggies', price: 4000, stock: 15, available: true, category: 'Rice', image: 'https://res.cloudinary.com/dq4mxuz72/image/upload/v1717410000/fried_rice.jpg' },
+        { vendorId: vendor._id, name: 'Puff Puff (6pcs)', description: 'Sweet, fluffy fried dough', price: 1000, stock: 3, available: true, category: 'Snacks', image: 'https://res.cloudinary.com/dq4mxuz72/image/upload/v1717410000/puff_puff.jpg' },
       ];
       menuItems = await MenuItem.insertMany(demoItems);
     }
+
 
     const categories = ['All', 'Rice', 'Soups', 'Grills', 'Drinks', 'Snacks'];
 

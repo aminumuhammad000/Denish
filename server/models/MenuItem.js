@@ -8,6 +8,8 @@ const menuItemSchema = new mongoose.Schema({
   stock: { type: Number, required: true, default: 0 },
   available: { type: Boolean, default: true },
   category: { type: String, required: true, default: 'All' },
+  image: { type: String },
 }, { timestamps: true });
+
 
 module.exports = mongoose.model('MenuItem', menuItemSchema);
