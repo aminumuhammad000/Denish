@@ -69,7 +69,7 @@ const CustomerHomeScreen = ({ navigation }) => {
 
         {/* --- ORANGE HEADER --- */}
         <View style={styles.headerBackground}>
-          <SafeAreaView>
+          <SafeAreaView edges={['top']}>
             <View style={styles.headerTop}>
               <TouchableOpacity style={styles.profileRow} onPress={() => navigation.navigate('CustomerProfile')}>
                 <Image
@@ -83,11 +83,15 @@ const CustomerHomeScreen = ({ navigation }) => {
               </TouchableOpacity>
               <View style={styles.headerIcons}>
                 <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('ChatList')}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFF" />
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FFF" />
+                  </View>
                   <View style={styles.badge}><Text style={styles.badgeText}>3</Text></View>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.iconBtn}>
-                  <Ionicons name="cart-outline" size={26} color="#FFF" />
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="cart-outline" size={22} color="#FFF" />
+                  </View>
                   <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
                 </TouchableOpacity>
               </View>
@@ -95,7 +99,7 @@ const CustomerHomeScreen = ({ navigation }) => {
 
             <View style={styles.searchSection}>
               <View style={styles.searchBar}>
-                <Ionicons name="search" size={22} color="#999" />
+                <Ionicons name="search" size={20} color="#999" style={{ marginLeft: 5 }} />
                 <TextInput
                   placeholder="Search items, dishes or vendors"
                   placeholderTextColor="#999"
@@ -105,9 +109,9 @@ const CustomerHomeScreen = ({ navigation }) => {
                 />
               </View>
               <TouchableOpacity style={styles.locationContainer}>
-                <Ionicons name="location-sharp" size={16} color="#FFF" style={{ opacity: 0.7 }} />
+                <Ionicons name="location-sharp" size={14} color="#FFF" style={{ opacity: 0.9 }} />
                 <Text style={styles.locationText}>Deliver to Lagos Island</Text>
-                <Ionicons name="chevron-down" size={14} color="#FFF" />
+                <Ionicons name="chevron-down" size={12} color="#FFF" />
               </TouchableOpacity>
             </View>
           </SafeAreaView>
@@ -198,116 +202,126 @@ const styles = StyleSheet.create({
   },
   headerBackground: {
     backgroundColor: Colors.primary,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingBottom: 10,
-    paddingHorizontal: 16,
+    borderBottomLeftRadius: 50,
+    borderBottomRightRadius: 50,
+    paddingBottom: 25,
+    paddingHorizontal: 20,
     paddingTop: 10,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 10,
-    marginBottom: 15,
+    marginBottom: 20,
   },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   profilePic: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
   },
   greetingText: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 11,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    fontWeight: '500',
   },
   userName: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: 'bold',
+    marginTop: -2,
   },
   headerIcons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   iconBtn: {
-    padding: 2,
+    position: 'relative',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   badge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: 2,
+    right: 2,
     backgroundColor: '#FF3B30',
     width: 14,
     height: 14,
     borderRadius: 7,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.2,
-    borderColor: Colors.primary,
+    borderWidth: 1.5,
+    borderColor: '#FF8C00',
   },
   badgeText: {
     color: '#FFF',
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: 'bold',
   },
   searchSection: {
-    gap: 10,
+    gap: 12,
   },
   searchBar: {
     backgroundColor: '#FFF',
-    borderRadius: 25,
+    borderRadius: 30,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-    elevation: 3,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    gap: 10,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     color: '#333',
+    fontWeight: '500',
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 6,
   },
   locationText: {
-    color: '#FFF',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 13,
     fontWeight: '600',
   },
   scrollContent: {
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
   content: {
-    padding: 16,
+    padding: 20,
   },
   heroBanner: {
     width: '100%',
-    height: 150,
-    borderRadius: 20,
+    height: 160,
+    borderRadius: 24,
     overflow: 'hidden',
-    marginBottom: 20,
-    backgroundColor: '#000',
+    marginBottom: 25,
+    backgroundColor: '#F5F5F5',
   },
   heroImage: {
     width: '100%',
     height: '100%',
-    opacity: 0.8,
+    opacity: 0.95,
   },
   heroOverlay: {
     position: 'absolute',
@@ -335,68 +349,70 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 15,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    letterSpacing: -0.3,
   },
   viewAll: {
     color: Colors.primary,
-    fontWeight: '600',
-    fontSize: 12,
+    fontWeight: '700',
+    fontSize: 13,
   },
   horizontalScroll: {
     paddingRight: 20,
-    gap: 15,
-    marginBottom: 25,
+    gap: 16,
+    marginBottom: 30,
   },
   featuredCard: {
     backgroundColor: '#FFF',
-    borderRadius: 12,
-    width: width * 0.45,
+    borderRadius: 18,
+    width: width * 0.44,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: '#F5F5F5',
     overflow: 'hidden',
   },
   featuredImage: {
     width: '100%',
-    height: 110,
+    height: 120,
   },
   featuredInfo: {
-    padding: 8,
+    padding: 12,
   },
   featuredTextRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 1,
+    marginBottom: 2,
   },
   featuredName: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: 'bold',
     color: '#1a1a1a',
     flex: 1,
   },
   featuredCategory: {
-    fontSize: 10,
-    color: '#888',
+    fontSize: 11,
+    color: '#999',
+    fontWeight: '500',
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
   },
   ratingText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 'bold',
-    color: '#666',
+    color: '#444',
   },
   foodCard: {
     width: (width - 44) / 2,
