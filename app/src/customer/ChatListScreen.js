@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import CustomerBottomTab from './components/CustomerBottomTab';
 
 const CHATS = [
   {
@@ -90,7 +91,7 @@ const ChatListScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
         )}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="chatbubbles-outline" size={60} color="#DDD" />
@@ -98,6 +99,7 @@ const ChatListScreen = ({ navigation }) => {
           </View>
         }
       />
+      <CustomerBottomTab activeTab="Chats" navigation={navigation} />
     </SafeAreaView>
   );
 };

@@ -6,19 +6,21 @@ export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [restaurantId, setRestaurantId] = useState(null);
 
-  const addToCart = (item, restId) => {
-    // If a user adds an item from a different restaurant, we can either clear the cart or throw an error.
-    // For simplicity, we clear the cart if restaurant ID changes.
+  const addToCart = (item, restId, quantity = 1, instructions = '') => {
     let updatedItems = [...cartItems];
     if (restaurantId && restaurantId !== restId) {
       updatedItems = [];
     }
 
-    const existingItem = updatedItems.find(i => i._id === item._id);
-    if (existingItem) {
-      existingItem.quantity += 1;
+    // Check for existing item with SAME instructions
+    const existingIndex = updatedItems.findIndex(i => i._id === item._id && i.instructions === instructions);
+    
+    if (existingIndex > -1) {
+      const clonedItems = [...updatedItems];
+      clonedItems[existingIndex].quantity += quantity;
+      updatedItems = clonedItems;
     } else {
-      updatedItems.push({ ...item, quantity: 1 });
+      updatedItems.push({ ...item, quantity, instructions });
     }
 
     setRestaurantId(restId);

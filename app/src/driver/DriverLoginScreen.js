@@ -14,16 +14,14 @@ import AnimatedLoadingText from '../components/AnimatedLoadingText';
 import { driverLogin } from '../services/api';
 
 const DriverLoginScreen = ({ navigation }) => {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setErrorMsg('Please enter email and password');
-      return;
-    }
+    if (!email || !password) return;
 
     setLoading(true);
     setErrorMsg('');
@@ -89,9 +87,9 @@ const DriverLoginScreen = ({ navigation }) => {
             {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
             <TouchableOpacity 
-              style={styles.button}
+              style={[styles.button, (!email || !password) && { opacity: 0.5 }]}
               onPress={handleLogin}
-              disabled={loading}
+              disabled={loading || !email || !password}
             >
               {loading ? (
                 <AnimatedLoadingText text="Signing in" style={styles.buttonText} />

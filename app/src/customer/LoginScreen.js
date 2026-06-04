@@ -106,9 +106,9 @@ const LoginScreen = ({ navigation }) => {
 
             {/* Sign In Button */}
             <TouchableOpacity 
-              style={styles.button}
+              style={[styles.button, (!email || !password) && { opacity: 0.5 }]}
               onPress={handleLogin}
-              disabled={loading}
+              disabled={loading || !email || !password}
             >
               {loading ? (
                 <AnimatedLoadingText text="Signing in" style={styles.buttonText} />

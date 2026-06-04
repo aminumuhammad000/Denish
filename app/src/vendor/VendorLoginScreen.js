@@ -99,7 +99,11 @@ const VendorLoginScreen = ({ navigation }) => {
             </View>
 
             {errorMsg ? <Text style={{ color: 'red', marginBottom: 10, textAlign: 'center' }}>{errorMsg}</Text> : null}
-            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+            <TouchableOpacity 
+              style={[styles.button, (!email || !password) && { opacity: 0.5 }]} 
+              onPress={handleLogin} 
+              disabled={loading || !email || !password}
+            >
               {loading ? (
                 <AnimatedLoadingText text="Signing in" style={styles.buttonText} />
               ) : (

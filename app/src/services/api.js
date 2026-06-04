@@ -176,7 +176,15 @@ export const getRestaurants = async () => {
     throw error;
   }
 };
-
+export const searchAll = async (query) => {
+  try {
+    const response = await api.get(`/customer/search?query=${query}`);
+    return response.data;
+  } catch (error) {
+    console.error('API searchAll error:', error);
+    throw error;
+  }
+};
 export const getCustomerRestaurantDetails = async (restaurantId) => {
   try {
     const response = await api.get(`/customer/restaurant/${restaurantId}`);
@@ -223,6 +231,36 @@ export const updateCustomerProfile = async (profileData) => {
     return response.data;
   } catch (error) {
     console.error('API updateCustomerProfile error:', error);
+    throw error;
+  }
+};
+
+export const saveAddress = async (addressData) => {
+  try {
+    const response = await api.post('/customer/add-address', addressData);
+    return response.data;
+  } catch (error) {
+    console.error('API saveAddress error:', error);
+    throw error;
+  }
+};
+
+export const savePaymentMethod = async (paymentData) => {
+  try {
+    const response = await api.post('/customer/add-payment-method', paymentData);
+    return response.data;
+  } catch (error) {
+    console.error('API savePaymentMethod error:', error);
+    throw error;
+  }
+};
+
+export const fetchOrderTracking = async (orderId) => {
+  try {
+    const response = await api.get(`/customer/order/${orderId}/tracking`);
+    return response.data;
+  } catch (error) {
+    console.error('API fetchOrderTracking error:', error);
     throw error;
   }
 };

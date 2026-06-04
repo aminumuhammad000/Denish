@@ -128,6 +128,30 @@ const addPaymentMethod = async (req, res) => {
   }
 };
 
+const getOrderTracking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Attempt to find by MongoDB ID or custom orderId string
+    const order = await Order.findOne({ $or: [{ _id: id }, { orderId: id }] }).populate('vendorId');
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    // Mock dynamic arrival time: 30 mins minus elapsed time
+    const elapsedMins = Math.floor((new Date() - new Date(order.createdAt)) / 60000);
+    const estimatedArrival = Math.max(0, 30 - elapsedMins);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        order,
+        estimatedArrival,
+        status: order.status
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 const getCustomerOrders = async (req, res) => {
   try {
     const orders = await Order.find().populate('vendorId').sort({ createdAt: -1 });
@@ -176,5 +200,6 @@ module.exports = {
   getCustomerOrders,
   search,
   addAddress,
-  addPaymentMethod
+  addPaymentMethod,
+  getOrderTracking
 };

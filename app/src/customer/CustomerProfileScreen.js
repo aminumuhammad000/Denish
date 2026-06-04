@@ -8,6 +8,7 @@ import { Colors } from '../constants/Colors';
 
 import { getCustomerProfile } from '../services/api';
 import { useIsFocused } from '@react-navigation/native';
+import CustomerBottomTab from './components/CustomerBottomTab';
 
 const CustomerProfileScreen = ({ navigation }) => {
   const isFocused = useIsFocused();
@@ -231,13 +232,13 @@ const CustomerProfileScreen = ({ navigation }) => {
             </View>
           </TouchableOpacity>
         </View>
-
         <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.replace('RoleSelection')}>
           <Ionicons name="log-out-outline" size={20} color="#FF5252" style={{ marginRight: 8 }} />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
       </ScrollView>
+      <CustomerBottomTab activeTab="Profile" navigation={navigation} />
     </SafeAreaView>
   );
 };

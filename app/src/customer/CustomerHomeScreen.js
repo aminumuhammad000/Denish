@@ -16,6 +16,8 @@ import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getRestaurants, getCustomerProfile } from '../services/api';
 import { ActivityIndicator } from 'react-native';
+import CustomerBottomTab from './components/CustomerBottomTab';
+import { useCart } from '../context/CartContext';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +49,8 @@ const CustomerHomeScreen = ({ navigation }) => {
   const [search, setSearch] = useState('');
   const [vendors, setVendors] = useState([]);
   const [profile, setProfile] = useState(null);
+  const { cartItems } = useCart();
+  const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
@@ -92,28 +96,26 @@ const CustomerHomeScreen = ({ navigation }) => {
                   <View style={styles.iconCircle}>
                     <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FFF" />
                   </View>
-                  <View style={styles.badge}><Text style={styles.badgeText}>3</Text></View>
+                  <View style={styles.badge}><Text style={styles.badgeText}>0</Text></View>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn}>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Cart')}>
                   <View style={styles.iconCircle}>
                     <Ionicons name="cart-outline" size={22} color="#FFF" />
                   </View>
-                  <View style={styles.badge}><Text style={styles.badgeText}>2</Text></View>
+                  {cartItemCount > 0 && (
+                    <View style={styles.badge}><Text style={styles.badgeText}>{cartItemCount}</Text></View>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.searchSection}>
-              <View style={styles.searchBar}>
+              <TouchableOpacity style={styles.searchBar} onPress={() => navigation.navigate('Search')}>
                 <Ionicons name="search" size={20} color="#999" style={{ marginLeft: 5 }} />
-                <TextInput
-                  placeholder="Search items, dishes or vendors"
-                  placeholderTextColor="#999"
-                  style={styles.searchInput}
-                  value={search}
-                  onChangeText={setSearch}
-                />
-              </View>
+                <Text style={{ flex: 1, color: '#999', fontSize: 14, fontWeight: '500' }}>
+                  Search items, dishes or vendors
+                </Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.locationContainer}>
                 <Ionicons name="location-sharp" size={14} color="#FFF" style={{ opacity: 0.9 }} />
                 <Text style={styles.locationText}>Deliver to Lagos Island</Text>
@@ -179,24 +181,7 @@ const CustomerHomeScreen = ({ navigation }) => {
       </ScrollView>
 
       {/* --- BOTTOM TAB BAR --- */}
-      <View style={[styles.bottomTab, { paddingBottom: Math.max(insets.bottom, 10), height: 60 + insets.bottom }]}>
-        <TouchableOpacity style={styles.tabItem}>
-          <Ionicons name="home-outline" size={24} color={Colors.primary} />
-          <Text style={[styles.tabLabel, { color: Colors.primary }]}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
-          <MaterialCommunityIcons name="shopping-outline" size={24} color="#999" />
-          <Text style={styles.tabLabel}>Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate('ChatList')}>
-          <Ionicons name="chatbubble-ellipses-outline" size={24} color="#999" />
-          <Text style={styles.tabLabel}>Chats</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate('CustomerProfile')}>
-          <Ionicons name="person-outline" size={24} color="#999" />
-          <Text style={styles.tabLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <CustomerBottomTab activeTab="Home" navigation={navigation} />
     </View>
   );
 };
@@ -285,7 +270,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 15,
-    paddingVertical: 10,
+    paddingVertical: 7,
     gap: 10,
     elevation: 4,
     shadowColor: '#000',

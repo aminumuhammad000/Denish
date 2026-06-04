@@ -29,8 +29,12 @@ import CustomerProfileScreen from './src/customer/CustomerProfileScreen';
 import ChatListScreen from './src/customer/ChatListScreen';
 import ChatDetailScreen from './src/customer/ChatDetailScreen';
 import CheckoutScreen from './src/customer/CheckoutScreen';
+import CartScreen from './src/customer/CartScreen';
+import SearchScreen from './src/customer/SearchScreen';
 import CustomerSignupScreen from './src/customer/SignupScreen';
 import CustomerEditProfileScreen from './src/customer/CustomerEditProfileScreen';
+import CustomerOrdersScreen from './src/customer/CustomerOrdersScreen';
+import TrackOrderScreen from './src/customer/TrackOrderScreen';
 
 // Driver Screens
 import DriverWelcomeScreen from './src/driver/DriverWelcomeScreen';
@@ -87,9 +91,13 @@ export default function App() {
               <Stack.Screen name="CustomerRestaurant" component={CustomerRestaurantScreen} />
               <Stack.Screen name="CustomerProfile" component={CustomerProfileScreen} />
               <Stack.Screen name="CustomerEditProfile" component={CustomerEditProfileScreen} />
+              <Stack.Screen name="CustomerOrders" component={CustomerOrdersScreen} />
               <Stack.Screen name="ChatList" component={ChatListScreen} />
               <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
               <Stack.Screen name="Checkout" component={CheckoutScreen} />
+              <Stack.Screen name="Cart" component={CartScreen} />
+              <Stack.Screen name="TrackOrder" component={TrackOrderScreen} />
+              <Stack.Screen name="Search" component={SearchScreen} />
   
               {/* ── Driver App ── */}
               <Stack.Screen name="DriverWelcome" component={DriverWelcomeScreen} />

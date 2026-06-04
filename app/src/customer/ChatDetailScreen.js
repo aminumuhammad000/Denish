@@ -65,6 +65,30 @@ const ChatDetailScreen = ({ route, navigation }) => {
     }
   };
 
+  const handleCall = () => {
+    Alert.alert(
+      "Voice Call",
+      `Calling ${name}...`,
+      [
+        { 
+          text: "End Call", 
+          onPress: () => {
+            const callLog = {
+              id: Date.now().toString(),
+              text: "Outgoing Voice Call",
+              subText: "No answer",
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              sender: 'me',
+              type: 'call'
+            };
+            setMessages([...messages, callLog]);
+          },
+          style: "destructive" 
+        }
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
@@ -76,7 +100,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
           <Text style={styles.headerTitle}>{name}</Text>
           <Text style={styles.headerSubtitle}>{type}</Text>
         </View>
-        <TouchableOpacity style={styles.callBtn}>
+        <TouchableOpacity style={styles.callBtn} onPress={handleCall}>
           <Ionicons name="call" size={20} color="#1a1a1a" />
         </TouchableOpacity>
       </View>
@@ -89,8 +113,24 @@ const ChatDetailScreen = ({ route, navigation }) => {
         <ScrollView contentContainerStyle={styles.scroll}>
           {messages.map((m) => (
             <View key={m.id} style={[styles.messageRow, m.sender === 'me' ? styles.meRow : styles.themRow]}>
-              <View style={[styles.bubble, m.sender === 'me' ? styles.meBubble : styles.themBubble]}>
-                {m.image ? (
+              <View style={[
+                styles.bubble, 
+                m.sender === 'me' ? styles.meBubble : styles.themBubble,
+                m.type === 'call' && styles.callBubble
+              ]}>
+                {m.type === 'call' ? (
+                  <View style={styles.callMessageContainer}>
+                    <Ionicons name="call" size={18} color={m.sender === 'me' ? "#FFF" : "#333"} />
+                    <View style={styles.callMessageInfo}>
+                      <Text style={[styles.messageText, m.sender === 'me' ? styles.meText : styles.themText]}>
+                        {m.text}
+                      </Text>
+                      <Text style={[styles.callSubText, m.sender === 'me' ? styles.meTime : styles.themTime]}>
+                        {m.subText}
+                      </Text>
+                    </View>
+                  </View>
+                ) : m.image ? (
                   <Image source={{ uri: m.image }} style={styles.messageImage} resizeMode="cover" />
                 ) : (
                   <Text style={[styles.messageText, m.sender === 'me' ? styles.meText : styles.themText]}>
@@ -175,11 +215,12 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   themBubble: {
-    backgroundColor: '#FFF',
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
     borderColor: '#EFEFEF',
   },
+  callBubble: { paddingHorizontal: 16, paddingVertical: 10, minWidth: 160 },
+  callMessageContainer: { flexDirection: 'row', alignItems: 'center' },
+  callMessageInfo: { marginLeft: 12 },
+  callSubText: { fontSize: 11, marginTop: 2 },
 
   messageText: { fontSize: 14, lineHeight: 20 },
   meText: { color: '#FFF' },
