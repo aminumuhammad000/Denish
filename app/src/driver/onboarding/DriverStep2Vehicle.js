@@ -96,7 +96,8 @@ const DriverStep2Vehicle = ({ navigation }) => {
                 <Text style={styles.label}>Make</Text>
                 <TextInput
                   style={[styles.input, errors.make && styles.inputError]}
-                  placeholder=""
+                  placeholder="e.g. Honda"
+                  placeholderTextColor="#999"
                   value={make}
                   onChangeText={(v) => { setMake(v); if(errors.make) setErrors({...errors, make: null}); }}
                 />
