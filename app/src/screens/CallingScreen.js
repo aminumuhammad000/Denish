@@ -10,13 +10,18 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Audio } from 'expo-av';
+
+const RINGING_SOUND_URL = 'https://www.soundjay.com/phone/phone-calling-1.mp3';
 
 const CallingScreen = ({ route, navigation }) => {
   const { name = 'Kolawole Adeleke', orderId = 'Order ORD-005', subtitle = '3.5 km | ₦750' } = route?.params || {};
   
   const pulseAnim = new Animated.Value(1);
+  const soundRef = React.useRef(null);
 
   useEffect(() => {
+    // Pulse Animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -31,6 +36,29 @@ const CallingScreen = ({ route, navigation }) => {
         }),
       ])
     ).start();
+
+    // Play Sound
+    const playSound = async () => {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: RINGING_SOUND_URL },
+          { shouldPlay: true, isLooping: true }
+        );
+        soundRef.current = sound;
+      } catch (error) {
+        console.error('Error playing sound:', error);
+      }
+    };
+
+    playSound();
+
+    // Cleanup
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.stopAsync();
+        soundRef.current.unloadAsync();
+      }
+    };
   }, []);
 
   return (

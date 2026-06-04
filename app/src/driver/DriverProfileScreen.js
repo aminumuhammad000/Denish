@@ -10,6 +10,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getDriverProfile } from '../services/api';
+import { ActivityIndicator, Image } from 'react-native';
 
 const ProfileCard = ({ title, children, onEdit, showEdit = true }) => (
   <View style={styles.profileCard}>
@@ -65,11 +67,57 @@ const NotificationRow = ({ title, sub, value, onToggle }) => (
 );
 
 const DriverProfileScreen = ({ navigation }) => {
+  const [loading, setLoading] = useState(true);
+  const [driver, setDriver] = useState(null);
   const [notifs, setNotifs] = useState({
     orders: true,
     payouts: true,
     promos: false,
   });
+
+  React.useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      const response = await getDriverProfile();
+      if (response && response.success) {
+        setDriver(response.driver);
+      }
+    } catch (error) {
+      console.error('Error fetching driver profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={{ marginTop: 10, color: '#666' }}>Fetching profile...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  const profile = driver || {
+    name: 'Bayo Adeyemi',
+    email: 'bayo.adeyemi@gmail.com',
+    phone: '+2349085485747',
+    vehicle: {
+      type: 'Motorcycle',
+      make: 'Honda ACE 125',
+      plate: 'LSR-482-AB',
+      color: 'Red'
+    },
+    bank: {
+      name: 'GTBank',
+      accountName: 'Bayo Adeyemi',
+      accountNumber: '7474673733'
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -86,57 +134,70 @@ const DriverProfileScreen = ({ navigation }) => {
         <View style={styles.topCard}>
           <TouchableOpacity 
             style={styles.avatarWrapper}
-            onPress={() => navigation.navigate('DriverEditProfile')}
+            onPress={() => navigation.navigate('DriverEditProfile', { driver: profile })}
           >
             <View style={styles.avatar}>
-               <Text style={styles.avatarText}>BA</Text>
+               {profile.profilePic ? (
+                 <Image source={{ uri: profile.profilePic }} style={{ width: '100%', height: '100%', borderRadius: 35 }} />
+               ) : (
+                 <Text style={styles.avatarText}>{profile.name?.split(' ').map(n => n[0]).join('') || 'BA'}</Text>
+               )}
             </View>
             <View style={styles.editAvatarBtn}>
               <Ionicons name="camera" size={12} color="#FFF" />
             </View>
           </TouchableOpacity>
-          <Text style={styles.userName}>Bayo Adeyemi</Text>
-          <Text style={styles.userPhone}>+234847474848</Text>
+          <Text style={styles.userName}>{profile.name}</Text>
+          <Text style={styles.userPhone}>{profile.phone}</Text>
           
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Ionicons name="star" size={14} color="#FFD700" />
-              <Text style={styles.statText}>4.8</Text>
+              <Text style={styles.statText}>{profile.rating || '4.8'}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statText}>342 trips</Text>
+              <Text style={styles.statText}>{profile.trips || '342'} trips</Text>
             </View>
           </View>
         </View>
 
         {/* PERSONAL INFO */}
-        <ProfileCard title="Personal information" onEdit={() => navigation.navigate('DriverEditProfile')}>
-           <InfoRow label="Name" value="Bayo Adeyemi" />
+        <ProfileCard 
+          title="Personal information" 
+          onEdit={() => navigation.navigate('DriverEditProfile', { section: 'personal', driver: profile })}
+        >
+           <InfoRow label="Name" value={profile.name} />
            <View style={styles.divider} />
-           <InfoRow label="Email" value="bayo.adeyemi@gmail.com" />
+           <InfoRow label="Email" value={profile.email} />
            <View style={styles.divider} />
-           <InfoRow label="Phone" value="+2349085485747" />
+           <InfoRow label="Phone" value={profile.phone} />
         </ProfileCard>
 
         {/* VEHICLE DETAILS */}
-        <ProfileCard title="Vehicle details" onEdit={() => navigation.navigate('DriverEditProfile')}>
-           <InfoRow label="Type" value="Motorcycle" />
+        <ProfileCard 
+          title="Vehicle details" 
+          onEdit={() => navigation.navigate('DriverEditProfile', { section: 'vehicle', driver: profile })}
+        >
+           <InfoRow label="Type" value={profile.vehicle?.type || 'Motorcycle'} />
            <View style={styles.divider} />
-           <InfoRow label="Make/model" value="Honda ACE 125" />
+           <InfoRow label="Make/model" value={profile.vehicle?.make || 'Honda ACE 125'} />
            <View style={styles.divider} />
-           <InfoRow label="Plate" value="LSR-482-AB" />
+           <InfoRow label="Plate" value={profile.vehicle?.plate || 'LSR-482-AB'} />
            <View style={styles.divider} />
-           <InfoRow label="Color" value="Red" />
+           <InfoRow label="Color" value={profile.vehicle?.color || 'Red'} />
         </ProfileCard>
 
         {/* BANK ACCOUNT */}
-        <ProfileCard title="Bank account" onEdit={() => navigation.navigate('DriverEditProfile')}>
-           <InfoRow label="Bank" value="GTBank" />
+        <ProfileCard 
+          title="Bank account" 
+          onEdit={() => navigation.navigate('DriverEditProfile', { section: 'bank', driver: profile })}
+        >
+           <InfoRow label="Bank" value={profile.bank?.name || 'GTBank'} />
            <View style={styles.divider} />
-           <InfoRow label="Account name" value="Bayo Adeyemi" />
+           <InfoRow label="Account name" value={profile.bank?.accountName || 'Bayo Adeyemi'} />
            <View style={styles.divider} />
-           <InfoRow label="Number" value="7474673733" />
+           <InfoRow label="Number" value={profile.bank?.accountNumber || '7474673733'} />
         </ProfileCard>
 
         {/* DOCUMENTS */}
@@ -186,7 +247,10 @@ const DriverProfileScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         {/* LOGOUT BUTTON */}
-        <TouchableOpacity style={styles.logoutBtnOuter}>
+        <TouchableOpacity 
+          style={styles.logoutBtnOuter} 
+          onPress={() => navigation.navigate('DriverEditProfile', { section: 'logout' })}
+        >
            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
            <Text style={styles.logoutTextOuter}>Logout</Text>
         </TouchableOpacity>

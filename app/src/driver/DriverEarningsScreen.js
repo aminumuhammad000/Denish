@@ -6,6 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
@@ -60,9 +64,83 @@ const TransactionItem = ({ type, date, amount, status, isWithdrawal = false }) =
   );
 };
 
+const WithdrawModal = ({ visible, onClose, balance, onWithdraw }) => {
+  const [amount, setAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleWithdraw = () => {
+    if (!amount || parseFloat(amount) <= 0) return;
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      onWithdraw(amount);
+      onClose();
+      setAmount('');
+    }, 2000);
+  };
+
+  const selectQuick = (val) => {
+    if (val === 'All') setAmount(balance.replace('₦', '').replace(',', ''));
+    else setAmount(val);
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHeader}>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={20} color="#CBD5E1" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalTitleContainer}>
+            <Text style={styles.modalTitle}>Withdraw earnings</Text>
+            <Text style={styles.modalSubtitle}>Funds will be sent to GTBank 0219832185</Text>
+          </View>
+
+          <View style={styles.modalContent}>
+            <Text style={styles.amountLabel}>Amount (₦)</Text>
+            <TextInput
+              style={styles.amountInput}
+              placeholder={`Up to ${balance}`}
+              keyboardType="number-pad"
+              value={amount}
+              onChangeText={setAmount}
+            />
+
+            <View style={styles.quickSelect}>
+              {['5000', '10000', 'All'].map(val => (
+                <TouchableOpacity key={val} style={styles.chip} onPress={() => selectQuick(val)}>
+                  <Text style={styles.chipText}>{val === 'All' ? val : `₦${parseInt(val).toLocaleString()}`}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity style={styles.mainWithdrawBtn} onPress={handleWithdraw} disabled={loading}>
+              {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.mainWithdrawBtnText}>Withdraw</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose}>
+              <Text style={styles.modalCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const DriverEarningsScreen = ({ navigation }) => {
   const [incomeTab, setIncomeTab] = useState('Weekly');
   const [historyTab, setHistoryTab] = useState('Transactions');
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const handleWithdrawSuccess = (amt) => {
+    Alert.alert("Withdrawal Initiated", `₦${parseInt(amt).toLocaleString()} has been sent to your bank account.`);
+  };
 
   // Mock data for earnings chart
   const earningsData = [
@@ -93,7 +171,7 @@ const DriverEarningsScreen = ({ navigation }) => {
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available balance</Text>
           <Text style={styles.balanceValue}>₦38,500</Text>
-          <TouchableOpacity style={styles.withdrawBtn}>
+          <TouchableOpacity style={styles.withdrawBtn} onPress={() => setModalVisible(true)}>
             <Ionicons name="download-outline" size={20} color="#333" />
             <Text style={styles.withdrawText}>Withdraw</Text>
           </TouchableOpacity>
@@ -189,6 +267,13 @@ const DriverEarningsScreen = ({ navigation }) => {
         </View>
 
       </ScrollView>
+
+      <WithdrawModal 
+        visible={modalVisible} 
+        onClose={() => setModalVisible(false)} 
+        balance="₦38,500"
+        onWithdraw={handleWithdrawSuccess}
+      />
     </SafeAreaView>
   );
 };
@@ -455,6 +540,100 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     textTransform: 'lowercase',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+  },
+  modalTitleContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  modalSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 4,
+  },
+  modalContent: {
+    marginVertical: 10,
+  },
+  amountLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 10,
+  },
+  amountInput: {
+    height: 52,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    color: '#1E293B',
+    backgroundColor: '#FAFAFA',
+  },
+  quickSelect: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 15,
+  },
+  chip: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  chipText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  modalFooter: {
+    marginTop: 30,
+    gap: 12,
+  },
+  mainWithdrawBtn: {
+    backgroundColor: Colors.primary,
+    height: 52,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mainWithdrawBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  modalCancelBtn: {
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelBtnText: {
+    color: '#64748B',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

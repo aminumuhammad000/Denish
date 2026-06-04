@@ -157,6 +157,48 @@ export const driverSignup = async (name, email, phone, password, vehicleType) =>
   }
 };
 
+export const getDriverProfile = async () => {
+  try {
+    const response = await api.get('/driver/profile');
+    return response.data;
+  } catch (error) {
+    console.error('API getDriverProfile error:', error);
+    throw error;
+  }
+};
+
+export const updateDriverProfile = async (profileData) => {
+  try {
+    const response = await api.put('/driver/profile', profileData);
+    return response.data;
+  } catch (error) {
+    console.error('API updateDriverProfile error:', error);
+    throw error;
+  }
+};
+
+export const uploadDriverProfilePic = async (uri) => {
+  try {
+    const formData = new FormData();
+    const uriParts = uri.split('.');
+    const fileType = uriParts[uriParts.length - 1];
+
+    formData.append('image', {
+      uri,
+      name: `driver-profile.${fileType}`,
+      type: `image/${fileType}`,
+    });
+
+    const response = await api.post('/driver/upload-profile-pic', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API uploadDriverProfilePic error:', error);
+    throw error;
+  }
+};
+
 export const updateVendorProfile = async (profileData) => {
   try {
     const response = await api.put('/vendor/profile', profileData);

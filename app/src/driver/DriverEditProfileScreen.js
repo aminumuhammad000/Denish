@@ -1,142 +1,216 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   TouchableOpacity,
   TextInput,
-  Image,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
+import { updateDriverProfile } from '../services/api';
 
-const EditField = ({ label, value, onChangeText, placeholder, keyboardType = 'default' }) => (
-  <View style={styles.fieldContainer}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    <View style={styles.inputWrapper}>
-      <TextInput
-        style={styles.input}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#AAA"
-        keyboardType={keyboardType}
-      />
+const EditCard = ({ title, subtitle, children, onSave, onCancel, loading }) => (
+  <View style={styles.card}>
+    <View style={styles.cardHeader}>
+       <View style={{ flex: 1 }} />
+       <TouchableOpacity onPress={onCancel}>
+         <Ionicons name="close" size={20} color="#CBD5E1" />
+       </TouchableOpacity>
+    </View>
+    <View style={styles.cardTitleContainer}>
+       <Text style={styles.cardTitle}>{title}</Text>
+       <Text style={styles.cardSubtitle}>{subtitle}</Text>
+    </View>
+
+    <View style={styles.cardContent}>
+       {children}
+    </View>
+
+    <View style={styles.cardFooter}>
+       <TouchableOpacity 
+         style={styles.saveBtn} 
+         onPress={onSave}
+         disabled={loading}
+       >
+         {loading ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.saveBtnText}>Save</Text>}
+       </TouchableOpacity>
+       <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+         <Text style={styles.cancelBtnText}>Cancel</Text>
+       </TouchableOpacity>
     </View>
   </View>
 );
 
-const DriverEditProfileScreen = ({ navigation }) => {
+const FormField = ({ label, value, onChangeText, placeholder, keyboardType = 'default' }) => (
+  <View style={styles.field}>
+    <Text style={styles.label}>{label}</Text>
+    <TextInput
+      style={styles.input}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      keyboardType={keyboardType}
+    />
+  </View>
+);
+
+const DriverEditProfileScreen = ({ route, navigation }) => {
+  const { section = 'personal', driver = {} } = route.params || {};
   const [loading, setLoading] = useState(false);
-  const [profileImage, setProfileImage] = useState(null);
 
-  // Form State
-  const [name, setName] = useState('Bayo Adeyemi');
-  const [email, setEmail] = useState('bayo.adeyemi@gmail.com');
-  const [phone, setPhone] = useState('+2349085485747');
-  
-  const [vehicleType, setVehicleType] = useState('Motorcycle');
-  const [makeModel, setMakeModel] = useState('Honda ACE 125');
-  const [plate, setPlate] = useState('LSR-482-AB');
-  const [color, setColor] = useState('Red');
+  // Form States
+  const [formData, setFormData] = useState({
+    name: driver.name || '',
+    email: driver.email || '',
+    phone: driver.phone || '',
+    vehicleType: driver.vehicle?.type || 'Motorcycle',
+    makeModel: driver.vehicle?.make || '',
+    plate: driver.vehicle?.plate || '',
+    color: driver.vehicle?.color || '',
+    bank: driver.bank?.name || '',
+    accountName: driver.bank?.accountName || '',
+    accountNumber: driver.bank?.accountNumber || '',
+  });
 
-  const [bank, setBank] = useState('GTBank');
-  const [accountName, setAccountName] = useState('Bayo Adeyemi');
+  const updateField = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
-  const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      // Prepare payload based on section
+      let payload = {};
+      if (section === 'personal') {
+        payload = { name: formData.name, email: formData.email, phone: formData.phone };
+      } else if (section === 'vehicle') {
+        payload = { 
+          vehicle: { 
+            type: formData.vehicleType, 
+            make: formData.makeModel, 
+            plate: formData.plate, 
+            color: formData.color 
+          } 
+        };
+      } else if (section === 'bank') {
+        payload = { 
+          bank: { 
+            name: formData.bank, 
+            accountName: formData.accountName, 
+            accountNumber: formData.accountNumber 
+          } 
+        };
+      }
 
-    if (!result.canceled) {
-      setProfileImage(result.assets[0].uri);
+      const response = await updateDriverProfile(payload);
+      if (response && response.success) {
+        navigation.goBack();
+      }
+    } catch (error) {
+      console.error('Update error:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSave = () => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert("Success", "Profile updated successfully!");
-      navigation.goBack();
-    }, 1500);
+  const renderContent = () => {
+    if (section === 'personal') {
+      return (
+        <EditCard 
+          title="Edit personal information" 
+          subtitle="Changes are saved immediately"
+          onSave={handleSave}
+          onCancel={() => navigation.goBack()}
+          loading={loading}
+        >
+          <FormField label="Name" value={formData.name} onChangeText={(v) => updateField('name', v)} />
+          <FormField label="Email" value={formData.email} onChangeText={(v) => updateField('email', v)} keyboardType="email-address" />
+          <FormField label="Phone" value={formData.phone} onChangeText={(v) => updateField('phone', v)} keyboardType="phone-pad" />
+        </EditCard>
+      );
+    }
+
+    if (section === 'vehicle') {
+      return (
+        <EditCard 
+          title="Edit vehicle details" 
+          subtitle="Changes are saved immediately"
+          onSave={handleSave}
+          onCancel={() => navigation.goBack()}
+          loading={loading}
+        >
+          <FormField label="Type" value={formData.vehicleType} onChangeText={(v) => updateField('vehicleType', v)} />
+          <FormField label="Make/model" value={formData.makeModel} onChangeText={(v) => updateField('makeModel', v)} />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+               <FormField label="Plate" value={formData.plate} onChangeText={(v) => updateField('plate', v)} />
+            </View>
+            <View style={{ flex: 1 }}>
+               <FormField label="Color" value={formData.color} onChangeText={(v) => updateField('color', v)} />
+            </View>
+          </View>
+        </EditCard>
+      );
+    }
+
+    if (section === 'bank') {
+      return (
+        <EditCard 
+          title="Edit Bank details" 
+          subtitle="Changes are saved immediately"
+          onSave={handleSave}
+          onCancel={() => navigation.goBack()}
+          loading={loading}
+        >
+          <FormField label="Bank" value={formData.bank} onChangeText={(v) => updateField('bank', v)} />
+          <FormField label="Account name" value={formData.accountName} onChangeText={(v) => updateField('accountName', v)} />
+          <FormField label="Number" value={formData.accountNumber} onChangeText={(v) => updateField('accountNumber', v)} keyboardType="number-pad" />
+        </EditCard>
+      );
+    }
+
+    if (section === 'logout') {
+      return (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Ionicons name="close" size={20} color="#CBD5E1" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.cardTitleContainer}>
+            <Text style={styles.cardTitle}>Logout?</Text>
+            <Text style={styles.cardSubtitle}>You'll need to sign back in to receive deliveries.</Text>
+          </View>
+          <View style={styles.cardFooter}>
+            <TouchableOpacity style={styles.saveBtn} onPress={() => navigation.replace('DriverLogin')}>
+              <Text style={styles.saveBtnText}>Logout</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
+              <Text style={styles.cancelBtnText}>Stay signed in</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    return null;
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <TouchableOpacity onPress={handleSave} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator size="small" color={Colors.primary} />
-          ) : (
-            <Text style={styles.saveBtn}>Save</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1, justifyContent: 'center', padding: 20 }}
       >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          
-          {/* AVATAR EDIT */}
-          <View style={styles.avatarSection}>
-            <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
-              <View style={styles.avatar}>
-                {profileImage ? (
-                  <Image source={{ uri: profileImage }} style={styles.avatarImg} />
-                ) : (
-                  <Text style={styles.avatarText}>BA</Text>
-                )}
-              </View>
-              <View style={styles.cameraIcon}>
-                <Ionicons name="camera" size={16} color="#FFF" />
-              </View>
-            </TouchableOpacity>
-            <Text style={styles.avatarSubtext}>Tap to change profile picture</Text>
-          </View>
-
-          {/* PERSONAL INFORMATION */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Personal Information</Text>
-            <EditField label="Full Name" value={name} onChangeText={setName} />
-            <EditField label="Email Address" value={email} onChangeText={setEmail} keyboardType="email-address" />
-            <EditField label="Phone Number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-          </View>
-
-          {/* VEHICLE DETAILS */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Vehicle Details</Text>
-            <EditField label="Vehicle Type" value={vehicleType} onChangeText={setVehicleType} />
-            <EditField label="Make & Model" value={makeModel} onChangeText={setMakeModel} />
-            <EditField label="Plate Number" value={plate} onChangeText={setPlate} />
-            <EditField label="Vehicle Color" value={color} onChangeText={setColor} />
-          </View>
-
-          {/* BANK DETAILS */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Bank Account</Text>
-            <EditField label="Bank Name" value={bank} onChangeText={setBank} />
-            <EditField label="Account Name" value={accountName} onChangeText={setAccountName} />
-          </View>
-
-          <View style={{ height: 40 }} />
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} showsVerticalScrollIndicator={false}>
+          {renderContent()}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -144,114 +218,47 @@ const DriverEditProfileScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+  container: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  card: {
     backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
-  },
-  backBtn: {
-    padding: 5,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
-  },
-  saveBtn: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.primary,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 30,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  avatarWrapper: {
-    position: 'relative',
-    marginBottom: 10,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-  },
-  avatarImg: {
+    borderRadius: 24,
+    padding: 24,
     width: '100%',
-    height: '100%',
   },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#94A3B8',
-  },
-  cameraIcon: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    backgroundColor: Colors.primary,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFF',
-  },
-  avatarSubtext: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  section: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 15,
-  },
-  fieldContainer: {
-    marginBottom: 15,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    color: '#94A3B8',
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  inputWrapper: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
+  cardHeader: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 },
+  cardTitleContainer: { alignItems: 'center', marginBottom: 30 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E293B' },
+  cardSubtitle: { fontSize: 12, color: '#94A3B8', marginTop: 4 },
+  cardContent: { gap: 15 },
+  cardFooter: { marginTop: 30, gap: 12 },
+  field: { marginBottom: 15 },
+  label: { fontSize: 12, color: '#1E293B', fontWeight: '600', marginBottom: 8 },
+  input: {
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    paddingHorizontal: 15,
-    height: 50,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#334155',
+    backgroundColor: '#FAFAFA',
+  },
+  saveBtn: {
+    backgroundColor: Colors.primary,
+    height: 52,
+    borderRadius: 12,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  input: {
-    fontSize: 15,
-    color: '#0F172A',
-    fontWeight: '500',
+  saveBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  cancelBtn: {
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  cancelBtnText: { color: '#64748B', fontSize: 16, fontWeight: '600' },
 });
 
 export default DriverEditProfileScreen;
