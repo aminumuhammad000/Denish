@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Audio } from 'expo-av';
+import { Sound } from 'expo-av/build/Audio/Sound';
 
 const RINGING_SOUND_URL = 'https://www.soundjay.com/phone/phone-calling-1.mp3';
 
@@ -40,7 +40,7 @@ const CallingScreen = ({ route, navigation }) => {
     // Play Sound
     const playSound = async () => {
       try {
-        const { sound } = await Audio.Sound.createAsync(
+        const { sound } = await Sound.createAsync(
           { uri: RINGING_SOUND_URL },
           { shouldPlay: true, isLooping: true }
         );
