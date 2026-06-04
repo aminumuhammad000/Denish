@@ -211,7 +211,14 @@ const CheckoutScreen = ({ navigation }) => {
       {/* Footer */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 25) }]}>
         <TouchableOpacity style={styles.placeOrderBtn} onPress={handlePlaceOrder} disabled={loading}>
-          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.placeOrderBtnText}>Place order ₦{total.toLocaleString()}</Text>}
+          {loading ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <ActivityIndicator color="#FFF" />
+              <Text style={[styles.placeOrderBtnText, { marginLeft: 10 }]}>Placing order...</Text>
+            </View>
+          ) : (
+            <Text style={styles.placeOrderBtnText}>Place order ₦{total.toLocaleString()}</Text>
+          )}
         </TouchableOpacity>
       </View>
 
