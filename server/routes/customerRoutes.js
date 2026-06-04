@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getRestaurants, getRestaurantDetails, placeOrder, getCustomerProfile, updateCustomerProfile, getCustomerOrders, search } = require('../controllers/customerController');
+const { getRestaurants, getRestaurantDetails, placeOrder, getCustomerProfile, updateCustomerProfile, getCustomerOrders, search, addAddress, addPaymentMethod } = require('../controllers/customerController');
 const { upload } = require('../config/cloudinary');
 
 router.get('/restaurants', getRestaurants);
@@ -9,6 +9,8 @@ router.get('/search', search);
 router.post('/order', placeOrder);
 router.get('/profile', getCustomerProfile);
 router.put('/profile', updateCustomerProfile);
+router.post('/add-address', addAddress);
+router.post('/add-payment-method', addPaymentMethod);
 router.get('/orders', getCustomerOrders);
 
 router.post('/upload-profile-pic', upload.single('image'), (req, res) => {

@@ -20,6 +20,18 @@ const customerSchema = new mongoose.Schema({
     required: true,
   },
   address: String,
+  addresses: [{
+    label: String,
+    addr: String,
+    tag: String
+  }],
+  paymentMethods: [{
+    id: String,
+    title: String,
+    sub: String,
+    icon: String,
+    type: { type: String, default: 'card' }
+  }],
   profilePic: String,
   resetPasswordOTP: String,
   resetPasswordExpires: Date,

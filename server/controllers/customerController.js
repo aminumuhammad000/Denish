@@ -102,6 +102,32 @@ const updateCustomerProfile = async (req, res) => {
   }
 };
 
+const addAddress = async (req, res) => {
+  try {
+    const customer = await Customer.findOneAndUpdate(
+      {}, 
+      { $push: { addresses: req.body } },
+      { new: true }
+    );
+    res.status(200).json({ success: true, data: customer });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const addPaymentMethod = async (req, res) => {
+  try {
+    const customer = await Customer.findOneAndUpdate(
+      {}, 
+      { $push: { paymentMethods: req.body } },
+      { new: true }
+    );
+    res.status(200).json({ success: true, data: customer });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 const getCustomerOrders = async (req, res) => {
   try {
     const orders = await Order.find().populate('vendorId').sort({ createdAt: -1 });
@@ -148,5 +174,7 @@ module.exports = {
   getCustomerProfile,
   updateCustomerProfile,
   getCustomerOrders,
-  search
+  search,
+  addAddress,
+  addPaymentMethod
 };
