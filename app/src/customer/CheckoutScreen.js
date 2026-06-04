@@ -105,12 +105,40 @@ const CheckoutScreen = ({ navigation }) => {
   const total = subtotal + deliveryFee + serviceFee;
 
   const handlePlaceOrder = async () => {
+    if (addresses.length === 0) {
+      Alert.alert('Error', 'Please add a delivery address first');
+      return;
+    }
+    
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const orderPayload = {
+        vendorId: restaurantId,
+        items: cartItems.map(item => ({
+          menuItemId: item.id || item._id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        totalAmount: total,
+        deliveryAddress: addresses.find(a => (a.id || a._id) === selectedAddressId)?.addr || addresses[0].addr,
+        customerName: "Amee User", // Placeholder until auth is full
+        customerPhone: "08012345678"
+      };
+
+      const res = await placeCustomerOrder(orderPayload);
+      if (res.success) {
+        clearCart();
+        navigation.navigate('TrackOrder', { orderId: res.data._id || res.data.orderId });
+      } else {
+        throw new Error(res.message || 'Failed to place order');
+      }
+    } catch (err) {
+      console.error('Place order error:', err);
+      Alert.alert('Checkout Error', err.message || 'Something went wrong');
+    } finally {
       setLoading(false);
-      clearCart();
-      navigation.navigate('TrackOrder', { orderId: `ORD-${Math.floor(1000 + Math.random() * 9000)}` });
-    }, 1500);
+    }
   };
 
   return (

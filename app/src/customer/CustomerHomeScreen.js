@@ -9,44 +9,60 @@ import {
   Image,
   Dimensions,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getRestaurants, getCustomerProfile } from '../services/api';
-import { ActivityIndicator } from 'react-native';
 import CustomerBottomTab from './components/CustomerBottomTab';
 import { useCart } from '../context/CartContext';
 
 const { width } = Dimensions.get('window');
 
-const FeaturedCard = ({ name, category, rating, image, onPress }) => (
-  <TouchableOpacity style={styles.featuredCard} onPress={onPress}>
-    <Image source={{ uri: image }} style={styles.featuredImage} />
-    <View style={styles.featuredInfo}>
-      <View style={styles.featuredTextRow}>
-        <Text style={styles.featuredName}>{name}</Text>
-        <View style={styles.ratingRow}>
-          <Ionicons name="star" size={14} color="#FFD700" />
-          <Text style={styles.ratingText}>{rating}</Text>
-        </View>
+const SectionHeader = ({ title, showViewAll = false }) => (
+  <View style={styles.sectionHeader}>
+    <Text style={styles.sectionTitle}>{title}</Text>
+    {showViewAll && <TouchableOpacity><Text style={styles.viewAll}>View all</Text></TouchableOpacity>}
+  </View>
+);
+
+const SquareCard = ({ name, sub, rating, price, image, onPress }) => (
+  <TouchableOpacity style={styles.squareCard} onPress={onPress}>
+    <Image source={{ uri: image }} style={styles.squareImage} />
+    <View style={styles.squareInfo}>
+      <Text style={styles.cardTitle}>{name}</Text>
+      <View style={styles.cardRow}>
+        <Text style={styles.cardSub}>{sub}</Text>
+        {rating && (
+          <View style={styles.ratingRow}>
+            <Ionicons name="star" size={12} color="#FFD700" />
+            <Text style={styles.ratingText}>{rating}</Text>
+          </View>
+        )}
       </View>
-      <Text style={styles.featuredCategory}>{category}</Text>
+      {price && <Text style={styles.cardPrice}>₦{price}</Text>}
     </View>
   </TouchableOpacity>
 );
 
-const FoodCard = ({ name, image }) => (
-  <TouchableOpacity style={styles.foodCard}>
-    <Image source={{ uri: image }} style={styles.foodImage} />
-    <Text style={styles.foodName}>{name}</Text>
+const ListCard = ({ name, sub, price, image }) => (
+  <TouchableOpacity style={styles.listCard}>
+    <Image source={{ uri: image }} style={styles.listImage} />
+    <View style={styles.listInfo}>
+      <Text style={styles.listTitle}>{name}</Text>
+      <Text style={styles.listSub} numberOfLines={1}>{sub}</Text>
+      <Text style={styles.listPrice}>₦{price}</Text>
+    </View>
+    <TouchableOpacity style={styles.addBtn}>
+      <Ionicons name="add" size={20} color={Colors.primary} />
+    </TouchableOpacity>
   </TouchableOpacity>
 );
 
 const CustomerHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const [search, setSearch] = useState('');
   const [vendors, setVendors] = useState([]);
   const [profile, setProfile] = useState(null);
   const { cartItems } = useCart();
@@ -58,9 +74,8 @@ const CustomerHomeScreen = ({ navigation }) => {
       try {
         const [resVendors, resProfile] = await Promise.all([
           getRestaurants(),
-          getCustomerProfile().catch(() => ({ success: false })) // Don't block if profile fails
+          getCustomerProfile().catch(() => ({ success: false }))
         ]);
-        
         if (resVendors.success) setVendors(resVendors.data);
         if (resProfile.success) setProfile(resProfile.data);
       } catch (err) {
@@ -76,372 +91,222 @@ const CustomerHomeScreen = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
-        {/* --- ORANGE HEADER --- */}
-        <View style={styles.headerBackground}>
+        
+        {/* Header */}
+        <View style={styles.orangeHeader}>
           <SafeAreaView edges={['top']}>
             <View style={styles.headerTop}>
-              <TouchableOpacity style={styles.profileRow} onPress={() => navigation.navigate('CustomerProfile')}>
+              <TouchableOpacity style={styles.profileBox} onPress={() => navigation.navigate('CustomerProfile')}>
                 <Image
                   source={{ uri: profile?.profilePic || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }}
                   style={styles.profilePic}
                 />
                 <View>
-                  <Text style={styles.greetingText}>Good afternoon,</Text>
-                  <Text style={styles.userName}>{profile?.name?.split(' ')[0] || 'Member'}</Text>
+                  <Text style={styles.greeting}>Good afternoon,</Text>
+                  <Text style={styles.name}>{profile?.name?.split(' ')[0] || 'User'}</Text>
                 </View>
               </TouchableOpacity>
-              <View style={styles.headerIcons}>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('ChatList')}>
-                  <View style={styles.iconCircle}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FFF" />
-                  </View>
-                  <View style={styles.badge}><Text style={styles.badgeText}>0</Text></View>
+              <View style={styles.headerActions}>
+                <TouchableOpacity onPress={() => navigation.navigate('ChatList')} style={styles.roundBtn}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={22} color="#FFF" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Cart')}>
-                  <View style={styles.iconCircle}>
-                    <Ionicons name="cart-outline" size={22} color="#FFF" />
-                  </View>
-                  {cartItemCount > 0 && (
-                    <View style={styles.badge}><Text style={styles.badgeText}>{cartItemCount}</Text></View>
-                  )}
+                <TouchableOpacity onPress={() => navigation.navigate('Cart')} style={styles.roundBtn}>
+                  <Ionicons name="cart-outline" size={22} color="#FFF" />
+                  {cartItemCount > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{cartItemCount}</Text></View>}
                 </TouchableOpacity>
               </View>
             </View>
 
-            <View style={styles.searchSection}>
-              <TouchableOpacity style={styles.searchBar} onPress={() => navigation.navigate('Search')}>
-                <Ionicons name="search" size={20} color="#999" style={{ marginLeft: 5 }} />
-                <Text style={{ flex: 1, color: '#999', fontSize: 14, fontWeight: '500' }}>
-                  Search items, dishes or vendors
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.locationContainer}>
-                <Ionicons name="location-sharp" size={14} color="#FFF" style={{ opacity: 0.9 }} />
-                <Text style={styles.locationText}>Deliver to Lagos Island</Text>
-                <Ionicons name="chevron-down" size={12} color="#FFF" />
-              </TouchableOpacity>
+            <View style={styles.searchBox}>
+              <Ionicons name="search" size={18} color="#999" />
+              <TextInput 
+                placeholder="Search menu, dishes or vendors" 
+                placeholderTextColor="#999"
+                style={styles.searchInput}
+                onFocus={() => navigation.navigate('Search')}
+              />
+            </View>
+            <View style={styles.locationLink}>
+               <Ionicons name="location" size={14} color="#FFF" />
+               <Text style={styles.locationText}>Deliver to Lagos Island</Text>
+               <Ionicons name="chevron-down" size={12} color="#FFF" />
             </View>
           </SafeAreaView>
         </View>
 
-        {/* --- MAIN CONTENT --- */}
-        <View style={styles.content}>
-
-          {/* Hero Banner */}
-          <View style={styles.heroBanner}>
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1610412140134-933333333333?w=800&q=80&q=motorbike+helmet+delivery' }}
-              style={styles.heroImage}
-            />
-            <View style={styles.heroOverlay}>
-              <Text style={styles.heroTitle}>Free delivery</Text>
-              <Text style={styles.heroSubtitle}>On your first 3 orders this week</Text>
+        <View style={styles.main}>
+          {/* Swipeable Banners */}
+          <ScrollView 
+            horizontal 
+            pagingEnabled 
+            showsHorizontalScrollIndicator={false} 
+            contentContainerStyle={styles.bannerScroll}
+          >
+            {/* Banner 1 */}
+            <View style={styles.bannerCard}>
+              <View style={styles.bannerSplit}>
+                <Image 
+                  source={{ uri: 'https://images.unsplash.com/photo-1621360841013-c7683c31329c?w=800' }} 
+                  style={styles.bannerHalfImage} 
+                />
+                <View style={[styles.bannerHalfColor, { backgroundColor: '#FF7D01' }]}>
+                  <Text style={styles.bannerTitle}>Free delivery</Text>
+                  <Text style={styles.bannerSub}>On your first 3 orders this week</Text>
+                  <TouchableOpacity style={styles.bannerBtn}>
+                    <Text style={styles.bannerBtnText}>Order Now</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-          </View>
+
+            {/* Banner 2 */}
+            <View style={styles.bannerCard}>
+              <View style={styles.bannerSplit}>
+                <Image 
+                  source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800' }} 
+                  style={styles.bannerHalfImage} 
+                />
+                <View style={[styles.bannerHalfColor, { backgroundColor: '#FF6B6B' }]}>
+                  <Text style={styles.bannerTitle}>50% Discount</Text>
+                  <Text style={styles.bannerSub}>Get huge discounts on your favorite meals</Text>
+                  <TouchableOpacity style={styles.bannerBtn}>
+                    <Text style={styles.bannerBtnText}>Claim Now</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
 
           {/* Featured Vendors */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured vendors</Text>
-            <TouchableOpacity><Text style={styles.viewAll}>View all</Text></TouchableOpacity>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
-            {loading ? (
-              <ActivityIndicator color={Colors.primary} style={{ marginLeft: 20 }} />
-            ) : (
-              vendors.map((v) => (
-                <FeaturedCard
-                  key={v._id}
-                  name={v.businessName || v.name}
-                  category={v.category || "Provisions"}
-                  rating="4.8"
-                  image={v.logoUrl || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400"}
-                  onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: v._id })}
-                />
-              ))
-            )}
+          <SectionHeader title="Featured vendors" showViewAll />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
+            {loading ? <ActivityIndicator color={Colors.primary} /> : vendors.map(v => (
+              <SquareCard 
+                key={v._id}
+                name={v.businessName || v.name}
+                sub={v.category || "Provisions"}
+                rating="4.8"
+                image={v.logoUrl || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400"}
+                onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: v._id })}
+              />
+            ))}
           </ScrollView>
 
           {/* Cooked Foods */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Cooked Foods</Text>
+          <SectionHeader title="Cooked Foods" />
+          <View style={styles.grid}>
+             <SquareCard name="Chunky Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=400" />
+             <SquareCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1574484284002-952d92456975?w=400" />
           </View>
-          <View style={styles.gridRow}>
-            <FoodCard
-              name="Jollof Rice Special"
-              image="https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=400"
-            />
-            <FoodCard
-              name="Grilled Fish"
-              image="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400"
-            />
+
+          {/* Grilled Foods */}
+          <SectionHeader title="Grilled Foods" />
+          <View style={styles.grid}>
+             <SquareCard name="Grilled Meat" sub="Smokey party grilled meat" price="3,200" image="https://images.unsplash.com/photo-1544025162-d76694265947?w=400" />
+             <SquareCard name="Grilled Fish" sub="Smokey party grilled fish" price="3,500" image="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400" />
+          </View>
+
+          {/* Featured Orders */}
+          <SectionHeader title="Featured orders" showViewAll />
+          <View style={styles.list}>
+             <ListCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=200" />
+             <ListCard name="Agoyin Beans" sub="Smokey party cooked jollof rice" price="2,200" image="https://images.unsplash.com/photo-1593361876527-2ee3b4e6b72a?w=200" />
+             <ListCard name="White Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1516684732162-798a0062be99?w=200" />
+             <ListCard name="Raw Carrots" sub="Smokey party cooked jollof rice" price="1,200" image="https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=200" />
+          </View>
+
+          {/* Drinks */}
+          <SectionHeader title="Drinks" />
+          <View style={styles.grid}>
+             <SquareCard name="Fresh Chapman" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400" />
+             <SquareCard name="Home-made Juice" sub="Smokey party jollof rice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400" />
+          </View>
+
+          {/* Fruits */}
+          <SectionHeader title="Fruits" />
+          <View style={styles.grid}>
+             <SquareCard name="Fresh Mango" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400" />
+             <SquareCard name="Fresh Pepper" sub="Smokey party jollof rice" price="2,500" image="https://images.unsplash.com/photo-1588252303782-cb80119cb665?w=400" />
           </View>
 
         </View>
       </ScrollView>
 
-      {/* --- BOTTOM TAB BAR --- */}
       <CustomerBottomTab activeTab="Home" navigation={navigation} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFF',
+  container: { flex: 1, backgroundColor: '#FFF' },
+  orangeHeader: { 
+    backgroundColor: '#FF7D01', 
+    borderBottomLeftRadius: 40, 
+    borderBottomRightRadius: 40, 
+    paddingHorizontal: 20, 
+    paddingBottom: 30 
   },
-  headerBackground: {
-    backgroundColor: Colors.primary,
-    borderBottomLeftRadius: 50,
-    borderBottomRightRadius: 50,
-    paddingBottom: 25,
-    paddingHorizontal: 20,
-    paddingTop: 10,
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 20 },
+  profileBox: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  profilePic: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)' },
+  greeting: { color: 'rgba(255,255,255,0.8)', fontSize: 11 },
+  name: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+  headerActions: { flexDirection: 'row', gap: 10 },
+  roundBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+  badge: { position: 'absolute', top: 0, right: 0, backgroundColor: 'red', width: 14, height: 14, borderRadius: 7, justifyContent: 'center', alignItems: 'center' },
+  badgeText: { color: '#FFF', fontSize: 9, fontWeight: 'bold' },
+  
+  searchBox: { 
+    backgroundColor: '#FFF', 
+    borderRadius: 25, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: 15, 
+    height: 45, 
+    gap: 10 
   },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  profilePic: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  greetingText: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  userName: {
-    color: '#FFF',
-    fontSize: 19,
-    fontWeight: 'bold',
-    marginTop: -2,
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  iconBtn: {
-    position: 'relative',
-  },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: '#FF3B30',
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#FF8C00',
-  },
-  badgeText: {
-    color: '#FFF',
-    fontSize: 8,
-    fontWeight: 'bold',
-  },
-  searchSection: {
-    gap: 12,
-  },
-  searchBar: {
-    backgroundColor: '#FFF',
-    borderRadius: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 7,
-    gap: 10,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  locationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  locationText: {
-    color: 'rgba(255,255,255,0.95)',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  content: {
-    padding: 20,
-  },
-  heroBanner: {
-    width: '100%',
-    height: 160,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginBottom: 25,
-    backgroundColor: '#F5F5F5',
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.95,
-  },
-  heroOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    paddingHorizontal: 25,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-  },
-  heroTitle: {
-    color: '#FFF',
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  heroSubtitle: {
-    color: 'rgba(255,255,255,0.95)',
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    letterSpacing: -0.3,
-  },
-  viewAll: {
-    color: Colors.primary,
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  horizontalScroll: {
-    paddingRight: 20,
-    gap: 16,
-    marginBottom: 30,
-  },
-  featuredCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 18,
-    width: width * 0.44,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    borderWidth: 1,
-    borderColor: '#F5F5F5',
-    overflow: 'hidden',
-  },
-  featuredImage: {
-    width: '100%',
-    height: 120,
-  },
-  featuredInfo: {
-    padding: 12,
-  },
-  featuredTextRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  featuredName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    flex: 1,
-  },
-  featuredCategory: {
-    fontSize: 11,
-    color: '#999',
-    fontWeight: '500',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  ratingText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#444',
-  },
-  foodCard: {
-    width: (width - 44) / 2,
-  },
-  foodImage: {
-    width: '100%',
-    height: 110,
-    borderRadius: 12,
-    marginBottom: 6,
-  },
-  foodName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-  },
-  bottomTab: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 60,
-    backgroundColor: '#FFF',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    paddingBottom: 5,
-  },
-  tabItem: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#999',
-  },
+  searchInput: { flex: 1, fontSize: 13, color: '#333' },
+  locationLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 15 },
+  locationText: { color: '#FFF', fontSize: 12, fontWeight: '500' },
+
+  scrollContent: { paddingBottom: 100 },
+  main: { paddingVertical: 16 },
+
+  bannerScroll: { marginBottom: 25 },
+  bannerCard: { width: width, paddingHorizontal: 16 },
+  bannerSplit: { width: '100%', height: 140, borderRadius: 20, overflow: 'hidden', flexDirection: 'row' },
+  bannerHalfImage: { width: '40%', height: '100%' },
+  bannerHalfColor: { width: '60%', height: '100%', justifyContent: 'center', paddingHorizontal: 20 },
+  bannerTitle: { color: '#FFF', fontSize: 22, fontWeight: '900' },
+  bannerSub: { color: '#FFF', fontSize: 11, fontWeight: '500', marginTop: 4 },
+  bannerBtn: { backgroundColor: '#FFF', alignSelf: 'flex-start', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 15, marginTop: 12 },
+  bannerBtnText: { color: '#333', fontSize: 12, fontWeight: '700' },
+
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 10, marginBottom: 15 },
+  sectionTitle: { fontSize: 13, color: '#888', fontWeight: '400' },
+  viewAll: { fontSize: 11, color: '#FF7D01', fontWeight: '500' },
+
+  horizontal: { gap: 12, paddingHorizontal: 16, marginBottom: 15 },
+  grid: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, marginBottom: 20 },
+  
+  squareCard: { width: (width - 44) / 2, backgroundColor: '#FFF' },
+  squareImage: { width: '100%', height: 110, borderRadius: 15 },
+  squareInfo: { marginTop: 8 },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
+  cardSub: { fontSize: 11, color: '#999', flex: 1 },
+  cardPrice: { fontSize: 13, fontWeight: '700', color: '#FF7D01', marginTop: 2 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  ratingText: { fontSize: 11, fontWeight: '700', color: '#444' },
+
+  list: { gap: 15, paddingHorizontal: 16, marginBottom: 25 },
+  listCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 15, padding: 8, borderWidth: 1, borderColor: '#FAFAFA' },
+  listImage: { width: 60, height: 60, borderRadius: 12 },
+  listInfo: { flex: 1, marginLeft: 12 },
+  listTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
+  listSub: { fontSize: 11, color: '#999', marginVertical: 2 },
+  listPrice: { fontSize: 13, fontWeight: '700', color: '#FF7D01' },
+  addBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEE', justifyContent: 'center', alignItems: 'center' },
 });
 
 export default CustomerHomeScreen;

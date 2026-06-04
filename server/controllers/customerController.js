@@ -62,7 +62,10 @@ const placeOrder = async (req, res) => {
     
     // In a real app we'd compute the total server-side for security.
     
+    const generatedOrderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+    
     const newOrder = await Order.create({
+      orderId: generatedOrderId,
       vendorId: vendorId,
       customerId: "mock-customer-id-123", // Real app uses req.user._id
       customerName: customerName,
