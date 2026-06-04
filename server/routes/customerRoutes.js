@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { getRestaurants, getRestaurantDetails, placeOrder, getCustomerProfile, updateCustomerProfile, getCustomerOrders } = require('../controllers/customerController');
+const { getRestaurants, getRestaurantDetails, placeOrder, getCustomerProfile, updateCustomerProfile, getCustomerOrders, search } = require('../controllers/customerController');
 const { upload } = require('../config/cloudinary');
 
 router.get('/restaurants', getRestaurants);
 router.get('/restaurant/:id', getRestaurantDetails);
+router.get('/search', search);
 router.post('/order', placeOrder);
 router.get('/profile', getCustomerProfile);
 router.put('/profile', updateCustomerProfile);

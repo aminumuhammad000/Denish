@@ -111,11 +111,42 @@ const getCustomerOrders = async (req, res) => {
   }
 };
 
+const search = async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) return res.status(200).json({ success: true, data: { vendors: [], items: [] } });
+
+    const vendors = await Vendor.find({
+      $or: [
+        { businessName: { $regex: query, $options: 'i' } },
+        { category: { $regex: query, $options: 'i' } }
+      ],
+      status: 'Approved'
+    });
+
+    const items = await MenuItem.find({
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } }
+      ],
+      available: true
+    }).populate('vendorId');
+
+    res.status(200).json({ 
+      success: true, 
+      data: { vendors, items } 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getRestaurants,
   getRestaurantDetails,
   placeOrder,
   getCustomerProfile,
   updateCustomerProfile,
-  getCustomerOrders
+  getCustomerOrders,
+  search
 };
