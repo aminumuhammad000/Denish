@@ -1,0 +1,461 @@
+import React, { useState } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Dimensions,
+} from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Colors } from '../constants/Colors';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const { width } = Dimensions.get('window');
+
+const TransactionItem = ({ type, date, amount, status, isWithdrawal = false }) => {
+  const getStatusColor = () => {
+    switch (status) {
+      case 'completed': return '#10B981';
+      case 'reversed': return '#EF4444';
+      case 'pending': return '#F59E0B';
+      default: return '#94A3B8';
+    }
+  };
+
+  const getStatusBg = () => {
+    switch (status) {
+      case 'completed': return '#ECFDF5';
+      case 'reversed': return '#FEF2F2';
+      case 'pending': return '#FFFBEB';
+      default: return '#F8FAFC';
+    }
+  };
+
+  return (
+    <View style={styles.transactionCard}>
+      <View style={[styles.iconBox, { backgroundColor: isWithdrawal ? '#EFF6FF' : '#F0FDF4' }]}>
+        <Ionicons 
+          name={isWithdrawal ? "arrow-down" : (type === 'Tip' ? "gift-outline" : "wallet-outline")} 
+          size={18} 
+          color={isWithdrawal ? "#3B82F6" : "#10B981"} 
+        />
+      </View>
+      <View style={styles.transactionInfo}>
+        <Text style={styles.transactionType}>{type}</Text>
+        <Text style={styles.transactionDate}>{date}</Text>
+      </View>
+      <View style={styles.amountArea}>
+        <Text style={[styles.amountText, isWithdrawal && { color: '#000' }]}>
+          {isWithdrawal ? '-' : '+'}{amount}
+        </Text>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusBg() }]}>
+          {status === 'completed' && <Ionicons name="checkmark" size={10} color="#10B981" style={{ marginRight: 2 }} />}
+          {status === 'reversed' && <Ionicons name="close" size={10} color="#EF4444" style={{ marginRight: 2 }} />}
+          {status === 'pending' && <Ionicons name="time" size={10} color="#F59E0B" style={{ marginRight: 2 }} />}
+          <Text style={[styles.statusText, { color: getStatusColor() }]}>{status}</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const DriverEarningsScreen = ({ navigation }) => {
+  const [incomeTab, setIncomeTab] = useState('Weekly');
+  const [historyTab, setHistoryTab] = useState('Transactions');
+
+  // Mock data for earnings chart
+  const earningsData = [
+    { day: 'Mon', value: 25 },
+    { day: 'Tue', value: 32 },
+    { day: 'Wed', value: 28, active: true },
+    { day: 'Thur', value: 18 },
+    { day: 'Fri', value: 35 },
+    { day: 'Sat', value: 28 },
+    { day: 'Sun', value: 32 },
+  ];
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Earnings</Text>
+          <Text style={styles.headerSubtitle}>Track your income</Text>
+        </View>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        
+        {/* BALANCE CARD */}
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>Available balance</Text>
+          <Text style={styles.balanceValue}>₦38,500</Text>
+          <TouchableOpacity style={styles.withdrawBtn}>
+            <Ionicons name="download-outline" size={20} color="#333" />
+            <Text style={styles.withdrawText}>Withdraw</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* INCOME CHART SECTION */}
+        <View style={styles.chartSection}>
+          <View style={styles.chartHeader}>
+            <Text style={styles.sectionTitle}>Income</Text>
+            <View style={styles.chartToggle}>
+              <TouchableOpacity 
+                onPress={() => setIncomeTab('Weekly')}
+                style={[styles.toggleBtn, incomeTab === 'Weekly' && styles.activeToggle]}
+              >
+                <Text style={[styles.toggleText, incomeTab === 'Weekly' && styles.activeToggleText]}>Weekly</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => setIncomeTab('Monthly')}
+                style={[styles.toggleBtn, incomeTab === 'Monthly' && styles.activeToggle]}
+              >
+                <Text style={[styles.toggleText, incomeTab === 'Monthly' && styles.activeToggleText]}>Monthly</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.chartContent}>
+             <View style={styles.yAxis}>
+                <Text style={styles.yText}>40k</Text>
+                <Text style={styles.yText}>30k</Text>
+                <Text style={styles.yText}>20k</Text>
+                <Text style={styles.yText}>10k</Text>
+                <Text style={styles.yText}>0k</Text>
+             </View>
+             <View style={styles.barsContainer}>
+                {earningsData.map((item, idx) => (
+                  <View key={idx} style={styles.barColumn}>
+                    <View style={styles.barBg}>
+                      <View style={[
+                        styles.barFill, 
+                        { height: `${(item.value / 40) * 100}%` },
+                        item.active && styles.barFillActive
+                      ]} />
+                    </View>
+                    <Text style={[styles.barLabel, item.active && styles.barLabelActive]}>{item.day}</Text>
+                  </View>
+                ))}
+             </View>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>THIS WEEK</Text>
+              <Text style={styles.summaryValue}>₦42,000</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>THIS MONTH</Text>
+              <Text style={styles.summaryValue}>₦152,000</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>TODAY</Text>
+              <Text style={styles.summaryValue}>₦8,500</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* TRANSACTION HISTORY */}
+        <View style={styles.historySection}>
+          <View style={styles.historyTabs}>
+             <TouchableOpacity 
+               onPress={() => setHistoryTab('Transactions')}
+               style={[styles.hTab, historyTab === 'Transactions' && styles.activeHTab]}
+             >
+               <Text style={[styles.hTabText, historyTab === 'Transactions' && styles.activeHTabText]}>Transactions</Text>
+             </TouchableOpacity>
+             <TouchableOpacity 
+               onPress={() => setHistoryTab('Withdrawals')}
+               style={[styles.hTab, historyTab === 'Withdrawals' && styles.activeHTab]}
+             >
+               <Text style={[styles.hTabText, historyTab === 'Withdrawals' && styles.activeHTabText]}>Withdrawals</Text>
+             </TouchableOpacity>
+          </View>
+
+          <View style={styles.historyList}>
+             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="completed" />
+             <TransactionItem type="Tip" date="Apr 18, 08:11 | ORD-006" amount="₦200" status="completed" />
+             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="completed" />
+             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="completed" />
+             <TransactionItem type="Withdrawal" date="Apr 17, 12:30 | -" amount="₦25,000" status="completed" isWithdrawal={true} />
+             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="completed" />
+             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="reversed" />
+             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="pending" />
+          </View>
+        </View>
+
+      </ScrollView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#FFF',
+  },
+  backBtn: {
+    marginRight: 15,
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  balanceCard: {
+    backgroundColor: Colors.primary,
+    borderRadius: 25,
+    padding: 25,
+    marginBottom: 25,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  balanceLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  balanceValue: {
+    color: '#FFF',
+    fontSize: 36,
+    fontWeight: 'bold',
+    marginVertical: 15,
+  },
+  withdrawBtn: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    width: 140,
+    gap: 8,
+  },
+  withdrawText: {
+    color: '#333',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  chartSection: {
+    backgroundColor: '#FFF',
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 25,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  chartToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    padding: 2,
+  },
+  toggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  activeToggle: {
+    backgroundColor: '#FFF',
+    elevation: 1,
+  },
+  toggleText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  activeToggleText: {
+    color: '#1E293B',
+  },
+  chartContent: {
+    flexDirection: 'row',
+    height: 180,
+    marginBottom: 25,
+  },
+  yAxis: {
+    justifyContent: 'space-between',
+    paddingBottom: 25,
+    marginRight: 15,
+  },
+  yText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  barsContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  barColumn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 12,
+  },
+  barBg: {
+    flex: 1,
+    width: 20,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 5,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  barFill: {
+    width: '100%',
+    backgroundColor: '#FFE4E6',
+    borderRadius: 5,
+  },
+  barFillActive: {
+    backgroundColor: Colors.primary,
+  },
+  barLabel: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  barLabelActive: {
+    color: '#1E293B',
+    fontWeight: 'bold',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 20,
+  },
+  summaryItem: {
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 9,
+    color: '#94A3B8',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  historySection: {
+    gap: 20,
+  },
+  historyTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+  },
+  hTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  activeHTab: {
+    backgroundColor: '#FFF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+  },
+  hTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  activeHTabText: {
+    color: '#1E293B',
+  },
+  historyList: {
+    gap: 12,
+  },
+  transactionCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  transactionInfo: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  transactionType: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  transactionDate: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  amountArea: {
+    alignItems: 'flex-end',
+    gap: 5,
+  },
+  amountText: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#10B981',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'lowercase',
+  },
+});
+
+export default DriverEarningsScreen;

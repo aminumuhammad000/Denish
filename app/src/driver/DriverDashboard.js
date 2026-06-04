@@ -7,8 +7,7 @@ import { Colors } from '../constants/Colors';
 import DriverHomeScreen from './DriverHomeScreen';
 import DriverChatListScreen from './DriverChatListScreen';
 import DriverDeliveriesScreen from './DriverDeliveriesScreen';
-// Placeholders for other screens
-const DriverEarningsScreen = () => <DriverHomeScreen />; // Temporary
+import DriverEarningsScreen from './DriverEarningsScreen';
 
 const Tab = createBottomTabNavigator();
 
