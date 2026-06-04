@@ -35,6 +35,7 @@ import CustomerSignupScreen from './src/customer/SignupScreen';
 import CustomerEditProfileScreen from './src/customer/CustomerEditProfileScreen';
 import CustomerOrdersScreen from './src/customer/CustomerOrdersScreen';
 import TrackOrderScreen from './src/customer/TrackOrderScreen';
+import CategoryScreen from './src/customer/CategoryScreen';
 
 // Driver Screens
 import DriverWelcomeScreen from './src/driver/DriverWelcomeScreen';
@@ -98,6 +99,7 @@ export default function App() {
               <Stack.Screen name="Cart" component={CartScreen} />
               <Stack.Screen name="TrackOrder" component={TrackOrderScreen} />
               <Stack.Screen name="Search" component={SearchScreen} />
+              <Stack.Screen name="Category" component={CategoryScreen} />
   
               {/* ── Driver App ── */}
               <Stack.Screen name="DriverWelcome" component={DriverWelcomeScreen} />

@@ -21,10 +21,10 @@ import { useCart } from '../context/CartContext';
 
 const { width } = Dimensions.get('window');
 
-const SectionHeader = ({ title, showViewAll = false }) => (
+const SectionHeader = ({ title, showViewAll = false, onPress }) => (
   <View style={styles.sectionHeader}>
     <Text style={styles.sectionTitle}>{title}</Text>
-    {showViewAll && <TouchableOpacity><Text style={styles.viewAll}>View all</Text></TouchableOpacity>}
+    {showViewAll && <TouchableOpacity onPress={onPress}><Text style={styles.viewAll}>View all</Text></TouchableOpacity>}
   </View>
 );
 
@@ -187,7 +187,7 @@ const CustomerHomeScreen = ({ navigation }) => {
           </ScrollView>
 
           {/* Featured Vendors */}
-          <SectionHeader title="Featured vendors" showViewAll />
+          <SectionHeader title="Featured vendors" showViewAll onPress={() => navigation.navigate('Category', { category: 'Featured vendors' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
             {loading ? <ActivityIndicator color={Colors.primary} /> : vendors.map(v => (
               <SquareCard 
@@ -202,7 +202,7 @@ const CustomerHomeScreen = ({ navigation }) => {
           </ScrollView>
 
           {/* Cooked Foods */}
-          <SectionHeader title="Cooked Foods" showViewAll />
+          <SectionHeader title="Cooked Foods" showViewAll onPress={() => navigation.navigate('Category', { category: 'Cooked Foods' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
              <SquareCard name="Chunky Rice" sub="Smokey party cooked rice" price="2,500" image="https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
              <SquareCard name="Jollof Rice" sub="Smokey party cooked rice" price="2,500" image="https://images.unsplash.com/photo-1512152272829-e3139592d56f?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
@@ -211,7 +211,7 @@ const CustomerHomeScreen = ({ navigation }) => {
           </ScrollView>
 
           {/* Grilled Foods */}
-          <SectionHeader title="Grilled Foods" showViewAll />
+          <SectionHeader title="Grilled Foods" showViewAll onPress={() => navigation.navigate('Category', { category: 'Grilled Foods' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
              <SquareCard name="Grilled Meat" sub="Smokey party grilled meat" price="3,200" image="https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
              <SquareCard name="Grilled Fish" sub="Smokey party grilled fish" price="3,500" image="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
@@ -220,7 +220,7 @@ const CustomerHomeScreen = ({ navigation }) => {
           </ScrollView>
 
           {/* Featured Orders */}
-          <SectionHeader title="Featured orders" showViewAll />
+          <SectionHeader title="Featured orders" showViewAll onPress={() => navigation.navigate('Category', { category: 'Featured orders' })} />
           <View style={styles.list}>
              <ListCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1512152272829-e3139592d56f?w=600&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
              <ListCard name="Agoyin Beans" sub="Smokey party cooked jollof rice" price="2,200" image="https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
@@ -229,7 +229,7 @@ const CustomerHomeScreen = ({ navigation }) => {
           </View>
 
           {/* Drinks */}
-          <SectionHeader title="Drinks" showViewAll />
+          <SectionHeader title="Drinks" showViewAll onPress={() => navigation.navigate('Category', { category: 'Drinks' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
              <SquareCard name="Fresh Chapman" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
              <SquareCard name="Juice" sub="Smokey party jollof rice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
@@ -238,7 +238,7 @@ const CustomerHomeScreen = ({ navigation }) => {
           </ScrollView>
 
           {/* Fruits */}
-          <SectionHeader title="Fruits" showViewAll />
+          <SectionHeader title="Fruits" showViewAll onPress={() => navigation.navigate('Category', { category: 'Fruits' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
              <SquareCard name="Fresh Mango" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
              <SquareCard name="Fresh Pepper" sub="Smokey party jollof rice" price="2,500" image="https://images.unsplash.com/photo-1590644365607-1c5a519a7a37?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
