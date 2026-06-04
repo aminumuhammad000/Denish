@@ -47,6 +47,7 @@ import DriverStep3Payout from './src/driver/onboarding/DriverStep3Payout';
 import DriverStep4Docs from './src/driver/onboarding/DriverStep4Docs';
 import DriverStep5Review from './src/driver/onboarding/DriverStep5Review';
 import DriverDashboard from './src/driver/DriverDashboard';
+import DriverOrderTracking from './src/driver/DriverOrderTracking';
 
 // Context
 import { CartProvider } from './src/context/CartContext';
@@ -110,6 +111,7 @@ export default function App() {
               <Stack.Screen name="DriverStep5Review" component={DriverStep5Review} />
               <Stack.Screen name="DriverLogin" component={DriverLoginScreen} />
               <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
+              <Stack.Screen name="DriverOrderTracking" component={DriverOrderTracking} />
             </Stack.Navigator>
           </NavigationContainer>
         </CartProvider>

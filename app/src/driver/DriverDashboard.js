@@ -146,7 +146,10 @@ const DriverDashboard = () => {
 
             <View style={styles.cardFooter}>
               <Text style={styles.orderId}>Order ORD-005</Text>
-              <TouchableOpacity style={styles.continueLink}>
+              <TouchableOpacity 
+                style={styles.continueLink}
+                onPress={() => navigation.navigate('DriverOrderTracking')}
+              >
                 <Text style={styles.continueLinkText}>Continue</Text>
                 <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
               </TouchableOpacity>
