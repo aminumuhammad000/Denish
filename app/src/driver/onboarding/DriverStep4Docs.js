@@ -8,9 +8,11 @@ import {
   ScrollView,
   Image,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { Colors } from '../../constants/Colors';
 import { useOnboarding } from '../../context/OnboardingContext';
 
@@ -21,6 +23,19 @@ const DriverStep4Docs = ({ navigation }) => {
     vehiclePhoto: null,
     license: null,
   });
+
+  const handlePick = (type) => {
+    Alert.alert(
+      "Upload Document",
+      "Choose a source for your file",
+      [
+        { text: "Photo Library", onPress: () => pickImage(type) },
+        { text: "Files / Documents", onPress: () => pickFile(type) },
+        { text: "Cancel", style: "cancel" }
+      ],
+      { cancelable: true }
+    );
+  };
 
   const pickImage = async (type) => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -39,10 +54,27 @@ const DriverStep4Docs = ({ navigation }) => {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       const fileName = uri.split('/').pop();
-      const newDocs = { ...docs, [type]: { uri, name: fileName } };
+      const newDocs = { ...docs, [type]: { uri, name: fileName, format: 'image' } };
       setDocs(newDocs);
-      // We also update context here for immediate persistence
       updateOnboardingData({ docs: newDocs });
+    }
+  };
+
+  const pickFile = async (type) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'], // Allow PDF and common images
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled) {
+        const file = result.assets[0];
+        const newDocs = { ...docs, [type]: { uri: file.uri, name: file.name, format: 'document' } };
+        setDocs(newDocs);
+        updateOnboardingData({ docs: newDocs });
+      }
+    } catch (err) {
+      Alert.alert("Error", "Could not pick document. Please try again.");
     }
   };
 
@@ -52,7 +84,7 @@ const DriverStep4Docs = ({ navigation }) => {
     updateOnboardingData({ docs: newDocs });
   };
 
-  const UploadBox = ({ label, type, value, isOptional = false }) => {
+  const UploadBox = ({ label, type, value }) => {
     const isUploaded = !!value;
 
     return (
@@ -61,18 +93,24 @@ const DriverStep4Docs = ({ navigation }) => {
         
         {isUploaded ? (
           <View style={styles.uploadedBox}>
+            <Ionicons 
+              name={value.format === 'image' ? "image-outline" : "document-outline"} 
+              size={20} 
+              color="#2E7D32" 
+              style={{ marginRight: 10 }}
+            />
             <Text style={styles.fileName} numberOfLines={1}>{value.name}</Text>
             <TouchableOpacity onPress={() => removeDoc(type)}>
-              <Ionicons name="close" size={20} color="#666" />
+              <Ionicons name="close-circle" size={20} color="#2E7D32" />
             </TouchableOpacity>
           </View>
         ) : (
           <TouchableOpacity 
             style={[styles.dashedBox, type === 'vehiclePhoto' && styles.orangeDashedBox]} 
-            onPress={() => pickImage(type)}
+            onPress={() => handlePick(type)}
           >
             <Ionicons name="cloud-upload-outline" size={24} color={type === 'vehiclePhoto' ? Colors.primary : '#999'} />
-            <Text style={styles.uploadText}>Tap to upload (max(5MB))</Text>
+            <Text style={styles.uploadText}>Tap to upload image or PDF</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -92,7 +130,7 @@ const DriverStep4Docs = ({ navigation }) => {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <Text style={styles.mainTitle}>Upload documents</Text>
-          <Text style={styles.subtitle}>Clear photos help us verify you faster.</Text>
+          <Text style={styles.subtitle}>Clear photos or PDF files help us verify you faster.</Text>
 
           <View style={styles.form}>
             <UploadBox 
@@ -175,7 +213,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   uploadedBox: {
-    height: 45,
+    height: 48,
     backgroundColor: '#E8F5E9',
     borderWidth: 1,
     borderColor: '#2E7D32',
@@ -186,7 +224,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   fileName: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#2E7D32',
     fontWeight: '500',
     flex: 1,
