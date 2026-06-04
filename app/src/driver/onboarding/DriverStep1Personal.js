@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const DriverStep1Personal = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -11,6 +12,8 @@ const DriverStep1Personal = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [errors, setErrors] = useState({});
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [date, setDate] = useState(new Date(2000, 0, 1));
   // Track if user has interacted with the field
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
@@ -34,6 +37,16 @@ const DriverStep1Personal = ({ navigation }) => {
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const onDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDate(selectedDate);
+      const formatted = `${(selectedDate.getMonth() + 1).toString().padStart(2, '0')}/${selectedDate.getDate().toString().padStart(2, '0')}/${selectedDate.getFullYear()}`;
+      setDob(formatted);
+      if (errors.dob) setErrors({ ...errors, dob: null });
+    }
   };
 
   const handleContinue = () => {
@@ -72,14 +85,27 @@ const DriverStep1Personal = ({ navigation }) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Date of birth</Text>
-              <TextInput
-                style={[styles.input, errors.dob && styles.inputError]}
-                placeholder="mm/dd/yyy"
-                placeholderTextColor="#999"
-                value={dob}
-                onChangeText={(v) => { setDob(v); if(errors.dob) setErrors({...errors, dob: null}); }}
-              />
+              <TouchableOpacity 
+                style={[styles.input, errors.dob && styles.inputError, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: dob ? '#333' : '#999', fontSize: 16 }}>
+                  {dob || 'Select date of birth'}
+                </Text>
+                <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
+              </TouchableOpacity>
               {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
+              
+              {showDatePicker && (
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  maximumDate={new Date()} // Can't be born in the future
+                  onChange={onDateChange}
+                />
+              )}
             </View>
 
             <View style={styles.inputGroup}>
