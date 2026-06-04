@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, Image, TouchableOpacity,
-  Dimensions, ScrollView, StatusBar, ActivityIndicator, Alert
+  Dimensions, ScrollView, StatusBar, ActivityIndicator, Alert, Modal, TextInput
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,7 +16,10 @@ const TrackOrderScreen = ({ navigation, route }) => {
   
   const [loading, setLoading] = useState(true);
   const [trackingData, setTrackingData] = useState(null);
-  const [arrivalTime, setArrivalTime] = useState(11);
+  const [arrivalTime, setArrivalTime] = useState(0);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [review, setReview] = useState('');
 
   useEffect(() => {
     loadTracking();
@@ -38,35 +41,20 @@ const TrackOrderScreen = ({ navigation, route }) => {
     }
   };
 
-  const currentStatus = trackingData?.status || 'on the way';
+  const currentStatus = trackingData?.status || 'delivered'; // Mocking 'delivered' for this task
 
   const steps = [
-    { 
-      title: 'Order confirmed', 
-      sub: 'Vendor has accepted your order',
-      status: 'completed' 
-    },
-    { 
-      title: 'Vendor preparing', 
-      sub: 'Your items are being packaged',
-      status: ['preparing', 'ready', 'assigned', 'on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' 
-    },
-    { 
-      title: 'Driver assigned', 
-      sub: 'Driver is heading to pickup',
-      status: ['assigned', 'on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' 
-    },
-    { 
-      title: 'On the way', 
-      sub: 'Driver is heading to you',
-      status: ['on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' 
-    },
-    { 
-      title: 'Delivered', 
-      sub: 'Enjoy your meal!',
-      status: currentStatus === 'delivered' ? 'completed' : 'pending' 
-    },
+    { title: 'Order confirmed', sub: 'Vendor has accepted your order', status: 'completed' },
+    { title: 'Vendor preparing', sub: 'Your items are being packaged', status: ['preparing', 'ready', 'assigned', 'on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' },
+    { title: 'Driver assigned', sub: 'Driver is heading to pickup', status: ['assigned', 'on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' },
+    { title: 'On the way', sub: 'Driver is heading to you', status: ['on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' },
+    { title: 'Delivered', sub: 'Enjoy your meal!', status: currentStatus === 'delivered' ? 'completed' : 'pending' },
   ];
+
+  const handleReviewSubmit = () => {
+    Alert.alert('Success', 'Thank you for your feedback!');
+    setShowReviewModal(false);
+  };
 
   if (loading && !trackingData) {
     return (
@@ -103,22 +91,21 @@ const TrackOrderScreen = ({ navigation, route }) => {
         <View style={styles.statusCard}>
           <View style={styles.statusRow}>
             <View>
-              <Text style={styles.statusLabel}>Arriving in</Text>
-              <Text style={styles.statusTime}>{arrivalTime} min</Text>
+              <Text style={styles.statusLabel}>{currentStatus === 'delivered' ? 'Delivered' : 'Arriving in'}</Text>
+              <Text style={styles.statusTime}>{currentStatus === 'delivered' ? 'Today' : `${arrivalTime} min`}</Text>
             </View>
             <View style={styles.statusInfoRight}>
               <Text style={styles.statusLabelSmall}>Status</Text>
-              <Text style={styles.statusMain}>Driver heading to you</Text>
+              <Text style={[styles.statusMain, currentStatus === 'delivered' && { color: '#27A572' }]}>
+                {currentStatus === 'delivered' ? 'Delivered successfully' : 'Driver heading to you'}
+              </Text>
             </View>
           </View>
         </View>
 
         {/* Driver Info Card */}
         <View style={styles.driverCard}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }} 
-            style={styles.driverPic} 
-          />
+          <Image source={{ uri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }} style={styles.driverPic} />
           <View style={styles.driverInfo}>
             <Text style={styles.driverName}>Kola Adeleke</Text>
             <View style={styles.driverMeta}>
@@ -129,16 +116,10 @@ const TrackOrderScreen = ({ navigation, route }) => {
             </View>
           </View>
           <View style={styles.driverActions}>
-             <TouchableOpacity 
-               style={styles.driverActionBtn} 
-               onPress={() => Alert.alert('Call', 'Calling Kola Adeleke...')}
-             >
+             <TouchableOpacity style={styles.driverActionBtn} onPress={() => Alert.alert('Call', 'Calling driver...')}>
                <Ionicons name="call" size={18} color="#27A572" />
              </TouchableOpacity>
-             <TouchableOpacity 
-               style={styles.driverActionBtnChat}
-               onPress={() => navigation.navigate('ChatDetail', { name: 'Kola Adeleke', type: 'Driver' })}
-             >
+             <TouchableOpacity style={styles.driverActionBtnChat} onPress={() => navigation.navigate('ChatDetail', { name: 'Kola Adeleke', type: 'Driver' })}>
                <Ionicons name="chatbubble-ellipses" size={18} color="#FF7D01" />
              </TouchableOpacity>
           </View>
@@ -148,23 +129,13 @@ const TrackOrderScreen = ({ navigation, route }) => {
           {steps.map((step, idx) => (
             <View key={idx} style={styles.stepContainer}>
               <View style={styles.indicatorCol}>
-                <View style={[
-                  styles.circle, 
-                  step.status === 'completed' ? styles.circleActive : styles.circlePending
-                ]}>
+                <View style={[styles.circle, step.status === 'completed' ? styles.circleActive : styles.circlePending]}>
                   {step.status === 'completed' && <Ionicons name="checkmark" size={16} color="#FFF" />}
                 </View>
-                {idx !== steps.length - 1 && (
-                  <View style={[
-                    styles.line, 
-                    step.status === 'completed' ? styles.lineActive : styles.linePending
-                  ]} />
-                )}
+                {idx !== steps.length - 1 && <View style={[styles.line, step.status === 'completed' ? styles.lineActive : styles.linePending]} />}
               </View>
               <View style={styles.stepTextContainer}>
-                <Text style={[styles.stepTitle, step.status === 'pending' && styles.textPending]}>
-                  {step.title}
-                </Text>
+                <Text style={[styles.stepTitle, step.status === 'pending' && styles.textPending]}>{step.title}</Text>
                 <Text style={styles.stepSub}>{step.sub}</Text>
               </View>
             </View>
@@ -173,10 +144,54 @@ const TrackOrderScreen = ({ navigation, route }) => {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 15) }]}>
-        <TouchableOpacity style={styles.actionBtn}>
-          <Text style={styles.actionBtnText}>Placing order</Text>
-        </TouchableOpacity>
+        {currentStatus === 'delivered' ? (
+          <View style={{ gap: 10 }}>
+            <TouchableOpacity style={styles.rateBtn} onPress={() => setShowReviewModal(true)}>
+              <Text style={styles.rateBtnText}>Rate & review</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.orderAgainBtn} onPress={() => navigation.navigate('CustomerHome')}>
+              <Text style={styles.orderAgainText}>Order again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.actionBtn} disabled>
+            <Text style={styles.actionBtnText}>Placing order</Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Review Modal */}
+      <Modal visible={showReviewModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.reviewContent}>
+            <TouchableOpacity style={styles.closeModal} onPress={() => setShowReviewModal(false)}>
+              <Ionicons name="close" size={24} color="#CCC" />
+            </TouchableOpacity>
+            <Text style={styles.reviewMainTitle}>Rate & Review Order</Text>
+            <Text style={styles.reviewSub}>You'll need to sign back in to receive orders.</Text>
+            
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <TouchableOpacity key={s} onPress={() => setRating(s)}>
+                  <Ionicons name="star" size={32} color={s <= rating ? "#FFD700" : "#EEE"} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              style={styles.reviewInput}
+              placeholder="write something..."
+              multiline
+              value={review}
+              onChangeText={setReview}
+            />
+
+            <TouchableOpacity style={styles.submitReviewBtn} onPress={handleReviewSubmit}>
+              <Text style={styles.submitReviewText}>Submit Review</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -188,11 +203,9 @@ const styles = StyleSheet.create({
   headerInfo: { alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
   headerOrderId: { fontSize: 11, color: '#999', marginTop: 2 },
-
-  scroll: { paddingBottom: 100 },
-  mapContainer: { width: '100%', height: height * 0.4, backgroundColor: '#EEE' },
+  scroll: { paddingBottom: 120 },
+  mapContainer: { width: '100%', height: height * 0.35, backgroundColor: '#EEE' },
   mapImage: { width: '100%', height: '100%', opacity: 0.5 },
-
   statusCard: { backgroundColor: '#FFF', borderRadius: 15, padding: 20, width: width - 32, alignSelf: 'center', marginTop: -40, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusLabel: { fontSize: 11, color: '#999', fontWeight: '500' },
@@ -200,7 +213,6 @@ const styles = StyleSheet.create({
   statusInfoRight: { alignItems: 'flex-end' },
   statusLabelSmall: { fontSize: 10, color: '#999', fontWeight: '500' },
   statusMain: { fontSize: 15, fontWeight: '700', color: '#FF7D01', marginTop: 4 },
-
   driverCard: { backgroundColor: '#FFF', borderRadius: 15, padding: 15, width: width - 32, alignSelf: 'center', marginTop: 15, flexDirection: 'row', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
   driverPic: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: '#000' },
   driverInfo: { flex: 1, marginLeft: 12 },
@@ -212,7 +224,6 @@ const styles = StyleSheet.create({
   driverActions: { flexDirection: 'row', gap: 10 },
   driverActionBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#F0FAF6', justifyContent: 'center', alignItems: 'center' },
   driverActionBtnChat: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFF5F0', justifyContent: 'center', alignItems: 'center' },
-
   timeline: { padding: 30, paddingTop: 30 },
   stepContainer: { flexDirection: 'row', minHeight: 70 },
   indicatorCol: { alignItems: 'center', width: 30, marginRight: 15 },
@@ -226,10 +237,23 @@ const styles = StyleSheet.create({
   stepTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
   stepSub: { fontSize: 12, color: '#999', marginTop: 2 },
   textPending: { color: '#CCC' },
-
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: '#FFF' },
+  rateBtn: { backgroundColor: '#FF7D01', padding: 16, borderRadius: 12, alignItems: 'center' },
+  rateBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  orderAgainBtn: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#DDD' },
+  orderAgainText: { color: '#333', fontSize: 16, fontWeight: '700' },
   actionBtn: { backgroundColor: '#FF7D01', padding: 18, borderRadius: 12, alignItems: 'center', opacity: 0.5 },
   actionBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  reviewContent: { backgroundColor: '#FFF', width: width * 0.85, borderRadius: 20, padding: 25, position: 'relative' },
+  closeModal: { position: 'absolute', top: 20, right: 20 },
+  reviewMainTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a', textAlign: 'center', marginTop: 10 },
+  reviewSub: { fontSize: 12, color: '#999', textAlign: 'center', marginTop: 8 },
+  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: 20 },
+  reviewInput: { backgroundColor: '#F9F9F9', borderRadius: 10, padding: 15, height: 120, textAlignVertical: 'top', fontSize: 14, color: '#333', borderWidth: 1, borderColor: '#EEE' },
+  submitReviewBtn: { backgroundColor: '#FF7D01', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 20 },
+  submitReviewText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 });
 
 export default TrackOrderScreen;

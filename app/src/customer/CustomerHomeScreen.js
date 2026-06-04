@@ -144,34 +144,28 @@ const CustomerHomeScreen = ({ navigation }) => {
           >
             {/* Banner 1 */}
             <View style={styles.bannerCard}>
-              <View style={styles.bannerSplit}>
+              <View style={styles.bannerWrapper}>
                 <Image 
-                  source={{ uri: 'https://images.unsplash.com/photo-1621360841013-c7683c31329c?w=800' }} 
-                  style={styles.bannerHalfImage} 
+                  source={{ uri: 'https://images.unsplash.com/photo-1590604153093-ae4fc2909f90?w=1200&q=80' }} 
+                  style={styles.bannerFullImg} 
                 />
-                <View style={[styles.bannerHalfColor, { backgroundColor: '#FF7D01' }]}>
-                  <Text style={styles.bannerTitle}>Free delivery</Text>
-                  <Text style={styles.bannerSub}>On your first 3 orders this week</Text>
-                  <TouchableOpacity style={styles.bannerBtn}>
-                    <Text style={styles.bannerBtnText}>Order Now</Text>
-                  </TouchableOpacity>
+                <View style={styles.bannerGradient}>
+                  <Text style={styles.bannerTitleFull}>Free delivery</Text>
+                  <Text style={styles.bannerSubFull}>On your first 3 orders this week</Text>
                 </View>
               </View>
             </View>
 
             {/* Banner 2 */}
             <View style={styles.bannerCard}>
-              <View style={styles.bannerSplit}>
+              <View style={styles.bannerWrapper}>
                 <Image 
-                  source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800' }} 
-                  style={styles.bannerHalfImage} 
+                  source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&q=80' }} 
+                  style={styles.bannerFullImg} 
                 />
-                <View style={[styles.bannerHalfColor, { backgroundColor: '#FF6B6B' }]}>
-                  <Text style={styles.bannerTitle}>50% Discount</Text>
-                  <Text style={styles.bannerSub}>Get huge discounts on your favorite meals</Text>
-                  <TouchableOpacity style={styles.bannerBtn}>
-                    <Text style={styles.bannerBtnText}>Claim Now</Text>
-                  </TouchableOpacity>
+                <View style={[styles.bannerGradient, { backgroundColor: 'rgba(255, 30, 30, 0.4)' }]}>
+                  <Text style={styles.bannerTitleFull}>50% Discount</Text>
+                  <Text style={styles.bannerSubFull}>Get huge discounts on your favorite meals</Text>
                 </View>
               </View>
             </View>
@@ -274,13 +268,20 @@ const styles = StyleSheet.create({
 
   bannerScroll: { marginBottom: 25 },
   bannerCard: { width: width, paddingHorizontal: 16 },
-  bannerSplit: { width: '100%', height: 140, borderRadius: 20, overflow: 'hidden', flexDirection: 'row' },
-  bannerHalfImage: { width: '40%', height: '100%' },
-  bannerHalfColor: { width: '60%', height: '100%', justifyContent: 'center', paddingHorizontal: 20 },
-  bannerTitle: { color: '#FFF', fontSize: 22, fontWeight: '900' },
-  bannerSub: { color: '#FFF', fontSize: 11, fontWeight: '500', marginTop: 4 },
-  bannerBtn: { backgroundColor: '#FFF', alignSelf: 'flex-start', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 15, marginTop: 12 },
-  bannerBtnText: { color: '#333', fontSize: 12, fontWeight: '700' },
+  bannerWrapper: { width: '100%', height: 160, borderRadius: 25, overflow: 'hidden', position: 'relative' },
+  bannerFullImg: { width: '100%', height: '100%' },
+  bannerGradient: { 
+    position: 'absolute', 
+    bottom: 0, 
+    left: 0, 
+    right: 0, 
+    height: '100%', 
+    backgroundColor: 'rgba(255, 125, 1, 0.45)', 
+    justifyContent: 'flex-end', 
+    padding: 20 
+  },
+  bannerTitleFull: { color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
+  bannerSubFull: { color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600', marginTop: 4 },
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 10, marginBottom: 15 },
   sectionTitle: { fontSize: 13, color: '#888', fontWeight: '400' },
