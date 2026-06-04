@@ -102,10 +102,20 @@ const updateCustomerProfile = async (req, res) => {
   }
 };
 
+const getCustomerOrders = async (req, res) => {
+  try {
+    const orders = await Order.find().populate('vendorId').sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: orders });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getRestaurants,
   getRestaurantDetails,
   placeOrder,
   getCustomerProfile,
-  updateCustomerProfile
+  updateCustomerProfile,
+  getCustomerOrders
 };

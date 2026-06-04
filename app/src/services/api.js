@@ -197,6 +197,16 @@ export const placeCustomerOrder = async (orderPayload) => {
   }
 };
 
+export const getCustomerOrders = async () => {
+  try {
+    const response = await api.get('/customer/orders');
+    return response.data;
+  } catch (error) {
+    console.error('API getCustomerOrders error:', error);
+    throw error;
+  }
+};
+
 export const getCustomerProfile = async () => {
   try {
     const response = await api.get('/customer/profile');
