@@ -107,6 +107,9 @@ const CustomerHomeScreen = ({ navigation }) => {
                 </View>
               </TouchableOpacity>
               <View style={styles.headerActions}>
+                <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.roundBtn}>
+                  <Ionicons name="notifications-outline" size={22} color="#FFF" />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigation.navigate('ChatList')} style={styles.roundBtn}>
                   <Ionicons name="chatbubble-ellipses-outline" size={22} color="#FFF" />
                 </TouchableOpacity>

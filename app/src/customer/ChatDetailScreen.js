@@ -66,6 +66,16 @@ const ChatDetailScreen = ({ route, navigation }) => {
   };
 
   const handleCall = () => {
+    // Add call record to messages
+    const callMessage = {
+      id: Date.now().toString(),
+      text: "Voice Call",
+      subText: "Outgoing",
+      type: 'call',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      sender: 'me'
+    };
+    setMessages([...messages, callMessage]);
     navigation.navigate('Calling', { name });
   };
 
@@ -197,10 +207,16 @@ const styles = StyleSheet.create({
   themBubble: {
     borderColor: '#EFEFEF',
   },
-  callBubble: { paddingHorizontal: 16, paddingVertical: 10, minWidth: 160 },
+  callBubble: { 
+    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    minWidth: 200,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)'
+  },
   callMessageContainer: { flexDirection: 'row', alignItems: 'center' },
-  callMessageInfo: { marginLeft: 12 },
-  callSubText: { fontSize: 11, marginTop: 2 },
+  callMessageInfo: { marginLeft: 12, flex: 1 },
+  callSubText: { fontSize: 12, marginTop: 2, opacity: 0.8 },
 
   messageText: { fontSize: 14, lineHeight: 20 },
   meText: { color: '#FFF' },

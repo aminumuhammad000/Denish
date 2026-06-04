@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Sound } from 'expo-av/build/Audio/Sound';
 
-const RINGING_SOUND_URL = 'https://www.soundjay.com/phone/phone-calling-1.mp3';
+const RINGING_SOUND_URL = 'https://github.com/AnisulIslam/Android-Programming/raw/master/AudioPlayer/app/src/main/res/raw/ringtone.mp3';
 
 const CallingScreen = ({ route, navigation }) => {
   const { name = 'Kolawole Adeleke', orderId = 'Order ORD-005', subtitle = '3.5 km | ₦750' } = route?.params || {};

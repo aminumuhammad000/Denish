@@ -51,6 +51,7 @@ import CallingScreen from './src/screens/CallingScreen';
 import DriverOrderTracking from './src/driver/DriverOrderTracking';
 import DriverProfileScreen from './src/driver/DriverProfileScreen';
 import DriverEditProfileScreen from './src/driver/DriverEditProfileScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 
 // Context
 import { CartProvider } from './src/context/CartContext';
@@ -118,6 +119,7 @@ export default function App() {
               <Stack.Screen name="DriverProfile"      component={DriverProfileScreen} />
               <Stack.Screen name="DriverEditProfile"  component={DriverEditProfileScreen} />
               <Stack.Screen name="Calling"            component={CallingScreen} options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+               <Stack.Screen name="Notifications"      component={NotificationsScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </CartProvider>

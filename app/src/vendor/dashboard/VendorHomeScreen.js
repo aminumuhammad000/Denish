@@ -16,7 +16,6 @@ const VendorHomeScreen = ({ navigation }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -43,9 +42,7 @@ const VendorHomeScreen = ({ navigation }) => {
     // In a real app, call API here: await updateVendorProfile({ storeOpen: !isOpen });
   };
 
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-  };
+
 
   if (loading) {
     return (
@@ -60,18 +57,18 @@ const VendorHomeScreen = ({ navigation }) => {
   const isPending = data.status === 'Pending';
 
   const theme = {
-    bg: isDarkMode ? '#121212' : '#FDFDFD',
-    text: isDarkMode ? '#FFFFFF' : '#1a1a1a',
-    subText: isDarkMode ? '#AAAAAA' : '#888888',
-    card: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-    border: isDarkMode ? '#333333' : '#F0F0F0',
-    headerBg: '#FF8C00', // Keeps orange as brand color
-    inputBg: isDarkMode ? '#2A2A2A' : '#F8F8F8',
+    bg: '#FDFDFD',
+    text: '#1a1a1a',
+    subText: '#888888',
+    card: '#FFFFFF',
+    border: '#F0F0F0',
+    headerBg: '#FF8C00',
+    inputBg: '#F8F8F8',
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+      <StatusBar barStyle="dark-content" />
       {isPending && (
         <View style={styles.pendingBanner}>
           <Ionicons name="information-circle" size={16} color="#fff" />
@@ -96,15 +93,18 @@ const VendorHomeScreen = ({ navigation }) => {
                 <Text style={styles.businessNameHeader}>{data.businessName || "Mama's Kitchen"}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.settingsBtn} onPress={toggleTheme}>
-              <Ionicons name={isDarkMode ? "sunny" : "moon"} size={22} color="#fff" />
+            <TouchableOpacity
+              style={styles.settingsBtn}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <Ionicons name="notifications-outline" size={22} color="#fff" />
             </TouchableOpacity>
           </View>
 
           {/* Store Status Card - Floating */}
           <View style={[styles.storeCard, { backgroundColor: theme.card }]}>
             <View style={styles.storeCardLeft}>
-              <View style={[styles.powerIconBg, { backgroundColor: isDarkMode ? '#1B3022' : '#E8F5E9' }]}>
+              <View style={[styles.powerIconBg, { backgroundColor: '#E8F5E9' }]}>
                 <Ionicons name="power-outline" size={20} color="#4CAF50" />
               </View>
               <View style={{ marginLeft: 12 }}>
@@ -127,9 +127,9 @@ const VendorHomeScreen = ({ navigation }) => {
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Today</Text>
           <View style={styles.statsGrid}>
             {[
-              { label: 'New', value: data.stats?.new || 2, icon: 'time-outline', color: isDarkMode ? '#332200' : '#FFF5E6', iconColor: '#FF8C00' },
-              { label: 'Cooking', value: data.stats?.cooking || 2, icon: 'flame-outline', color: isDarkMode ? '#1B3022' : '#E8F5E9', iconColor: '#27AE60' },
-              { label: 'Ready', value: data.stats?.ready || 1, icon: 'checkmark-circle-outline', color: isDarkMode ? '#192834' : '#E3F2FD', iconColor: '#2196F3' }
+              { label: 'New', value: data.stats?.new || 2, icon: 'time-outline', color: '#FFF5E6', iconColor: '#FF8C00' },
+              { label: 'Cooking', value: data.stats?.cooking || 2, icon: 'flame-outline', color: '#E8F5E9', iconColor: '#27AE60' },
+              { label: 'Ready', value: data.stats?.ready || 1, icon: 'checkmark-circle-outline', color: '#E3F2FD', iconColor: '#2196F3' }
             ].map((s) => (
               <View key={s.label} style={[styles.statBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <View style={[styles.statIconBg, { backgroundColor: s.color }]}>
@@ -149,13 +149,13 @@ const VendorHomeScreen = ({ navigation }) => {
           <Text style={[styles.revenueValue, { color: theme.text }]}>₦{(data.todayRevenue || 17000).toLocaleString()}</Text>
 
           {/* Stock Warning */}
-          <TouchableOpacity style={[styles.warningCard, { backgroundColor: isDarkMode ? '#332200' : '#FFF9F0', borderColor: isDarkMode ? '#553300' : '#FFECCF' }]}>
-            <View style={[styles.warningIconBg, { backgroundColor: isDarkMode ? '#442A00' : '#FFF0DB' }]}>
+          <TouchableOpacity style={styles.warningCard}>
+            <View style={styles.warningIconBg}>
               <Ionicons name="alert-circle" size={18} color="#FF8C00" />
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.warningTitle}>{data.lowStock || 1} item low on stock</Text>
-              <Text style={[styles.warningSubText, { color: isDarkMode ? '#CCC' : '#888' }]}>Puff Puff (8pcs)</Text>
+              <Text style={styles.warningSubText}>Puff Puff (8pcs)</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#FF8C00" />
           </TouchableOpacity>
@@ -174,7 +174,7 @@ const VendorHomeScreen = ({ navigation }) => {
               <View style={styles.orderMainInfo}>
                 <View style={styles.orderIdRow}>
                   <Text style={[styles.orderIdText, { color: theme.text }]}>{o.id}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: o.status === 'new' ? (isDarkMode ? '#332200' : '#FFF5E6') : (isDarkMode ? '#1B3022' : '#E8F5E9') }]}>
+                  <View style={[styles.statusBadge, { backgroundColor: o.status === 'new' ? '#FFF5E6' : '#E8F5E9' }]}>
                     <Text style={[styles.statusBadgeText, { color: o.status === 'new' ? '#FF8C00' : '#27AE60' }]}>
                       {o.status.toUpperCase()}
                     </Text>
@@ -184,7 +184,7 @@ const VendorHomeScreen = ({ navigation }) => {
               </View>
               <View style={styles.orderRightSide}>
                 <Text style={[styles.orderAmountText, { color: theme.text }]}>{o.amount}</Text>
-                <Ionicons name="chevron-forward" size={16} color={isDarkMode ? "#555" : "#DDD"} />
+                <Ionicons name="chevron-forward" size={16} color="#DDD" />
               </View>
             </TouchableOpacity>
           ))}
@@ -200,7 +200,7 @@ const VendorHomeScreen = ({ navigation }) => {
                 <Text style={[styles.earningsSubtitle, { color: theme.subText }]}>Last 7 days</Text>
                 <Text style={[styles.earningsAmount, { color: theme.text }]}>₦42,000 earned</Text>
               </View>
-              <View style={[styles.growthBadge, { backgroundColor: isDarkMode ? '#1B3022' : '#E8F5E9' }]}>
+              <View style={styles.growthBadge}>
                 <Ionicons name="trending-up" size={12} color="#27AE60" />
                 <Text style={styles.growthText}>+12%</Text>
               </View>
@@ -209,7 +209,7 @@ const VendorHomeScreen = ({ navigation }) => {
             <View style={styles.chartContainer}>
               {[25, 40, 30, 70, 20, 55, 45].map((h, i) => (
                 <View key={i} style={styles.chartBarCol}>
-                  <View style={[styles.chartBar, { height: h, backgroundColor: h > 60 ? '#FF8C00' : (isDarkMode ? '#444' : '#FFDAB9') }]} />
+                  <View style={[styles.chartBar, { height: h, backgroundColor: h > 60 ? '#FF8C00' : '#FFDAB9' }]} />
                   <Text style={styles.chartBarLabel}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</Text>
                 </View>
               ))}

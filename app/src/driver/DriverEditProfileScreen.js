@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
@@ -85,35 +86,49 @@ const DriverEditProfileScreen = ({ route, navigation }) => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Prepare payload based on section
       let payload = {};
       if (section === 'personal') {
+        if (!formData.name || !formData.phone) {
+          Alert.alert('Validation', 'Name and phone are required.');
+          setLoading(false);
+          return;
+        }
         payload = { name: formData.name, email: formData.email, phone: formData.phone };
       } else if (section === 'vehicle') {
-        payload = { 
-          vehicle: { 
-            type: formData.vehicleType, 
-            make: formData.makeModel, 
-            plate: formData.plate, 
-            color: formData.color 
-          } 
+        payload = {
+          vehicle: {
+            type: formData.vehicleType,
+            make: formData.makeModel,
+            plate: formData.plate,
+            color: formData.color
+          }
         };
       } else if (section === 'bank') {
-        payload = { 
-          bank: { 
-            name: formData.bank, 
-            accountName: formData.accountName, 
-            accountNumber: formData.accountNumber 
-          } 
+        if (!formData.accountNumber || !formData.bank) {
+          Alert.alert('Validation', 'Bank name and account number are required.');
+          setLoading(false);
+          return;
+        }
+        payload = {
+          bank: {
+            name: formData.bank,
+            accountName: formData.accountName,
+            accountNumber: formData.accountNumber
+          }
         };
       }
 
       const response = await updateDriverProfile(payload);
       if (response && response.success) {
-        navigation.goBack();
+        Alert.alert('Success', 'Profile updated successfully!', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        Alert.alert('Error', response?.message || 'Update failed. Please try again.');
       }
     } catch (error) {
       console.error('Update error:', error);
+      Alert.alert('Error', 'Could not connect to the server. Please check your internet connection.');
     } finally {
       setLoading(false);
     }

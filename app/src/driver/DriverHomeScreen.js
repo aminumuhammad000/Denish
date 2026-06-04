@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   StatusBar,
   Switch,
+  Image,
 } from 'react-native';
+import { getDriverProfile } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +45,21 @@ const CompletedDeliveryCard = ({ name, price, address, details }) => (
 const DriverHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [isOnline, setIsOnline] = useState(true);
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await getDriverProfile();
+        if (response && response.success) {
+          setProfile(response.data);
+        }
+      } catch (err) {
+        console.error('Fetch profile error:', err);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const earningsData = [
     { day: 'Mon', value: 15 },
@@ -67,15 +84,22 @@ const DriverHomeScreen = ({ navigation }) => {
                 onPress={() => navigation.navigate('DriverProfile')}
                 style={styles.avatar}
               >
-                <Text style={styles.avatarText}>BA</Text>
+                {profile?.profilePic ? (
+                  <Image source={{ uri: profile.profilePic }} style={styles.avatarImg} />
+                ) : (
+                  <Text style={styles.avatarText}>
+                    {profile?.name ? profile.name.split(' ').map(n=>n[0]).join('').toUpperCase() : 'BA'}
+                  </Text>
+                )}
               </TouchableOpacity>
               <View>
                 <Text style={styles.welcomeBack}>Welcome back</Text>
-                <Text style={styles.userName}>Bayo Adeyemi</Text>
+                <Text style={styles.userName}>{profile?.name || 'Bayo Adeyemi'}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.notifBtn}>
+            <TouchableOpacity style={styles.notifBtn} onPress={() => navigation.navigate('Notifications')}>
               <Ionicons name="notifications-outline" size={24} color="#FFF" />
+              <View style={styles.notifBadge} />
             </TouchableOpacity>
           </View>
 
@@ -104,9 +128,9 @@ const DriverHomeScreen = ({ navigation }) => {
             <Text style={styles.sectionTitle}>Today</Text>
           </View>
           <View style={styles.statsRow}>
-            <StatCard iconName="notifications-outline" value="₦25,500" label="Earnings" />
-            <StatCard iconName="notifications-outline" value="12" label="Trips" />
-            <StatCard iconName="notifications-outline" value="47 km" label="Distance" />
+            <StatCard iconName="wallet-outline" value="₦25,500" label="Earnings" />
+            <StatCard iconName="car-outline" value="12" label="Trips" />
+            <StatCard iconName="location-outline" value="47 km" label="Distance" />
           </View>
 
           <View style={styles.sectionHeaderRow}>
@@ -291,6 +315,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  avatarImg: { width: '100%', height: '100%', borderRadius: 25 },
   avatarText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
   welcomeBack: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
   userName: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
@@ -301,6 +326,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
   },
   onlineBox: {
     backgroundColor: '#FFF',
