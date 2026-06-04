@@ -48,6 +48,7 @@ import DriverStep4Docs from './src/driver/onboarding/DriverStep4Docs';
 import DriverStep5Review from './src/driver/onboarding/DriverStep5Review';
 import DriverDashboard from './src/driver/DriverDashboard';
 import DriverOrderTracking from './src/driver/DriverOrderTracking';
+import DriverProfileScreen from './src/driver/DriverProfileScreen';
 
 // Context
 import { CartProvider } from './src/context/CartContext';
@@ -112,6 +113,7 @@ export default function App() {
               <Stack.Screen name="DriverLogin" component={DriverLoginScreen} />
               <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
               <Stack.Screen name="DriverOrderTracking" component={DriverOrderTracking} />
+              <Stack.Screen name="DriverProfile"      component={DriverProfileScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </CartProvider>
