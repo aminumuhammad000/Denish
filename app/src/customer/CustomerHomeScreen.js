@@ -47,15 +47,15 @@ const SquareCard = ({ name, sub, rating, price, image, onPress }) => (
   </TouchableOpacity>
 );
 
-const ListCard = ({ name, sub, price, image }) => (
-  <TouchableOpacity style={styles.listCard}>
+const ListCard = ({ name, sub, price, image, onPress }) => (
+  <TouchableOpacity style={styles.listCard} onPress={onPress}>
     <Image source={{ uri: image }} style={styles.listImage} />
     <View style={styles.listInfo}>
       <Text style={styles.listTitle}>{name}</Text>
       <Text style={styles.listSub} numberOfLines={1}>{sub}</Text>
       <Text style={styles.listPrice}>₦{price}</Text>
     </View>
-    <TouchableOpacity style={styles.addBtn}>
+    <TouchableOpacity style={styles.addBtn} onPress={onPress}>
       <Ionicons name="add" size={20} color={Colors.primary} />
     </TouchableOpacity>
   </TouchableOpacity>
@@ -195,38 +195,38 @@ const CustomerHomeScreen = ({ navigation }) => {
           {/* Cooked Foods */}
           <SectionHeader title="Cooked Foods" />
           <View style={styles.grid}>
-             <SquareCard name="Chunky Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=400" />
-             <SquareCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1574484284002-952d92456975?w=400" />
+             <SquareCard name="Chunky Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1574484284002-952d92456975?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
           </View>
 
           {/* Grilled Foods */}
           <SectionHeader title="Grilled Foods" />
           <View style={styles.grid}>
-             <SquareCard name="Grilled Meat" sub="Smokey party grilled meat" price="3,200" image="https://images.unsplash.com/photo-1544025162-d76694265947?w=400" />
-             <SquareCard name="Grilled Fish" sub="Smokey party grilled fish" price="3,500" image="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400" />
+             <SquareCard name="Grilled Meat" sub="Smokey party grilled meat" price="3,200" image="https://images.unsplash.com/photo-1544025162-d76694265947?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Grilled Fish" sub="Smokey party grilled fish" price="3,500" image="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
           </View>
 
           {/* Featured Orders */}
           <SectionHeader title="Featured orders" showViewAll />
           <View style={styles.list}>
-             <ListCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=200" />
-             <ListCard name="Agoyin Beans" sub="Smokey party cooked jollof rice" price="2,200" image="https://images.unsplash.com/photo-1593361876527-2ee3b4e6b72a?w=200" />
-             <ListCard name="White Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1516684732162-798a0062be99?w=200" />
-             <ListCard name="Raw Carrots" sub="Smokey party cooked jollof rice" price="1,200" image="https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=200" />
+             <ListCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=200" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <ListCard name="Agoyin Beans" sub="Smokey party cooked jollof rice" price="2,200" image="https://images.unsplash.com/photo-1593361876527-2ee3b4e6b72a?w=200" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <ListCard name="White Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1516684732162-798a0062be99?w=200" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <ListCard name="Raw Carrots" sub="Smokey party cooked jollof rice" price="1,200" image="https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=200" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
           </View>
 
           {/* Drinks */}
           <SectionHeader title="Drinks" />
           <View style={styles.grid}>
-             <SquareCard name="Fresh Chapman" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400" />
-             <SquareCard name="Home-made Juice" sub="Smokey party jollof rice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400" />
+             <SquareCard name="Fresh Chapman" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Home-made Juice" sub="Smokey party jollof rice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
           </View>
 
           {/* Fruits */}
           <SectionHeader title="Fruits" />
           <View style={styles.grid}>
-             <SquareCard name="Fresh Mango" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400" />
-             <SquareCard name="Fresh Pepper" sub="Smokey party jollof rice" price="2,500" image="https://images.unsplash.com/photo-1588252303782-cb80119cb665?w=400" />
+             <SquareCard name="Fresh Mango" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Fresh Pepper" sub="Smokey party jollof rice" price="2,500" image="https://images.unsplash.com/photo-1588252303782-cb80119cb665?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
           </View>
 
         </View>

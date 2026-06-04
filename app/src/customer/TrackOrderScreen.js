@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, Image, TouchableOpacity,
-  Dimensions, ScrollView, StatusBar, ActivityIndicator
+  Dimensions, ScrollView, StatusBar, ActivityIndicator, Alert
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,21 +12,19 @@ const { width, height } = Dimensions.get('window');
 
 const TrackOrderScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const orderId = route?.params?.orderId;
+  const orderId = route?.params?.orderId || 'ORD-7917';
   
   const [loading, setLoading] = useState(true);
   const [trackingData, setTrackingData] = useState(null);
-  const [arrivalTime, setArrivalTime] = useState(0);
+  const [arrivalTime, setArrivalTime] = useState(11);
 
   useEffect(() => {
     loadTracking();
-    // Poll for updates every 30 seconds
     const interval = setInterval(loadTracking, 30000);
     return () => clearInterval(interval);
   }, [orderId]);
 
   const loadTracking = async () => {
-    if (!orderId) return;
     try {
       const res = await fetchOrderTracking(orderId);
       if (res.success) {
@@ -40,24 +38,34 @@ const TrackOrderScreen = ({ navigation, route }) => {
     }
   };
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'pending': return 'Order placed';
-      case 'preparing': return 'Preparing your meal';
-      case 'ready': return 'Order is ready';
-      case 'assigned': return 'Driver picking up';
-      case 'on the way': return 'Driver on the way';
-      case 'delivered': return 'Order delivered';
-      default: return 'Order confirmed';
-    }
-  };
+  const currentStatus = trackingData?.status || 'on the way';
 
   const steps = [
-    { title: 'Order confirmed', status: 'completed' },
-    { title: 'Vendor preparing', status: ['preparing', 'ready', 'assigned', 'on the way', 'delivered'].includes(trackingData?.status) ? 'completed' : 'pending' },
-    { title: 'Driver assigned', status: ['assigned', 'on the way', 'delivered'].includes(trackingData?.status) ? 'completed' : 'pending' },
-    { title: 'On the way', status: ['on the way', 'delivered'].includes(trackingData?.status) ? 'completed' : 'pending' },
-    { title: 'Delivered', status: trackingData?.status === 'delivered' ? 'completed' : 'pending' },
+    { 
+      title: 'Order confirmed', 
+      sub: 'Vendor has accepted your order',
+      status: 'completed' 
+    },
+    { 
+      title: 'Vendor preparing', 
+      sub: 'Your items are being packaged',
+      status: ['preparing', 'ready', 'assigned', 'on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' 
+    },
+    { 
+      title: 'Driver assigned', 
+      sub: 'Driver is heading to pickup',
+      status: ['assigned', 'on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' 
+    },
+    { 
+      title: 'On the way', 
+      sub: 'Driver is heading to you',
+      status: ['on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' 
+    },
+    { 
+      title: 'Delivered', 
+      sub: 'Enjoy your meal!',
+      status: currentStatus === 'delivered' ? 'completed' : 'pending' 
+    },
   ];
 
   if (loading && !trackingData) {
@@ -73,46 +81,76 @@ const TrackOrderScreen = ({ navigation, route }) => {
       <StatusBar barStyle="dark-content" />
       
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10, height: insets.top + 70 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>Order Tracking</Text>
-          <Text style={styles.headerOrderId}>ID: {orderId}</Text>
+          <Text style={styles.headerTitle}>Track order</Text>
+          <Text style={styles.headerOrderId}>{orderId}</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
 
-      <View style={styles.mapContainer}>
-        <Image 
-          source={{ uri: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&q=80' }}
-          style={styles.mapImage}
-        />
-        <View style={styles.mapOverlay} />
-      </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <View style={styles.mapContainer}>
+          <Image 
+            source={{ uri: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&q=80' }}
+            style={styles.mapImage}
+          />
+        </View>
 
-      <View style={styles.statusCard}>
-        <View style={styles.statusRow}>
-          <View>
-            <Text style={styles.statusLabel}>Arriving in</Text>
-            <Text style={styles.statusTime}>{arrivalTime} min</Text>
-          </View>
-          <View style={styles.statusInfoRight}>
-            <Text style={styles.statusLabelSmall}>Status</Text>
-            <Text style={styles.statusMain}>{getStatusText(trackingData?.status)}</Text>
+        <View style={styles.statusCard}>
+          <View style={styles.statusRow}>
+            <View>
+              <Text style={styles.statusLabel}>Arriving in</Text>
+              <Text style={styles.statusTime}>{arrivalTime} min</Text>
+            </View>
+            <View style={styles.statusInfoRight}>
+              <Text style={styles.statusLabelSmall}>Status</Text>
+              <Text style={styles.statusMain}>Driver heading to you</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        {/* Driver Info Card */}
+        <View style={styles.driverCard}>
+          <Image 
+            source={{ uri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }} 
+            style={styles.driverPic} 
+          />
+          <View style={styles.driverInfo}>
+            <Text style={styles.driverName}>Kola Adeleke</Text>
+            <View style={styles.driverMeta}>
+              <Ionicons name="star" size={12} color="#FFD700" />
+              <Text style={styles.driverRating}>4.8</Text>
+              <View style={styles.dot} />
+              <Text style={styles.driverVehicle}>Honda CB | LSR-432-AB</Text>
+            </View>
+          </View>
+          <View style={styles.driverActions}>
+             <TouchableOpacity 
+               style={styles.driverActionBtn} 
+               onPress={() => Alert.alert('Call', 'Calling Kola Adeleke...')}
+             >
+               <Ionicons name="call" size={18} color="#27A572" />
+             </TouchableOpacity>
+             <TouchableOpacity 
+               style={styles.driverActionBtnChat}
+               onPress={() => navigation.navigate('ChatDetail', { name: 'Kola Adeleke', type: 'Driver' })}
+             >
+               <Ionicons name="chatbubble-ellipses" size={18} color="#FF7D01" />
+             </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.timeline}>
           {steps.map((step, idx) => (
             <View key={idx} style={styles.stepContainer}>
               <View style={styles.indicatorCol}>
                 <View style={[
-                  styles.dot, 
-                  step.status === 'completed' ? styles.dotActive : styles.dotPending
+                  styles.circle, 
+                  step.status === 'completed' ? styles.circleActive : styles.circlePending
                 ]}>
                   {step.status === 'completed' && <Ionicons name="checkmark" size={16} color="#FFF" />}
                 </View>
@@ -127,6 +165,7 @@ const TrackOrderScreen = ({ navigation, route }) => {
                 <Text style={[styles.stepTitle, step.status === 'pending' && styles.textPending]}>
                   {step.title}
                 </Text>
+                <Text style={styles.stepSub}>{step.sub}</Text>
               </View>
             </View>
           ))}
@@ -134,8 +173,8 @@ const TrackOrderScreen = ({ navigation, route }) => {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 15) }]}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('CustomerHome')}>
-          <Text style={styles.actionBtnText}>Back to Dashboard</Text>
+        <TouchableOpacity style={styles.actionBtn}>
+          <Text style={styles.actionBtnText}>Placing order</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -143,40 +182,53 @@ const TrackOrderScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F0F0F0', zIndex: 10 },
+  container: { flex: 1, backgroundColor: '#F9F9F9' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, backgroundColor: '#FFF', height: 80, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   backBtn: { padding: 4 },
   headerInfo: { alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1a1a1a', letterSpacing: -0.5 },
-  headerOrderId: { fontSize: 11, color: '#666', fontWeight: '600', marginTop: 2, textTransform: 'uppercase' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
+  headerOrderId: { fontSize: 11, color: '#999', marginTop: 2 },
 
-  mapContainer: { width: '100%', height: height * 0.3, backgroundColor: '#EEE' },
-  mapImage: { width: '100%', height: '100%', opacity: 0.4 },
-  mapOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.2)' },
+  scroll: { paddingBottom: 100 },
+  mapContainer: { width: '100%', height: height * 0.4, backgroundColor: '#EEE' },
+  mapImage: { width: '100%', height: '100%', opacity: 0.5 },
 
-  statusCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, width: width - 32, alignSelf: 'center', marginTop: -30, borderWidth: 1, borderColor: '#EEE' },
+  statusCard: { backgroundColor: '#FFF', borderRadius: 15, padding: 20, width: width - 32, alignSelf: 'center', marginTop: -40, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statusLabel: { fontSize: 11, color: '#AAA', fontWeight: '500' },
-  statusTime: { fontSize: 22, fontWeight: '900', color: '#1a1a1a', marginTop: 2 },
+  statusLabel: { fontSize: 11, color: '#999', fontWeight: '500' },
+  statusTime: { fontSize: 24, fontWeight: '800', color: '#1a1a1a', marginTop: 4 },
   statusInfoRight: { alignItems: 'flex-end' },
-  statusLabelSmall: { fontSize: 10, color: '#AAA', fontWeight: '500' },
-  statusMain: { fontSize: 14, fontWeight: '700', color: Colors.primary, marginTop: 2 },
+  statusLabelSmall: { fontSize: 10, color: '#999', fontWeight: '500' },
+  statusMain: { fontSize: 15, fontWeight: '700', color: '#FF7D01', marginTop: 4 },
 
-  scroll: { padding: 16, paddingTop: 20, paddingBottom: 100 },
-  timeline: { paddingHorizontal: 8 },
-  stepContainer: { flexDirection: 'row', minHeight: 60 },
-  indicatorCol: { alignItems: 'center', width: 40, marginRight: 12 },
-  dot: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', zIndex: 1 },
-  dotActive: { backgroundColor: '#27A572' },
-  dotPending: { backgroundColor: '#F0F0F0' },
-  line: { width: 2, flex: 1, marginTop: -2, marginBottom: -2 },
+  driverCard: { backgroundColor: '#FFF', borderRadius: 15, padding: 15, width: width - 32, alignSelf: 'center', marginTop: 15, flexDirection: 'row', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
+  driverPic: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: '#000' },
+  driverInfo: { flex: 1, marginLeft: 12 },
+  driverName: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
+  driverMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  driverRating: { fontSize: 11, color: '#999', marginLeft: 3 },
+  dot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#CCC', marginHorizontal: 6 },
+  driverVehicle: { fontSize: 11, color: '#999' },
+  driverActions: { flexDirection: 'row', gap: 10 },
+  driverActionBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#F0FAF6', justifyContent: 'center', alignItems: 'center' },
+  driverActionBtnChat: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFF5F0', justifyContent: 'center', alignItems: 'center' },
+
+  timeline: { padding: 30, paddingTop: 30 },
+  stepContainer: { flexDirection: 'row', minHeight: 70 },
+  indicatorCol: { alignItems: 'center', width: 30, marginRight: 15 },
+  circle: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', zIndex: 1 },
+  circleActive: { backgroundColor: '#27A572' },
+  circlePending: { backgroundColor: '#F0F0F0' },
+  line: { width: 2, flex: 1, backgroundColor: '#F0F0F0' },
   lineActive: { backgroundColor: '#27A572' },
-  linePending: { backgroundColor: '#F5F5F5' },
-  stepTextContainer: { flex: 1, paddingTop: 4 },
+  linePending: { backgroundColor: '#F0F0F0' },
+  stepTextContainer: { flex: 1, paddingTop: 0 },
   stepTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
-  textPending: { color: '#999', fontWeight: '500' },
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: 'transparent' },
-  actionBtn: { backgroundColor: Colors.primary, padding: 18, borderRadius: 15, alignItems: 'center' },
+  stepSub: { fontSize: 12, color: '#999', marginTop: 2 },
+  textPending: { color: '#CCC' },
+
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: '#FFF' },
+  actionBtn: { backgroundColor: '#FF7D01', padding: 18, borderRadius: 12, alignItems: 'center', opacity: 0.5 },
   actionBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 });
 
