@@ -18,13 +18,12 @@ const DriverSignupScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [vehicle, setVehicle] = useState(''); // Car, Bike, Bicycle
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSignup = async () => {
-    if (!name || !email || !phone || !password || !vehicle) {
+    if (!name || !email || !phone || !password) {
       setErrorMsg('Please fill all fields');
       return;
     }
@@ -32,7 +31,7 @@ const DriverSignupScreen = ({ navigation }) => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const response = await driverSignup(name, email, phone, password, vehicle);
+      const response = await driverSignup(name, email, phone, password, 'Motorcycle');
       if (response && response.success) {
         navigation.navigate('DriverStep1Personal');
       } else {
@@ -45,8 +44,6 @@ const DriverSignupScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
-
-  const vehicles = ['Bike', 'Bicycle', 'Car'];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -102,21 +99,6 @@ const DriverSignupScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Vehicle Type</Text>
-              <View style={styles.vehicleContainer}>
-                {vehicles.map(v => (
-                  <TouchableOpacity 
-                    key={v} 
-                    style={[styles.vehicleBtn, vehicle === v && styles.vehicleBtnActive]}
-                    onPress={() => setVehicle(v)}
-                  >
-                    <Text style={[styles.vehicleText, vehicle === v && styles.vehicleTextActive]}>{v}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
@@ -139,7 +121,7 @@ const DriverSignupScreen = ({ navigation }) => {
             {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
             <TouchableOpacity 
-              style={[styles.button, (!name || !email || !phone || !vehicle || password.length < 6) && styles.buttonDisabled]}
+              style={[styles.button, (!name || !email || !phone || password.length < 6) && styles.buttonDisabled]}
               onPress={handleSignup}
               disabled={loading}
             >
