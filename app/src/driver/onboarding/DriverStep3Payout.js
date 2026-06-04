@@ -14,13 +14,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { getBanks, verifyAccount } from '../../services/api';
+import { useOnboarding } from '../../context/OnboardingContext';
 
 const DriverStep3Payout = ({ navigation }) => {
+  const { onboardingData, updateOnboardingData } = useOnboarding();
   const [formData, setFormData] = useState({
-    bank: '',
-    bankCode: '',
-    accountName: '',
-    accountNumber: '',
+    bank: onboardingData.bank || '',
+    bankCode: onboardingData.bankCode || '',
+    accountName: onboardingData.accountName || '',
+    accountNumber: onboardingData.accountNumber || '',
   });
 
   const [banks, setBanks] = useState([]);
@@ -85,9 +87,9 @@ const DriverStep3Payout = ({ navigation }) => {
       <View style={styles.container}>
         {/* Step Header */}
         <View style={styles.stepHeader}>
-          <Text style={styles.stepText}>Step 3 of 5 | <Text style={styles.stepTitle}>Payout Details</Text></Text>
+          <Text style={styles.stepText}>Step 4 of 5 | <Text style={styles.stepTitle}>Payout Details</Text></Text>
           <View style={styles.progressBarContainer}>
-            <View style={styles.progressBarActive} />
+            <View style={[styles.progressBarActive, { width: '80%' }]} />
           </View>
         </View>
 
@@ -139,7 +141,15 @@ const DriverStep3Payout = ({ navigation }) => {
         <View style={styles.footer}>
           <TouchableOpacity 
             style={[styles.continueButton, !formData.accountName && { opacity: 0.5 }]}
-            onPress={() => navigation.navigate('DriverDashboard')}
+            onPress={() => {
+              updateOnboardingData({
+                bank: formData.bank,
+                bankCode: formData.bankCode,
+                accountName: formData.accountName,
+                accountNumber: formData.accountNumber
+              });
+              navigation.navigate('DriverStep5Review');
+            }}
             disabled={!formData.accountName}
           >
             <Text style={styles.continueText}>Continue</Text>
@@ -209,7 +219,7 @@ const styles = StyleSheet.create({
   stepText: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 10 },
   stepTitle: { fontWeight: '600', color: '#333' },
   progressBarContainer: { height: 4, backgroundColor: '#EEE', borderRadius: 2, width: '100%' },
-  progressBarActive: { height: '100%', backgroundColor: Colors.primary, borderRadius: 2, width: '60%' },
+  progressBarActive: { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 100 },
   mainTitle: { fontSize: 24, fontWeight: 'bold', color: '#000', marginTop: 20, marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#666', marginBottom: 30 },

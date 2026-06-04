@@ -9,13 +9,16 @@ import {StyleSheet,
   Modal,} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
+import { useOnboarding } from '../../context/OnboardingContext';
 
 const DriverStep2Vehicle = ({ navigation }) => {
-  const [vehicleType, setVehicleType] = useState('Motorcycle');
-  const [make, setMake] = useState('');
-  const [model, setModel] = useState('');
-  const [plate, setPlate] = useState('');
-  const [color, setColor] = useState('');
+  const { onboardingData, updateOnboardingData } = useOnboarding();
+
+  const [vehicleType, setVehicleType] = useState(onboardingData.vehicleType || 'Motorcycle');
+  const [make, setMake] = useState(onboardingData.vehicleMake || '');
+  const [model, setModel] = useState(onboardingData.vehicleModel || '');
+  const [plate, setPlate] = useState(onboardingData.vehiclePlate || '');
+  const [color, setColor] = useState(onboardingData.vehicleColor || '');
   
   const [errors, setErrors] = useState({});
   const [vModalVisible, setVModalVisible] = useState(false);
@@ -32,7 +35,14 @@ const DriverStep2Vehicle = ({ navigation }) => {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length === 0) {
-      navigation.navigate('DriverStep3Payout');
+      updateOnboardingData({
+        vehicleType,
+        vehicleMake: make,
+        vehicleModel: model,
+        vehiclePlate: plate,
+        vehicleColor: color
+      });
+      navigation.navigate('DriverStep3Docs');
     }
   };
 

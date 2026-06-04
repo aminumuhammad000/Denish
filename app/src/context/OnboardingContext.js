@@ -4,26 +4,39 @@ const OnboardingContext = createContext();
 
 export const OnboardingProvider = ({ children }) => {
   const [onboardingData, setOnboardingData] = useState({
-    // Step 1: Business Info
+    // Vendor Specific
     businessName: '',
     category: '',
-    address: '',
     about: '',
-    phone: '',
-    email: '',
-    
-    // Step 2: Opening Hours
-    openingHours: {},
-    
-    // Step 3: Images
     logoUrl: '',
     coverUrl: '',
-    
-    // Step 4: Payout
+    openingHours: {},
+
+    // Driver Specific
+    driverName: '',
+    driverDob: '',
+    driverPhone: '',
+    driverEmail: '',
+    driverAddress: '',
+    vehicleType: 'Motorcycle',
+    vehicleMake: '',
+    vehicleModel: '',
+    vehiclePlate: '',
+    vehicleColor: '',
+    docs: {
+      nationalId: null,
+      vehiclePhoto: null,
+      license: null,
+    },
+
+    // Shared / Generic
     bank: '',
     bankCode: '',
     accountName: '',
     accountNumber: '',
+    phone: '',
+    email: '',
+    address: '',
   });
 
   const updateOnboardingData = (newData) => {

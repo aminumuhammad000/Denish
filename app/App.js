@@ -106,8 +106,8 @@ export default function App() {
               <Stack.Screen name="DriverSignup" component={DriverSignupScreen} />
               <Stack.Screen name="DriverStep1Personal" component={DriverStep1Personal} />
               <Stack.Screen name="DriverStep2Vehicle" component={DriverStep2Vehicle} />
-              <Stack.Screen name="DriverStep3Payout" component={DriverStep3Payout} />
-              <Stack.Screen name="DriverStep4Docs" component={DriverStep4Docs} />
+              <Stack.Screen name="DriverStep3Docs" component={DriverStep4Docs} />
+              <Stack.Screen name="DriverStep4Payout" component={DriverStep3Payout} />
               <Stack.Screen name="DriverStep5Review" component={DriverStep5Review} />
               <Stack.Screen name="DriverLogin" component={DriverLoginScreen} />
               <Stack.Screen name="DriverDashboard" component={DriverDashboard} />

@@ -4,13 +4,16 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Keyboa
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useOnboarding } from '../../context/OnboardingContext';
 
 const DriverStep1Personal = ({ navigation }) => {
-  const [name, setName] = useState('');
-  const [dob, setDob] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [address, setAddress] = useState('');
+  const { onboardingData, updateOnboardingData } = useOnboarding();
+
+  const [name, setName] = useState(onboardingData.driverName || '');
+  const [dob, setDob] = useState(onboardingData.driverDob || '');
+  const [phone, setPhone] = useState(onboardingData.driverPhone || '');
+  const [email, setEmail] = useState(onboardingData.driverEmail || '');
+  const [address, setAddress] = useState(onboardingData.driverAddress || '');
   const [errors, setErrors] = useState({});
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [date, setDate] = useState(new Date(2000, 0, 1));
@@ -51,6 +54,13 @@ const DriverStep1Personal = ({ navigation }) => {
 
   const handleContinue = () => {
     if (validate()) {
+      updateOnboardingData({
+        driverName: name,
+        driverDob: dob,
+        driverPhone: phone,
+        driverEmail: email,
+        driverAddress: address
+      });
       navigation.navigate('DriverStep2Vehicle');
     }
   };
