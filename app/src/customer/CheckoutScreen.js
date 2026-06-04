@@ -1,7 +1,6 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
-import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator
-} from 'react-native';
+import {StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useCart } from '../context/CartContext';

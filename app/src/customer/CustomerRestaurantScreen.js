@@ -1,7 +1,6 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
-import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator, Image
-} from 'react-native';
+import {StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { getCustomerRestaurantDetails } from '../services/api';

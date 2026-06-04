@@ -1,11 +1,9 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React from 'react';
-import {
-  StyleSheet,
+import {StyleSheet,
   Text,
   View,
-  TouchableOpacity,
-  SafeAreaView,
-} from 'react-native';
+  TouchableOpacity,} from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 

@@ -1,5 +1,6 @@
 const Vendor = require('../models/Vendor');
 const MenuItem = require('../models/MenuItem');
+const Customer = require('../models/Customer');
 
 const getRestaurants = async (req, res) => {
   try {
@@ -77,8 +78,34 @@ const placeOrder = async (req, res) => {
   }
 };
 
+const getCustomerProfile = async (req, res) => {
+  try {
+    // In a real app, use req.user.id. For demo, we'll fetch the first customer.
+    const customer = await Customer.findOne();
+    if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+    res.status(200).json({ success: true, data: customer });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const updateCustomerProfile = async (req, res) => {
+  try {
+    const customer = await Customer.findOneAndUpdate(
+      {}, // For demo, update the first customer
+      req.body,
+      { new: true }
+    );
+    res.status(200).json({ success: true, data: customer });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getRestaurants,
   getRestaurantDetails,
-  placeOrder
+  placeOrder,
+  getCustomerProfile,
+  updateCustomerProfile
 };

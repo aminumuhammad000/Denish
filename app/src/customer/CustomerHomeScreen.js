@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getRestaurants } from '../services/api';
+import { getRestaurants, getCustomerProfile } from '../services/api';
 import { ActivityIndicator } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -46,20 +46,26 @@ const CustomerHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [vendors, setVendors] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   React.useEffect(() => {
-    const fetchVendors = async () => {
+    const fetchData = async () => {
       try {
-        const res = await getRestaurants();
-        if (res.success) setVendors(res.data);
+        const [resVendors, resProfile] = await Promise.all([
+          getRestaurants(),
+          getCustomerProfile().catch(() => ({ success: false })) // Don't block if profile fails
+        ]);
+        
+        if (resVendors.success) setVendors(resVendors.data);
+        if (resProfile.success) setProfile(resProfile.data);
       } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
-    fetchVendors();
+    fetchData();
   }, []);
 
   return (
@@ -73,12 +79,12 @@ const CustomerHomeScreen = ({ navigation }) => {
             <View style={styles.headerTop}>
               <TouchableOpacity style={styles.profileRow} onPress={() => navigation.navigate('CustomerProfile')}>
                 <Image
-                  source={{ uri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }}
+                  source={{ uri: profile?.profilePic || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }}
                   style={styles.profilePic}
                 />
                 <View>
                   <Text style={styles.greetingText}>Good afternoon,</Text>
-                  <Text style={styles.userName}>Emeka</Text>
+                  <Text style={styles.userName}>{profile?.name?.split(' ')[0] || 'Member'}</Text>
                 </View>
               </TouchableOpacity>
               <View style={styles.headerIcons}>

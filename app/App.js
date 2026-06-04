@@ -30,6 +30,7 @@ import ChatListScreen from './src/customer/ChatListScreen';
 import ChatDetailScreen from './src/customer/ChatDetailScreen';
 import CheckoutScreen from './src/customer/CheckoutScreen';
 import CustomerSignupScreen from './src/customer/SignupScreen';
+import CustomerEditProfileScreen from './src/customer/CustomerEditProfileScreen';
 
 // Driver Screens
 import DriverWelcomeScreen from './src/driver/DriverWelcomeScreen';
@@ -85,6 +86,7 @@ export default function App() {
               <Stack.Screen name="CustomerHome" component={CustomerHomeScreen} />
               <Stack.Screen name="CustomerRestaurant" component={CustomerRestaurantScreen} />
               <Stack.Screen name="CustomerProfile" component={CustomerProfileScreen} />
+              <Stack.Screen name="CustomerEditProfile" component={CustomerEditProfileScreen} />
               <Stack.Screen name="ChatList" component={ChatListScreen} />
               <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
               <Stack.Screen name="Checkout" component={CheckoutScreen} />

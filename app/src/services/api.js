@@ -197,6 +197,48 @@ export const placeCustomerOrder = async (orderPayload) => {
   }
 };
 
+export const getCustomerProfile = async () => {
+  try {
+    const response = await api.get('/customer/profile');
+    return response.data;
+  } catch (error) {
+    console.error('API getCustomerProfile error:', error);
+    throw error;
+  }
+};
+
+export const updateCustomerProfile = async (profileData) => {
+  try {
+    const response = await api.put('/customer/profile', profileData);
+    return response.data;
+  } catch (error) {
+    console.error('API updateCustomerProfile error:', error);
+    throw error;
+  }
+};
+
+export const uploadCustomerProfilePic = async (uri) => {
+  try {
+    const formData = new FormData();
+    const uriParts = uri.split('.');
+    const fileType = uriParts[uriParts.length - 1];
+
+    formData.append('image', {
+      uri,
+      name: `profile-pic.${fileType}`,
+      type: `image/${fileType}`,
+    });
+
+    const response = await api.post('/customer/upload-profile-pic', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API uploadCustomerProfilePic error:', error);
+    throw error;
+  }
+};
+
 export const uploadVendorImages = async (logoUri, coverUri) => {
   try {
     const formData = new FormData();

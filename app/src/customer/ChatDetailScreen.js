@@ -4,16 +4,66 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadItemImage } from '../services/api';
+import { Image, ActivityIndicator, Alert } from 'react-native';
 
 const ChatDetailScreen = ({ route, navigation }) => {
   const { name = 'Kolawole Adeleke', type = 'Driver' } = route?.params || {};
   const [message, setMessage] = useState('');
-
-  const messages = [
+  const [messages, setMessages] = useState([
     { id: '1', text: "I'm delivering the items at your reception desk.", time: "14:01", sender: 'me' },
     { id: '2', text: "Thanks, the food was hot 🔥", time: "14:02", sender: 'them' },
     { id: '3', text: "You're welcome, sir.", time: "14:03", sender: 'me' },
-  ];
+  ]);
+  const [sending, setSending] = useState(false);
+
+  const sendMessage = (text, imageUrl = null) => {
+    if (!text && !imageUrl) return;
+    const newMessage = {
+      id: Date.now().toString(),
+      text: text,
+      image: imageUrl,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      sender: 'me'
+    };
+    setMessages([...messages, newMessage]);
+    setMessage('');
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      handleImageUpload(result.assets[0].uri);
+    }
+  };
+
+  const handleImageUpload = async (uri) => {
+    setSending(true);
+    try {
+      const response = await uploadItemImage(uri);
+      if (response.success) {
+        sendMessage(null, response.imageUrl);
+      } else {
+        throw new Error(response.error || 'Upload failed');
+      }
+    } catch (err) {
+      Alert.alert('Upload Error', err.message);
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -31,36 +81,53 @@ const ChatDetailScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {messages.map((m) => (
-          <View key={m.id} style={[styles.messageRow, m.sender === 'me' ? styles.meRow : styles.themRow]}>
-            <View style={[styles.bubble, m.sender === 'me' ? styles.meBubble : styles.themBubble]}>
-              <Text style={[styles.messageText, m.sender === 'me' ? styles.meText : styles.themText]}>
-                {m.text}
-              </Text>
-              <Text style={[styles.timeText, m.sender === 'me' ? styles.meTime : styles.themTime]}>
-                {m.time}
-              </Text>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ScrollView contentContainerStyle={styles.scroll}>
+          {messages.map((m) => (
+            <View key={m.id} style={[styles.messageRow, m.sender === 'me' ? styles.meRow : styles.themRow]}>
+              <View style={[styles.bubble, m.sender === 'me' ? styles.meBubble : styles.themBubble]}>
+                {m.image ? (
+                  <Image source={{ uri: m.image }} style={styles.messageImage} resizeMode="cover" />
+                ) : (
+                  <Text style={[styles.messageText, m.sender === 'me' ? styles.meText : styles.themText]}>
+                    {m.text}
+                  </Text>
+                )}
+                <Text style={[styles.timeText, m.sender === 'me' ? styles.meTime : styles.themTime]}>
+                  {m.time}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
-      </ScrollView>
+          ))}
+        </ScrollView>
 
-      {/* Input Bar */}
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        {/* Input Bar */}
         <View style={styles.inputBar}>
-          <TouchableOpacity style={styles.cameraBtn}>
+          <TouchableOpacity 
+            style={styles.cameraBtn} 
+            onPress={pickImage}
+            disabled={sending}
+          >
             <Ionicons name="camera-outline" size={24} color="#666" />
           </TouchableOpacity>
           <TextInput
             style={styles.input}
-            placeholder="Type a message..."
+            placeholder={sending ? "Uploading..." : "Type a message..."}
             value={message}
             onChangeText={setMessage}
             placeholderTextColor="#999"
+            editable={!sending}
           />
-          <TouchableOpacity style={styles.sendBtn}>
-            <Ionicons name="send" size={18} color="#FF8C00" />
+          <TouchableOpacity 
+            style={[styles.sendBtn, sending && { opacity: 0.5 }]} 
+            onPress={() => sendMessage(message)}
+            disabled={sending}
+          >
+            {sending ? <ActivityIndicator size="small" color="#FF8C00" /> : <Ionicons name="send" size={18} color="#FF8C00" />}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -121,7 +188,12 @@ const styles = StyleSheet.create({
   timeText: { fontSize: 10, alignSelf: 'flex-end', marginTop: 5 },
   meTime: { color: 'rgba(255,255,255,0.7)' },
   themTime: { color: '#999' },
-
+  messageImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 12,
+    marginBottom: 5,
+  },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'center',

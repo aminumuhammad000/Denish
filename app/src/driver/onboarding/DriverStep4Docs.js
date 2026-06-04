@@ -1,12 +1,10 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React from 'react';
-import {
-  StyleSheet,
+import {StyleSheet,
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
-  ScrollView,
-} from 'react-native';
+  ScrollView,} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 

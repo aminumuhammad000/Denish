@@ -85,9 +85,9 @@ const VendorHomeScreen = ({ navigation }) => {
             <View style={styles.headerUserInfo}>
               <TouchableOpacity onPress={() => navigation.navigate('VendorProfile')}>
                 <View style={styles.avatar}>
-                  <Image 
-                    source={{ uri: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80' }} 
-                    style={styles.avatarImg} 
+                  <Image
+                    source={{ uri: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80' }}
+                    style={styles.avatarImg}
                   />
                 </View>
               </TouchableOpacity>

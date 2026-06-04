@@ -1,17 +1,50 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 
+import { getCustomerProfile } from '../services/api';
+import { useIsFocused } from '@react-navigation/native';
+
 const CustomerProfileScreen = ({ navigation }) => {
+  const isFocused = useIsFocused();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState({
     orders: true,
     promotions: true,
     recommendations: false,
   });
+
+  React.useEffect(() => {
+    if (isFocused) {
+      fetchProfile();
+    }
+  }, [isFocused]);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await getCustomerProfile();
+      if (res.success) {
+        setProfile(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -29,15 +62,18 @@ const CustomerProfileScreen = ({ navigation }) => {
         {/* User Info Card */}
         <View style={styles.userCard}>
           <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200' }} 
+            source={{ uri: profile?.profilePic || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200' }} 
             style={styles.avatar} 
           />
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>Emeka Nobis</Text>
-            <Text style={styles.userMeta}>emeka.okafor@example.com</Text>
-            <Text style={styles.userMeta}>+2349033030303</Text>
+            <Text style={styles.userName}>{profile?.name || 'Customer'}</Text>
+            <Text style={styles.userMeta}>{profile?.email || 'email@example.com'}</Text>
+            <Text style={styles.userMeta}>{profile?.phone || '+234...'}</Text>
           </View>
-          <TouchableOpacity style={styles.editBtn}>
+          <TouchableOpacity 
+            style={styles.editBtn}
+            onPress={() => navigation.navigate('CustomerEditProfile', { initialData: profile })}
+          >
             <MaterialCommunityIcons name="square-edit-outline" size={20} color="#666" />
           </TouchableOpacity>
         </View>
@@ -196,7 +232,7 @@ const CustomerProfileScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.replace('RoleSelection')}>
           <Ionicons name="log-out-outline" size={20} color="#FF5252" style={{ marginRight: 8 }} />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>

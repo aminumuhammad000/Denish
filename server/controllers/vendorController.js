@@ -90,7 +90,8 @@ const updateVendorProfile = async (req, res) => {
     // Update fields from the demo/currently logged in vendor
     const { 
       businessName, address, phone, category, about,
-      openingHours, payoutAccount, deliveryLocations, notifications 
+      openingHours, payoutAccount, deliveryLocations, notifications,
+      logoUrl, coverUrl
     } = req.body;
     
     if (businessName) vendor.businessName = businessName;
@@ -102,6 +103,8 @@ const updateVendorProfile = async (req, res) => {
     if (payoutAccount) vendor.payoutAccount = payoutAccount;
     if (deliveryLocations) vendor.deliveryLocations = deliveryLocations;
     if (notifications) vendor.notifications = notifications;
+    if (logoUrl) vendor.logoUrl = logoUrl;
+    if (coverUrl) vendor.coverUrl = coverUrl;
 
     await vendor.save();
     res.status(200).json({ success: true, data: vendor });

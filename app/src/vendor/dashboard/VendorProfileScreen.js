@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
-  Image, Dimensions, Switch, ActivityIndicator
+  Image, Dimensions, Switch, ActivityIndicator, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getVendorDashboardData, updateVendorProfile } from '../../services/api';
+import { getVendorDashboardData, updateVendorProfile, uploadVendorImages } from '../../services/api';
+import * as ImagePicker from 'expo-image-picker';
+import { Colors } from '../../constants/Colors';
 
 const { width } = Dimensions.get('window');
 const BANNER_HEIGHT = 200;
@@ -46,6 +48,55 @@ const VendorProfileScreen = ({ navigation }) => {
     }
   };
 
+  const pickImage = async (type) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: type === 'logo' ? [1, 1] : [16, 9],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      handleImageUpload(type, result.assets[0].uri);
+    }
+  };
+
+  const [uploading, setUploading] = useState(false);
+
+  const handleImageUpload = async (type, uri) => {
+    setUploading(true);
+    try {
+      const logoUri = type === 'logo' ? uri : null;
+      const coverUri = type === 'cover' ? uri : null;
+      
+      const response = await uploadVendorImages(logoUri, coverUri);
+      if (response.success) {
+        // Persist to database
+        const payload = {};
+        if (type === 'logo') payload.logoUrl = response.logoUrl;
+        if (type === 'cover') payload.coverUrl = response.coverUrl;
+        
+        await updateVendorProfile(payload);
+        
+        // Refresh profile to show new image
+        fetchProfile();
+      } else {
+        throw new Error(response.error || 'Upload failed');
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Upload Error', err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -68,8 +119,8 @@ const VendorProfileScreen = ({ navigation }) => {
             <Ionicons name="arrow-back" size={20} color="#1a1a1a" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.bannerCameraBtn}>
-            <Ionicons name="camera" size={18} color="#FFF" />
+          <TouchableOpacity style={styles.bannerCameraBtn} onPress={() => pickImage('cover')} disabled={uploading}>
+            {uploading ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="camera" size={18} color="#FFF" />}
           </TouchableOpacity>
         </View>
 
@@ -77,8 +128,8 @@ const VendorProfileScreen = ({ navigation }) => {
         <View style={styles.profileRow}>
           <View style={styles.profileImgWrapper}>
             <Image source={{ uri: data.logoUrl || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&q=80' }} style={styles.profileImg} resizeMode="cover" />
-            <TouchableOpacity style={styles.profileCameraBtn}>
-              <Ionicons name="camera" size={14} color="#FFF" />
+            <TouchableOpacity style={styles.profileCameraBtn} onPress={() => pickImage('logo')} disabled={uploading}>
+              {uploading ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="camera" size={14} color="#FFF" />}
             </TouchableOpacity>
           </View>
 
@@ -211,7 +262,7 @@ const VendorProfileScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.replace('Auth')}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.replace('RoleSelection')}>
           <View style={styles.logoutContent}>
             <Ionicons name="log-out-outline" size={18} color="#E74C3C" />
             <Text style={styles.logoutText}>Logout</Text>

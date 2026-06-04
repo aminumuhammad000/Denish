@@ -1,17 +1,14 @@
 import React from 'react';
-import {
-  StyleSheet,
+import {StyleSheet,
   Text,
   View,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  Image,
-} from 'react-native';
+  Image,} from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets , SafeAreaView} from 'react-native-safe-area-context';
 
 const DriverDashboard = () => {
   const insets = useSafeAreaInsets();
