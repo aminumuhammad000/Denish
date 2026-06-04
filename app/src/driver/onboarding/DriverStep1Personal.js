@@ -1,13 +1,7 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
-import {StyleSheet,
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,} from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 
 const DriverStep1Personal = ({ navigation }) => {
@@ -16,8 +10,17 @@ const DriverStep1Personal = ({ navigation }) => {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  
   const [errors, setErrors] = useState({});
+  // Track if user has interacted with the field
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+
+  // Real-time validation helpers
+  const isPhoneValid = (v) => /^[\+]?[0-9]{10,15}$/.test(v.replace(/\s/g, ''));
+  const isEmailValid = (v) => /\S+@\S+\.\S+/.test(v);
+
+  const phoneStatus = !phoneTouched ? 'idle' : isPhoneValid(phone) ? 'valid' : 'invalid';
+  const emailStatus = !emailTouched ? 'idle' : isEmailValid(email) ? 'valid' : 'invalid';
 
   const validate = () => {
     let newErrors = {};
@@ -81,29 +84,61 @@ const DriverStep1Personal = ({ navigation }) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Phone number</Text>
-              <TextInput
-                style={[styles.input, errors.phone && styles.inputError]}
-                placeholder="+234 800 000 0000"
-                placeholderTextColor="#999"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={(v) => { setPhone(v); if(errors.phone) setErrors({...errors, phone: null}); }}
-              />
-              {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+              <View style={[
+                styles.inputWrapper,
+                phoneStatus === 'valid' && styles.inputWrapperValid,
+                phoneStatus === 'invalid' && styles.inputWrapperError,
+                errors.phone && styles.inputWrapperError,
+              ]}>
+                <TextInput
+                  style={styles.inputInner}
+                  placeholder="+234 800 000 0000"
+                  placeholderTextColor="#999"
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={(v) => {
+                    setPhone(v);
+                    setPhoneTouched(true);
+                    if (errors.phone) setErrors({ ...errors, phone: null });
+                  }}
+                  onBlur={() => setPhoneTouched(true)}
+                />
+                {phoneStatus === 'valid' && <Ionicons name="checkmark-circle" size={20} color="#27A572" />}
+                {phoneStatus === 'invalid' && <Ionicons name="close-circle" size={20} color="#FF3B30" />}
+              </View>
+              {phoneStatus === 'valid' && <Text style={styles.hintValid}>✓ Looks good!</Text>}
+              {phoneStatus === 'invalid' && <Text style={styles.hintError}>Enter a valid phone number (10–15 digits)</Text>}
+              {errors.phone && phoneStatus !== 'invalid' && <Text style={styles.hintError}>{errors.phone}</Text>}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email address</Text>
-              <TextInput
-                style={[styles.input, errors.email && styles.inputError]}
-                placeholder="person@email.com"
-                placeholderTextColor="#999"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={(v) => { setEmail(v); if(errors.email) setErrors({...errors, email: null}); }}
-              />
-              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+              <View style={[
+                styles.inputWrapper,
+                emailStatus === 'valid' && styles.inputWrapperValid,
+                emailStatus === 'invalid' && styles.inputWrapperError,
+                errors.email && styles.inputWrapperError,
+              ]}>
+                <TextInput
+                  style={styles.inputInner}
+                  placeholder="person@email.com"
+                  placeholderTextColor="#999"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={(v) => {
+                    setEmail(v);
+                    setEmailTouched(true);
+                    if (errors.email) setErrors({ ...errors, email: null });
+                  }}
+                  onBlur={() => setEmailTouched(true)}
+                />
+                {emailStatus === 'valid' && <Ionicons name="checkmark-circle" size={20} color="#27A572" />}
+                {emailStatus === 'invalid' && <Ionicons name="close-circle" size={20} color="#FF3B30" />}
+              </View>
+              {emailStatus === 'valid' && <Text style={styles.hintValid}>✓ Valid email address</Text>}
+              {emailStatus === 'invalid' && <Text style={styles.hintError}>Enter a valid email (e.g. name@email.com)</Text>}
+              {errors.email && emailStatus !== 'invalid' && <Text style={styles.hintError}>{errors.email}</Text>}
             </View>
 
             <View style={styles.inputGroup}>
@@ -207,6 +242,42 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: '#FF3B30',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1.5,
+    borderColor: '#CCC',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 4,
+  },
+  inputWrapperValid: {
+    borderColor: '#27A572',
+    backgroundColor: '#F0FAF6',
+  },
+  inputWrapperError: {
+    borderColor: '#FF3B30',
+    backgroundColor: '#FFF8F8',
+  },
+  inputInner: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 11,
+  },
+  hintValid: {
+    color: '#27A572',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  hintError: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
   },
   errorText: {
     color: '#FF3B30',
