@@ -138,7 +138,8 @@ const CustomerHomeScreen = ({ navigation }) => {
           {/* Swipeable Banners */}
           <ScrollView 
             horizontal 
-            pagingEnabled 
+            snapToInterval={width * 0.88 + 12}
+            decelerationRate="fast"
             showsHorizontalScrollIndicator={false} 
             contentContainerStyle={styles.bannerScroll}
           >
@@ -146,7 +147,7 @@ const CustomerHomeScreen = ({ navigation }) => {
             <View style={styles.bannerCard}>
               <View style={styles.bannerWrapper}>
                 <Image 
-                  source={{ uri: 'https://images.unsplash.com/photo-1590604153093-ae4fc2909f90?w=1200&q=80' }} 
+                  source={{ uri: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1200&q=80' }} 
                   style={styles.bannerFullImg} 
                 />
                 <View style={styles.bannerGradient}>
@@ -169,6 +170,20 @@ const CustomerHomeScreen = ({ navigation }) => {
                 </View>
               </View>
             </View>
+
+            {/* Banner 3 */}
+            <View style={styles.bannerCard}>
+              <View style={styles.bannerWrapper}>
+                <Image 
+                  source={{ uri: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=1200&q=80' }} 
+                  style={styles.bannerFullImg} 
+                />
+                <View style={[styles.bannerGradient, { backgroundColor: 'rgba(39, 165, 114, 0.45)' }]}>
+                  <Text style={styles.bannerTitleFull}>Daily Specials</Text>
+                  <Text style={styles.bannerSubFull}>Explore new tastes every day with our chef specials</Text>
+                </View>
+              </View>
+            </View>
           </ScrollView>
 
           {/* Featured Vendors */}
@@ -187,41 +202,49 @@ const CustomerHomeScreen = ({ navigation }) => {
           </ScrollView>
 
           {/* Cooked Foods */}
-          <SectionHeader title="Cooked Foods" />
-          <View style={styles.grid}>
-             <SquareCard name="Chunky Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1574484284002-952d92456975?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-          </View>
+          <SectionHeader title="Cooked Foods" showViewAll />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
+             <SquareCard name="Chunky Rice" sub="Smokey party cooked rice" price="2,500" image="https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Jollof Rice" sub="Smokey party cooked rice" price="2,500" image="https://images.unsplash.com/photo-1512152272829-e3139592d56f?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Fried Rice" sub="Smokey party cooked rice" price="2,500" image="https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Coconut Rice" sub="Smokey party cooked rice" price="2,800" image="https://images.unsplash.com/photo-1516684732162-798a0062be99?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+          </ScrollView>
 
           {/* Grilled Foods */}
-          <SectionHeader title="Grilled Foods" />
-          <View style={styles.grid}>
-             <SquareCard name="Grilled Meat" sub="Smokey party grilled meat" price="3,200" image="https://images.unsplash.com/photo-1544025162-d76694265947?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Grilled Fish" sub="Smokey party grilled fish" price="3,500" image="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-          </View>
+          <SectionHeader title="Grilled Foods" showViewAll />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
+             <SquareCard name="Grilled Meat" sub="Smokey party grilled meat" price="3,200" image="https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Grilled Fish" sub="Smokey party grilled fish" price="3,500" image="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Suya Meat" sub="Smokey party grilled meat" price="2,000" image="https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="BBQ Chicken" sub="Smokey party grilled chicken" price="4,500" image="https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+          </ScrollView>
 
           {/* Featured Orders */}
           <SectionHeader title="Featured orders" showViewAll />
           <View style={styles.list}>
-             <ListCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=200" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <ListCard name="Agoyin Beans" sub="Smokey party cooked jollof rice" price="2,200" image="https://images.unsplash.com/photo-1593361876527-2ee3b4e6b72a?w=200" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <ListCard name="White Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1516684732162-798a0062be99?w=200" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <ListCard name="Raw Carrots" sub="Smokey party cooked jollof rice" price="1,200" image="https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=200" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <ListCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1512152272829-e3139592d56f?w=600&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <ListCard name="Agoyin Beans" sub="Smokey party cooked jollof rice" price="2,200" image="https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <ListCard name="White Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1516684732162-798a0062be99?w=600&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <ListCard name="Raw Carrots" sub="Smokey party cooked jollof rice" price="1,200" image="https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
           </View>
 
           {/* Drinks */}
-          <SectionHeader title="Drinks" />
-          <View style={styles.grid}>
-             <SquareCard name="Fresh Chapman" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Home-made Juice" sub="Smokey party jollof rice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-          </View>
+          <SectionHeader title="Drinks" showViewAll />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
+             <SquareCard name="Fresh Chapman" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Juice" sub="Smokey party jollof rice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Red Wine" sub="Smokey party jollof rice" price="12,000" image="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Cold Beer" sub="Smokey party jollof rice" price="1,200" image="https://images.unsplash.com/photo-1532635241-17e820acc59f?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+          </ScrollView>
 
           {/* Fruits */}
-          <SectionHeader title="Fruits" />
-          <View style={styles.grid}>
-             <SquareCard name="Fresh Mango" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Fresh Pepper" sub="Smokey party jollof rice" price="2,500" image="https://images.unsplash.com/photo-1588252303782-cb80119cb665?w=400" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-          </View>
+          <SectionHeader title="Fruits" showViewAll />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
+             <SquareCard name="Fresh Mango" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Fresh Pepper" sub="Smokey party jollof rice" price="2,500" image="https://images.unsplash.com/photo-1590644365607-1c5a519a7a37?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Pineapple" sub="Smokey party jollof rice" price="1,500" image="https://images.unsplash.com/photo-1550258114-68bd25f3dfc8?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             <SquareCard name="Watermelon" sub="Smokey party jollof rice" price="2,000" image="https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+          </ScrollView>
 
         </View>
       </ScrollView>
@@ -266,8 +289,8 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 100 },
   main: { paddingVertical: 16 },
 
-  bannerScroll: { marginBottom: 25 },
-  bannerCard: { width: width, paddingHorizontal: 16 },
+  bannerScroll: { paddingHorizontal: 16, marginBottom: 25 },
+  bannerCard: { width: width * 0.88, marginRight: 12 },
   bannerWrapper: { width: '100%', height: 160, borderRadius: 25, overflow: 'hidden', position: 'relative' },
   bannerFullImg: { width: '100%', height: '100%' },
   bannerGradient: { 
