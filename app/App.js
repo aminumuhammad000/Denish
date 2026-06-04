@@ -47,8 +47,10 @@ import DriverStep3Payout from './src/driver/onboarding/DriverStep3Payout';
 import DriverStep4Docs from './src/driver/onboarding/DriverStep4Docs';
 import DriverStep5Review from './src/driver/onboarding/DriverStep5Review';
 import DriverDashboard from './src/driver/DriverDashboard';
+import CallingScreen from './src/screens/CallingScreen';
 import DriverOrderTracking from './src/driver/DriverOrderTracking';
 import DriverProfileScreen from './src/driver/DriverProfileScreen';
+import DriverEditProfileScreen from './src/driver/DriverEditProfileScreen';
 
 // Context
 import { CartProvider } from './src/context/CartContext';
@@ -114,6 +116,8 @@ export default function App() {
               <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
               <Stack.Screen name="DriverOrderTracking" component={DriverOrderTracking} />
               <Stack.Screen name="DriverProfile"      component={DriverProfileScreen} />
+              <Stack.Screen name="DriverEditProfile"  component={DriverEditProfileScreen} />
+              <Stack.Screen name="Calling"            component={CallingScreen} options={{ headerShown: false, presentation: 'fullScreenModal' }} />
             </Stack.Navigator>
           </NavigationContainer>
         </CartProvider>

@@ -66,27 +66,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
   };
 
   const handleCall = () => {
-    Alert.alert(
-      "Voice Call",
-      `Calling ${name}...`,
-      [
-        { 
-          text: "End Call", 
-          onPress: () => {
-            const callLog = {
-              id: Date.now().toString(),
-              text: "Outgoing Voice Call",
-              subText: "No answer",
-              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              sender: 'me',
-              type: 'call'
-            };
-            setMessages([...messages, callLog]);
-          },
-          style: "destructive" 
-        }
-      ]
-    );
+    navigation.navigate('Calling', { name });
   };
 
   return (

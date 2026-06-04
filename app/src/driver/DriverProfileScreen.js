@@ -46,14 +46,17 @@ const DriverProfileScreen = ({ navigation }) => {
         
         {/* TOP PROFILE BOX */}
         <View style={styles.topCard}>
-          <View style={styles.avatarWrapper}>
+          <TouchableOpacity 
+            style={styles.avatarWrapper}
+            onPress={() => navigation.navigate('DriverEditProfile')}
+          >
             <View style={styles.avatar}>
                <Text style={styles.avatarText}>BA</Text>
             </View>
-            <TouchableOpacity style={styles.editAvatarBtn}>
+            <View style={styles.editAvatarBtn}>
               <Ionicons name="camera" size={12} color="#FFF" />
-            </TouchableOpacity>
-          </View>
+            </View>
+          </TouchableOpacity>
           <Text style={styles.userName}>Bayo Adeyemi</Text>
           <Text style={styles.userPhone}>+234847474848</Text>
           
@@ -70,7 +73,10 @@ const DriverProfileScreen = ({ navigation }) => {
         </View>
 
         {/* PERSONAL INFO */}
-        <ProfileCard title="Personal information" onEdit={() => {}}>
+        <ProfileCard 
+          title="Personal information" 
+          onEdit={() => navigation.navigate('DriverEditProfile')}
+        >
            <InfoRow label="Name" value="Bayo Adeyemi" />
            <View style={styles.divider} />
            <InfoRow label="Email" value="bayo.adeyemi@gmail.com" />
@@ -79,7 +85,10 @@ const DriverProfileScreen = ({ navigation }) => {
         </ProfileCard>
 
         {/* VEHICLE DETAILS */}
-        <ProfileCard title="Vehicle details" onEdit={() => {}}>
+        <ProfileCard 
+          title="Vehicle details" 
+          onEdit={() => navigation.navigate('DriverEditProfile')}
+        >
            <InfoRow label="Type" value="Motorcycle" />
            <View style={styles.divider} />
            <InfoRow label="Make/model" value="Honda ACE 125" />
@@ -90,7 +99,10 @@ const DriverProfileScreen = ({ navigation }) => {
         </ProfileCard>
 
         {/* BANK ACCOUNT */}
-        <ProfileCard title="Bank account" onEdit={() => {}}>
+        <ProfileCard 
+          title="Bank account" 
+          onEdit={() => navigation.navigate('DriverEditProfile')}
+        >
            <InfoRow label="Bank" value="GTBank" />
            <View style={styles.divider} />
            <InfoRow label="Account name" value="Bayo Adeyemi" />
