@@ -1,23 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   ScrollView,
   TouchableOpacity,
-  Image,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const ProfileCard = ({ title, children, onEdit }) => (
+const ProfileCard = ({ title, children, onEdit, showEdit = true }) => (
   <View style={styles.profileCard}>
     <View style={styles.cardHeader}>
       <Text style={styles.cardTitle}>{title}</Text>
-      <TouchableOpacity onPress={onEdit}>
-        <Text style={styles.editLink}>Edit {'>'}</Text>
-      </TouchableOpacity>
+      {showEdit && (
+        <TouchableOpacity onPress={onEdit}>
+          <Text style={styles.editLink}>Edit {'>'}</Text>
+        </TouchableOpacity>
+      )}
     </View>
     <View style={styles.cardContent}>
       {children}
@@ -32,7 +34,43 @@ const InfoRow = ({ label, value }) => (
   </View>
 );
 
+const DocumentRow = ({ title, date, status }) => {
+  const isApproved = status === 'Approved';
+  return (
+    <View style={styles.docRow}>
+      <View>
+        <Text style={styles.docTitle}>{title}</Text>
+        <Text style={styles.docDate}>Expires {date}</Text>
+      </View>
+      <View style={[styles.docBanner, { backgroundColor: isApproved ? '#ECFDF5' : '#FFF7ED' }]}>
+        <Text style={[styles.docStatus, { color: isApproved ? '#10B981' : '#F97316' }]}>{status}</Text>
+      </View>
+    </View>
+  );
+};
+
+const NotificationRow = ({ title, sub, value, onToggle }) => (
+  <View style={styles.notifRow}>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.notifTitle}>{title}</Text>
+      <Text style={styles.notifSub}>{sub}</Text>
+    </View>
+    <Switch 
+      value={value} 
+      onValueChange={onToggle}
+      trackColor={{ false: '#E2E8F0', true: '#10B981' }}
+      thumbColor={'#FFF'}
+    />
+  </View>
+);
+
 const DriverProfileScreen = ({ navigation }) => {
+  const [notifs, setNotifs] = useState({
+    orders: true,
+    payouts: true,
+    promos: false,
+  });
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -73,10 +111,7 @@ const DriverProfileScreen = ({ navigation }) => {
         </View>
 
         {/* PERSONAL INFO */}
-        <ProfileCard 
-          title="Personal information" 
-          onEdit={() => navigation.navigate('DriverEditProfile')}
-        >
+        <ProfileCard title="Personal information" onEdit={() => navigation.navigate('DriverEditProfile')}>
            <InfoRow label="Name" value="Bayo Adeyemi" />
            <View style={styles.divider} />
            <InfoRow label="Email" value="bayo.adeyemi@gmail.com" />
@@ -85,10 +120,7 @@ const DriverProfileScreen = ({ navigation }) => {
         </ProfileCard>
 
         {/* VEHICLE DETAILS */}
-        <ProfileCard 
-          title="Vehicle details" 
-          onEdit={() => navigation.navigate('DriverEditProfile')}
-        >
+        <ProfileCard title="Vehicle details" onEdit={() => navigation.navigate('DriverEditProfile')}>
            <InfoRow label="Type" value="Motorcycle" />
            <View style={styles.divider} />
            <InfoRow label="Make/model" value="Honda ACE 125" />
@@ -99,19 +131,64 @@ const DriverProfileScreen = ({ navigation }) => {
         </ProfileCard>
 
         {/* BANK ACCOUNT */}
-        <ProfileCard 
-          title="Bank account" 
-          onEdit={() => navigation.navigate('DriverEditProfile')}
-        >
+        <ProfileCard title="Bank account" onEdit={() => navigation.navigate('DriverEditProfile')}>
            <InfoRow label="Bank" value="GTBank" />
            <View style={styles.divider} />
            <InfoRow label="Account name" value="Bayo Adeyemi" />
+           <View style={styles.divider} />
+           <InfoRow label="Number" value="7474673733" />
         </ProfileCard>
 
+        {/* DOCUMENTS */}
+        <ProfileCard title="Documents" showEdit={false}>
+          <DocumentRow title="National ID" date="2029-08-21" status="Approved" />
+          <View style={styles.divider} />
+          <DocumentRow title="Rider's License" date="2029-08-21" status="Approved" />
+          <View style={styles.divider} />
+          <DocumentRow title="Vehicle photo" date="2029-08-21" status="Approved" />
+          <View style={styles.divider} />
+          <DocumentRow title="Insurance" date="2029-08-21" status="Re-upload" />
+        </ProfileCard>
+
+        {/* NOTIFICATIONS */}
+        <ProfileCard title="Notifications" showEdit={false}>
+          <NotificationRow 
+            title="Order requests" 
+            sub="New deliveries near you" 
+            value={notifs.orders} 
+            onToggle={(v) => setNotifs({...notifs, orders: v})} 
+          />
+          <View style={styles.divider} />
+          <NotificationRow 
+            title="Payouts" 
+            sub="When earnings are sent to your bank" 
+            value={notifs.payouts} 
+            onToggle={(v) => setNotifs({...notifs, payouts: v})} 
+          />
+          <View style={styles.divider} />
+          <NotificationRow 
+            title="Promotions" 
+            sub="Bonuses & weekly challenges" 
+            value={notifs.promos} 
+            onToggle={(v) => setNotifs({...notifs, promos: v})} 
+          />
+        </ProfileCard>
+
+        {/* HELP & SUPPORT */}
+        <TouchableOpacity style={styles.helpItem}>
+          <View style={styles.helpLeft}>
+             <View style={styles.helpIconCircle}>
+                <Ionicons name="alert-circle-outline" size={20} color="#64748B" />
+             </View>
+             <Text style={styles.helpText}>Help & support</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+        </TouchableOpacity>
+
         {/* LOGOUT BUTTON */}
-        <TouchableOpacity style={styles.logoutBtn}>
-          <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity style={styles.logoutBtnOuter}>
+           <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+           <Text style={styles.logoutTextOuter}>Logout</Text>
         </TouchableOpacity>
 
       </ScrollView>
@@ -120,10 +197,7 @@ const DriverProfileScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -132,151 +206,100 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F5F5F5',
   },
-  backBtn: {
-    padding: 5,
-    marginRight: 15,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
+  backBtn: { padding: 5, marginRight: 15 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#000' },
+  scrollContent: { padding: 20, paddingBottom: 60 },
   topCard: {
     backgroundColor: '#FFF',
     borderRadius: 20,
-    padding: 30,
+    padding: 25,
     alignItems: 'center',
     marginBottom: 25,
     borderWidth: 1,
     borderColor: '#F0F0F0',
   },
-  avatarWrapper: {
-    position: 'relative',
-    marginBottom: 15,
-  },
+  avatarWrapper: { position: 'relative', marginBottom: 15 },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#64748B',
-  },
+  avatarText: { fontSize: 24, fontWeight: 'bold', color: '#64748B' },
   editAvatarBtn: {
     position: 'absolute',
     bottom: 0,
     right: 0,
     backgroundColor: Colors.primary,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFF',
   },
-  userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  userPhone: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 15,
-    gap: 15,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  statDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: '#E2E8F0',
-  },
-  statText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
+  userName: { fontSize: 18, fontWeight: 'bold', color: '#000' },
+  userPhone: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 12 },
+  statItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  statDivider: { width: 1, height: 10, backgroundColor: '#E2E8F0' },
+  statText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
   profileCard: {
     backgroundColor: '#FFF',
-    borderRadius: 15,
+    borderRadius: 18,
     padding: 20,
     marginBottom: 15,
     borderWidth: 1,
     borderColor: '#F0F0F0',
   },
-  cardHeader: {
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#000' },
+  editLink: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
+  cardContent: { gap: 15 },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  infoLabel: { fontSize: 14, color: '#94A3B8' },
+  infoValue: { fontSize: 14, fontWeight: '600', color: '#1E293B', flex: 1, textAlign: 'right' },
+  divider: { height: 1, backgroundColor: '#F8FAFC' },
+  docRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  docTitle: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
+  docDate: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
+  docBanner: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  docStatus: { fontSize: 10, fontWeight: 'bold' },
+  notifRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  notifTitle: { fontSize: 14, fontWeight: '700', color: '#1E293B' },
+  notifSub: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
+  helpItem: {
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 18,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    marginBottom: 20,
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  editLink: {
-    fontSize: 13,
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  cardContent: {
-    gap: 15,
-  },
-  infoRow: {
+  helpLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  helpIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
+  helpText: { fontSize: 15, fontWeight: '600', color: '#1E293B' },
+  logoutBtnOuter: {
+    height: 56,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#EF4444',
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: '#94A3B8',
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-    textAlign: 'right',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 10,
-    padding: 15,
-    marginTop: 20,
+    backgroundColor: '#FFF',
+    marginVertical: 20,
   },
-  logoutText: {
-    color: '#EF4444',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  logoutTextOuter: { color: '#EF4444', fontSize: 16, fontWeight: 'bold' },
 });
 
 export default DriverProfileScreen;
