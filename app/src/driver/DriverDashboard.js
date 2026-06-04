@@ -7,16 +7,18 @@ import {
   TouchableOpacity,
   StatusBar,
   Switch,
-  Platform,
+  Dimensions,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width } = Dimensions.get('window');
 
 const StatCard = ({ iconName, value, label, iconColor = "#FF8C00" }) => (
   <View style={styles.statCard}>
     <View style={styles.statIconContainer}>
-      <Ionicons name={iconName} size={18} color={iconColor} />
+      <Ionicons name={iconName} size={16} color={iconColor} />
     </View>
     <View style={styles.statTexts}>
       <Text style={styles.statValue}>{value}</Text>
@@ -25,9 +27,36 @@ const StatCard = ({ iconName, value, label, iconColor = "#FF8C00" }) => (
   </View>
 );
 
+const CompletedDeliveryCard = ({ name, price, address, details }) => (
+  <View style={styles.completedCard}>
+    <View style={styles.completedMain}>
+      <View style={styles.completedLeft}>
+        <Text style={styles.completedName}>{name}</Text>
+        <View style={styles.completedAddressRow}>
+          <Ionicons name="location-outline" size={14} color="#94A3B8" />
+          <Text style={styles.completedAddress}>{address}</Text>
+        </View>
+        <Text style={styles.completedDetails}>{details}</Text>
+      </View>
+      <Text style={styles.completedPrice}>{price}</Text>
+    </View>
+  </View>
+);
+
 const DriverDashboard = () => {
   const insets = useSafeAreaInsets();
   const [isOnline, setIsOnline] = useState(true);
+
+  // Mock data for earnings chart
+  const earningsData = [
+    { day: 'Mon', value: 15 },
+    { day: 'Tue', value: 25 },
+    { day: 'Wed', value: 30, active: true },
+    { day: 'Thu', value: 18 },
+    { day: 'Fri', value: 35 },
+    { day: 'Sat', value: 28 },
+    { day: 'Sun', value: 32 },
+  ];
 
   return (
     <View style={styles.container}>
@@ -55,7 +84,7 @@ const DriverDashboard = () => {
           <View style={styles.onlineBox}>
             <View style={styles.onlineLeft}>
               <View style={[styles.powerIconContainer, isOnline && styles.powerIconActive]}>
-                <Ionicons name="power" size={28} color={isOnline ? "#059669" : "#94A3B8"} />
+                <Ionicons name="power" size={28} color={isOnline ? "#10B981" : "#94A3B8"} />
               </View>
               <View style={styles.onlineStatusTexts}>
                 <Text style={styles.onlineText}>You're {isOnline ? 'online' : 'offline'}</Text>
@@ -78,7 +107,7 @@ const DriverDashboard = () => {
             <Text style={styles.sectionTitle}>Today</Text>
           </View>
           <View style={styles.statsRow}>
-            <StatCard iconName="notifications-outline" value="N25,500" label="Earnings" />
+            <StatCard iconName="notifications-outline" value="₦25,500" label="Earnings" />
             <StatCard iconName="notifications-outline" value="12" label="Trips" />
             <StatCard iconName="notifications-outline" value="47 km" label="Distance" />
           </View>
@@ -92,7 +121,7 @@ const DriverDashboard = () => {
               <View style={styles.statusBadge}>
                 <Text style={styles.statusBadgeText}>En route to customer</Text>
               </View>
-              <Text style={styles.deliveryPrice}>N750</Text>
+              <Text style={styles.deliveryPrice}>₦750</Text>
             </View>
 
             <View style={styles.addressSection}>
@@ -101,7 +130,6 @@ const DriverDashboard = () => {
                 <View style={styles.timelineLine} />
                 <View style={[styles.timelineDot, { backgroundColor: '#10B981' }]} />
               </View>
-              
               <View style={styles.addressInfo}>
                 <View style={styles.addressBlock}>
                   <Text style={styles.addressLabel}>PICKUP</Text>
@@ -120,7 +148,7 @@ const DriverDashboard = () => {
               <Text style={styles.orderId}>Order ORD-005</Text>
               <TouchableOpacity style={styles.continueLink}>
                 <Text style={styles.continueLinkText}>Continue</Text>
-                <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
+                <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -150,13 +178,96 @@ const DriverDashboard = () => {
                   <Ionicons name="time-outline" size={14} color="#FF8C00" />
                   <Text style={styles.timerText}>19s</Text>
                 </View>
-                <Text style={styles.requestPrice}>N850</Text>
+                <Text style={styles.requestPrice}>₦850</Text>
               </View>
             </View>
             <View style={styles.progressBarWrapper}>
-              <View style={styles.progressBarActive} />
+              <View style={[styles.progressBarActive, { width: '55%' }]} />
+            </View>
+
+            {/* ACCEPT/DECLINE ACTIONS */}
+            <View style={styles.requestActions}>
+              <TouchableOpacity style={styles.declineBtn}>
+                <Ionicons name="close" size={20} color="#64748B" />
+                <Text style={styles.declineText}>Decline</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.acceptBtn}>
+                <Ionicons name="checkmark" size={20} color="#FFF" />
+                <Text style={styles.acceptText}>Accept</Text>
+              </TouchableOpacity>
             </View>
           </View>
+
+          {/* COMPLETED DELIVERIES */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Completed deliveries</Text>
+            <TouchableOpacity><Text style={styles.viewAll}>View all</Text></TouchableOpacity>
+          </View>
+          
+          <View style={styles.completedList}>
+            <CompletedDeliveryCard 
+              name="Spice Avenue" 
+              price="₦750" 
+              address="22 Ozumba Mbadiwe, Victoria Island"
+              details="ORD-005 | 4 items"
+            />
+            <CompletedDeliveryCard 
+              name="Mbadiwe Axis" 
+              price="₦550" 
+              address="22 Ozumba Mbadiwe, Victoria Island"
+              details="ORD-003 | 2 items"
+            />
+            <CompletedDeliveryCard 
+              name="Ojokwu Avenue" 
+              price="₦1,250" 
+              address="22 Ozumba Mbadiwe, Victoria Island"
+              details="ORD-002 | 4 items"
+            />
+          </View>
+
+          {/* EARNINGS GRAPH */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Earnings</Text>
+            <TouchableOpacity><Text style={styles.viewAll}>View all</Text></TouchableOpacity>
+          </View>
+
+          <View style={styles.earningsChartCard}>
+            <View style={styles.chartHeader}>
+              <View>
+                <Text style={styles.chartPeriod}>Last 7 days</Text>
+                <Text style={styles.chartAmount}>₦62,500 earned</Text>
+              </View>
+              <View style={styles.percentBadge}>
+                 <Ionicons name="arrow-up" size={12} color="#10B981" />
+                 <Text style={styles.percentText}>+12%</Text>
+              </View>
+            </View>
+            
+            <View style={styles.chartContent}>
+              <View style={styles.chartYAxis}>
+                <Text style={styles.yText}>40k</Text>
+                <Text style={styles.yText}>30k</Text>
+                <Text style={styles.yText}>20k</Text>
+                <Text style={styles.yText}>10k</Text>
+                <Text style={styles.yText}>0k</Text>
+              </View>
+              <View style={styles.chartBarsContainer}>
+                {earningsData.map((item, idx) => (
+                  <View key={idx} style={styles.barColumn}>
+                    <View style={styles.barBackground}>
+                      <View style={[
+                        styles.barFill, 
+                        { height: `${(item.value / 40) * 100}%` },
+                        item.active && styles.barFillActive
+                      ]} />
+                    </View>
+                    <Text style={[styles.barLabel, item.active && styles.barLabelActive]}>{item.day}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+
         </View>
       </ScrollView>
 
@@ -256,9 +367,9 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   powerIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
@@ -270,7 +381,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   onlineText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
     color: '#0F172A',
   },
@@ -294,7 +405,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#1E293B',
   },
   viewAll: {
@@ -325,13 +436,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF7ED',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   statTexts: {
     gap: 2,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#0F172A',
   },
@@ -341,14 +452,13 @@ const styles = StyleSheet.create({
   },
   activeDeliveryCard: {
     backgroundColor: '#FFF',
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 20,
     shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: '#EEE',
+    borderColor: '#F1F5F9',
   },
   deliveryHeader: {
     flexDirection: 'row',
@@ -381,13 +491,13 @@ const styles = StyleSheet.create({
     width: 10,
   },
   timelineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   timelineLine: {
     flex: 1,
-    width: 2,
+    width: 1,
     backgroundColor: '#F1F5F9',
     marginVertical: 4,
   },
@@ -398,13 +508,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   addressLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
     color: '#94A3B8',
     letterSpacing: 0.5,
   },
   placeName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#1E293B',
   },
@@ -422,7 +532,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
   },
   orderId: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
   },
   continueLink: {
@@ -432,18 +542,17 @@ const styles = StyleSheet.create({
   },
   continueLinkText: {
     color: Colors.primary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   newRequestCard: {
     backgroundColor: '#FFF',
-    borderRadius: 18,
+    borderRadius: 20,
     shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: '#EEE',
+    borderColor: '#F1F5F9',
     overflow: 'hidden',
   },
   requestMain: {
@@ -453,7 +562,7 @@ const styles = StyleSheet.create({
   },
   requestLeft: {
     flex: 1,
-    gap: 6,
+    gap: 4,
   },
   requestStatusHeader: {
     flexDirection: 'row',
@@ -462,18 +571,18 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   requestDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: '#10B981',
   },
   requestHeaderText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#10B981',
     fontWeight: '600',
   },
   requestRestaurant: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
     color: '#1E293B',
   },
@@ -483,46 +592,219 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   requestDistanceText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
   },
   requestDropoff: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 2,
   },
   requestRight: {
     alignItems: 'flex-end',
-    gap: 15,
+    gap: 12,
   },
   timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: '#FFF7ED',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   timerText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#FF8C00',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   requestPrice: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#10B981',
   },
   progressBarWrapper: {
-    height: 6,
+    height: 5,
     backgroundColor: '#F1F5F9',
     width: '100%',
   },
   progressBarActive: {
     height: '100%',
     backgroundColor: Colors.primary,
-    width: '60%',
+  },
+  requestActions: {
+    flexDirection: 'row',
+    padding: 15,
+    gap: 12,
+  },
+  declineBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+  },
+  declineText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  acceptBtn: {
+    flex: 1.5,
+    flexDirection: 'row',
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#10B981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  acceptText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  completedList: {
+    gap: 12,
+  },
+  completedCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOpacity: 0.02,
+    elevation: 1,
+  },
+  completedMain: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  completedLeft: {
+    flex: 1,
+    gap: 5,
+  },
+  completedName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  completedAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  completedAddress: {
+    fontSize: 12,
+    color: '#64748B',
+    flexShrink: 1,
+  },
+  completedDetails: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  completedPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#059669',
+  },
+  earningsChartCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 22,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    elevation: 2,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 25,
+  },
+  chartPeriod: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  chartAmount: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  percentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 2,
+  },
+  percentText: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  chartContent: {
+    flexDirection: 'row',
+    height: 180,
+  },
+  chartYAxis: {
+    justifyContent: 'space-between',
+    paddingBottom: 25,
+    marginRight: 15,
+  },
+  yText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  chartBarsContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  barColumn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 12,
+  },
+  barBackground: {
+    flex: 1,
+    width: 24,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 6,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  barFill: {
+    width: '100%',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+  },
+  barFillActive: {
+    backgroundColor: Colors.primary,
+  },
+  barLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  barLabelActive: {
+    color: '#1E293B',
+    fontWeight: 'bold',
   },
   bottomTab: {
     position: 'absolute',
