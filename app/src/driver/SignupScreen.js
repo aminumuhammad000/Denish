@@ -1,13 +1,15 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
-import {StyleSheet,
+import {
+  StyleSheet,
   Text,
   View,
   TextInput,
   TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
-  Platform,} from 'react-native';
+  Platform,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
@@ -28,10 +30,16 @@ const DriverSignupScreen = ({ navigation }) => {
       return;
     }
     
+    if (password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters');
+      return;
+    }
+    
     setLoading(true);
     setErrorMsg('');
     try {
-      const response = await driverSignup(name, email, phone, password, 'Motorcycle');
+      // Pass 'Bike' as default to satisfy initial signup API
+      const response = await driverSignup(name, email, phone, password, 'Bike');
       if (response && response.success) {
         navigation.navigate('DriverStep1Personal');
       } else {
@@ -70,6 +78,7 @@ const DriverSignupScreen = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 placeholder="John Doe"
+                placeholderTextColor="#999"
                 value={name}
                 onChangeText={setName}
               />
@@ -80,6 +89,7 @@ const DriverSignupScreen = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 placeholder="example@mail.com"
+                placeholderTextColor="#999"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
@@ -92,6 +102,7 @@ const DriverSignupScreen = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 placeholder="08012345678"
+                placeholderTextColor="#999"
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
@@ -104,6 +115,7 @@ const DriverSignupScreen = ({ navigation }) => {
                 <TextInput
                   style={styles.passwordInput}
                   placeholder="At least 6 characters"
+                  placeholderTextColor="#999"
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
@@ -188,6 +200,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
+    color: '#333',
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -202,31 +215,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 14,
     fontSize: 15,
-  },
-  vehicleContainer: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  vehicleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#EEE',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-  },
-  vehicleBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  vehicleText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666',
-  },
-  vehicleTextActive: {
-    color: '#FFF',
+    color: '#333',
   },
   button: {
     backgroundColor: Colors.primary,

@@ -100,8 +100,7 @@ export default function App() {
               <Stack.Screen name="TrackOrder" component={TrackOrderScreen} />
               <Stack.Screen name="Search" component={SearchScreen} />
               <Stack.Screen name="Category" component={CategoryScreen} />
-  
-              {/* ── Driver App ── */}
+
               <Stack.Screen name="DriverWelcome" component={DriverWelcomeScreen} />
               <Stack.Screen name="DriverSignup" component={DriverSignupScreen} />
               <Stack.Screen name="DriverStep1Personal" component={DriverStep1Personal} />
