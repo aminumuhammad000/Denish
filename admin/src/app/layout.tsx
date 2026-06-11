@@ -37,7 +37,8 @@ export default function RootLayout({
       className={`${plusJakartaSans.variable} ${dmSans.variable} ${inter.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col font-sans">
+      <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>
+
         <Toaster position="bottom-right" expand={false} richColors />
         <Navbar />
         <main className="grow flex flex-col">{children}</main>

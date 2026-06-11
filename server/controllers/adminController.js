@@ -355,6 +355,8 @@ module.exports = {
   addPromotion,
   updatePromotion,
   deletePromotion,
-  getAllData
+  getAllData,
+  adminLogin
 };
+
 
