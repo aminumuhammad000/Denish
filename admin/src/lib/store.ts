@@ -187,7 +187,8 @@ interface AdminState {
 }
 
 
-const API_BASE_URL = "http://localhost:3000/api/admin";
+const API_BASE_URL = "/api/admin";
+
 
 export const useAdminStore = create<AdminState>()(
   persist(
