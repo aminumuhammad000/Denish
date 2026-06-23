@@ -57,6 +57,8 @@ import NotificationsScreen from './src/screens/NotificationsScreen';
 import { CartProvider } from './src/context/CartContext';
 import { OnboardingProvider } from './src/context/OnboardingContext';
 
+import OnboardingScreen from './src/screens/OnboardingScreen';
+
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -66,7 +68,8 @@ export default function App() {
         <CartProvider>
           <NavigationContainer>
             <StatusBar style="auto" />
-            <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="RoleSelection">
+            <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Onboarding">
+              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
               <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
               
               {/* ── Onboarding ── */}
