@@ -1,292 +1,153 @@
-"use client";
-
-import { Search, Bell, Menu, Settings, LogOut } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { Search, Bell, Menu, Settings, LogOut } from "lucide-react";
+import { useAdminStore } from "../../lib/store";
+
+interface Notification { id: string; title: string; message: string; time: string; read: boolean; }
 
 export function TopNavbar() {
+  const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const admin = useAdminStore((state) => state.admin);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: "1",
-      title: "New Dispute Filed",
-      message: "Customer Aisha Mohammed filed a dispute for Order ORD-001.",
-      time: "5m ago",
-      read: false,
-    },
-    {
-      id: "2",
-      title: "Driver Registration",
-      message: "New driver Bayo Adeyemi submitted registration documents.",
-      time: "1h ago",
-      read: false,
-    },
-    {
-      id: "3",
-      title: "Payout Completed",
-      message: "Weekly vendor payout of N245K processed successfully.",
-      time: "3h ago",
-      read: true,
-    },
-  ]);
-
-  const router = useRouter();
-
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const hasUnread = unreadCount > 0;
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch("/api/admin/notifications");
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.notifications.map((n: any) => ({
+          id: n._id,
+          title: n.title,
+          message: n.message,
+          time: new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          read: n.read
+        })));
+      }
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+    }
   };
 
-  const markAllAsRead = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const clearAll = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setNotifications([]);
+  const handleLogout = () => {
+    localStorage.removeItem("admin_token");
+    navigate("/login");
   };
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 0);
-    };
+    fetchNotifications();
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 0);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close profile dropdown on click outside
   useEffect(() => {
-    if (!isMenuOpen) return;
-    const closeMenu = () => setIsMenuOpen(false);
-    window.addEventListener("click", closeMenu);
-    return () => window.removeEventListener("click", closeMenu);
-  }, [isMenuOpen]);
-
-  // Close notifications dropdown on click outside
-  useEffect(() => {
-    if (!isNotificationsOpen) return;
-    const closeNotifications = () => setIsNotificationsOpen(false);
-    window.addEventListener("click", closeNotifications);
-    return () => window.removeEventListener("click", closeNotifications);
-  }, [isNotificationsOpen]);
-
-  const handleLogout = async () => {
-    try {
-      const response = await fetch("/api/admin/logout", {
-        method: "POST",
-      });
-      if (response.ok) {
-        router.push("/admin");
-      }
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
-
-  const toggleMenu = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsMenuOpen(!isMenuOpen);
-    setIsNotificationsOpen(false);
-  };
-
-  const toggleNotifications = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsNotificationsOpen(!isNotificationsOpen);
-    setIsMenuOpen(false);
-  };
+    if (!isMenuOpen && !isNotificationsOpen) return;
+    const close = () => { setIsMenuOpen(false); setIsNotificationsOpen(false); };
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [isMenuOpen, isNotificationsOpen]);
 
   return (
     <div
-      className={`bg-[#FFFFFF] h-[72px] md:h-[100px] pt-2 md:py-[10px] flex items-center justify-between px-4 md:px-[72px] sticky top-0 z-20 transition-all duration-300 ${
-        isScrolled
-          ? "border-b border-[#EAEAEA] shadow-sm"
-          : "border-b border-transparent"
-      }`}
+      style={{
+        background: "#fff", height: 72, display: "flex", alignItems: "center",
+        justifyContent: "space-between", padding: "0 32px", position: "sticky",
+        top: 0, zIndex: 20, borderBottom: isScrolled ? "1px solid #EAEAEA" : "1px solid transparent",
+        boxShadow: isScrolled ? "0 1px 4px rgba(0,0,0,0.06)" : "none", transition: "all 0.3s",
+      }}
     >
-      {/* Search Bar */}
-      <div className="flex items-center gap-3">
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <button
           onClick={() => window.dispatchEvent(new Event("openSidebar"))}
-          className="md:hidden p-1.5 -ml-2 text-[#191C1C] rounded-md shrink-0 active:bg-gray-100"
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 6, borderRadius: 8 }}
         >
-          <Menu size={20} />
+          <Menu size={20} color="#191C1C" />
         </button>
-        <div className="flex items-center gap-[12px] w-[180px] md:w-[272px] h-[40px] px-[14px] border border-[#DCDCDC] rounded-[8px] bg-[#F8FAF9]">
-          <Search className="w-[16px] h-[16px] text-[#747475]" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full h-full bg-transparent text-[14px] text-[#191C1C] placeholder:text-[#747475] focus:outline-none"
-          />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, width: 272, height: 40, padding: "0 14px", border: "1px solid #DCDCDC", borderRadius: 8, background: "#F8FAF9" }}>
+          <Search size={16} color="#747475" />
+          <input type="text" placeholder="Search..." style={{ border: "none", background: "transparent", fontSize: 14, color: "#191C1C", outline: "none", width: "100%" }} />
         </div>
       </div>
 
-      {/* Right Content */}
-      <div className="flex items-center gap-[16px] relative">
-        <div className="relative">
+      <div style={{ display: "flex", alignItems: "center", gap: 16, position: "relative" }}>
+        {/* Bell */}
+        <div style={{ position: "relative" }}>
           <button
-            onClick={toggleNotifications}
-            className={`relative w-[36px] h-[36px] md:w-[42px] md:h-[42px] flex items-center justify-center border rounded-full transition-all ${
-              isNotificationsOpen
-                ? "border-[#F9811F] bg-[#F9811F]/5 text-[#F9811F]"
-                : "border-[#EAEAEA] hover:bg-gray-50 text-[#747475]"
-            }`}
+            onClick={(e) => { e.stopPropagation(); setIsNotificationsOpen(!isNotificationsOpen); setIsMenuOpen(false); }}
+            style={{ width: 42, height: 42, borderRadius: "50%", border: "1px solid #EAEAEA", background: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
-            <Bell className={`w-[18px] h-[18px] md:w-[20px] md:h-[20px] ${isNotificationsOpen ? "text-[#F9811F]" : "text-[#747475]"}`} />
-            {hasUnread && (
-              <span className="absolute -top-px -right-px w-[8px] md:w-[11px] h-[8px] md:h-[11px] rounded-full bg-[#EF4444] border-2 border-white shadow-sm animate-pulse" />
-            )}
+            <Bell size={20} color="#747475" />
+            {unreadCount > 0 && <span style={{ position: "absolute", top: 0, right: 0, width: 10, height: 10, borderRadius: "50%", background: "#EF4444", border: "2px solid white" }} />}
           </button>
-
-          {/* Notifications Dropdown */}
           {isNotificationsOpen && (
             <div
               onClick={(e) => e.stopPropagation()}
-              className="absolute right-[-80px] md:right-0 top-[calc(100%+12px)] w-[280px] md:w-[360px] bg-white rounded-[20px] border border-[#F2F4F3] shadow-[0_12px_40px_rgba(0,0,0,0.12)] z-30 animate-in fade-in slide-in-from-top-2 duration-200"
+              style={{ position: "absolute", right: 0, top: "calc(100% + 12px)", width: 340, background: "white", borderRadius: 20, border: "1px solid #F2F4F3", boxShadow: "0 12px 40px rgba(0,0,0,0.12)", zIndex: 30 }}
             >
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#F8FAF9]">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-[15px] font-bold text-[#191C1C]">Notifications</h3>
-                  {unreadCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-[#F9811F]/10 text-[#F9811F] text-[10px] font-bold">
-                      {unreadCount} new
-                    </span>
-                  )}
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid #F8FAF9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 700 }}>Notifications</h3>
+                  {unreadCount > 0 && <span style={{ background: "rgba(249,129,31,0.1)", color: "#F9811F", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999 }}>{unreadCount} new</span>}
                 </div>
                 {unreadCount > 0 && (
                   <button
-                    onClick={markAllAsRead}
-                    className="text-[11px] font-medium text-[#207951] hover:underline"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await fetch("/api/admin/notifications/read-all", { method: "PATCH" });
+                      fetchNotifications();
+                    }}
+                    style={{ fontSize: 11, color: "#207951", background: "none", border: "none", cursor: "pointer" }}
                   >
-                    Mark all as read
+                    Mark all read
                   </button>
                 )}
               </div>
-
-              {/* Notification List */}
-              <div className="max-h-[280px] overflow-y-auto divide-y divide-[#F8FAF9]">
-                {notifications.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-                    <div className="w-10 h-10 rounded-full bg-[#F8FAF9] flex items-center justify-center mb-3">
-                      <Bell className="w-5 h-5 text-[#C0C0C0]" />
+              <div style={{ maxHeight: 280, overflowY: "auto" }}>
+                {notifications.map(n => (
+                  <div
+                    key={n.id}
+                    onClick={async () => {
+                      if (!n.read) {
+                        await fetch(`/api/admin/notifications/${n.id}/read`, { method: "PATCH" });
+                        fetchNotifications();
+                      }
+                    }}
+                    style={{ padding: "14px 20px", borderBottom: "1px solid #F8FAF9", background: n.read ? "white" : "rgba(249,129,31,0.04)", cursor: "pointer" }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <p style={{ fontSize: 13, fontWeight: 700 }}>{n.title}</p>
+                      <span style={{ fontSize: 10, color: "#9A9A9A" }}>{n.time}</span>
                     </div>
-                    <p className="text-[13px] font-medium text-[#191C1C]">All caught up!</p>
-                    <p className="text-[11px] text-[#747475] mt-1">No new notifications at the moment.</p>
+                    <p style={{ fontSize: 12, color: "#747475", marginTop: 4 }}>{n.message}</p>
                   </div>
-                ) : (
-                  notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      onClick={() => markAsRead(notification.id)}
-                      className={`px-5 py-4 hover:bg-[#F8FAF9] transition-all cursor-pointer flex items-start gap-3 relative ${
-                        !notification.read ? "bg-[#F9811F]/5" : ""
-                      }`}
-                    >
-                      {/* Unread indicator dot */}
-                      {!notification.read && (
-                        <span className="absolute left-2.5 top-[22px] w-2 h-2 rounded-full bg-[#F9811F]" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className={`text-[13px] font-bold text-[#191C1C] truncate ${!notification.read ? "pr-2" : ""}`}>
-                            {notification.title}
-                          </p>
-                          <span className="text-[10px] text-[#9A9A9A] shrink-0">{notification.time}</span>
-                        </div>
-                        <p className="text-[12px] text-[#747475] mt-1 line-clamp-2 leading-relaxed">
-                          {notification.message}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
+                ))}
               </div>
-
-              {/* Footer */}
-              {notifications.length > 0 && (
-                <div className="px-5 py-3 border-t border-[#F8FAF9] flex justify-end">
-                  <button
-                    onClick={clearAll}
-                    className="text-[11px] font-medium text-[#FF4D4F] hover:underline"
-                  >
-                    Clear all
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
-        
-        {/* Profile dropdown trigger */}
-        <div
-          onClick={toggleMenu}
-          className="flex items-center gap-[6px] md:gap-[12px] cursor-pointer group select-none"
-        >
-          <div className="w-[36px] h-[36px] md:w-[42px] md:h-[42px] rounded-full overflow-hidden border border-[#EAEAEA] active:scale-95 transition-transform">
-            <Image
-              src="/images/missionpageImages/cake.png"
-              alt="Admin"
-              width={42}
-              height={42}
-              className="object-cover"
-            />
-          </div>
-          <svg
-            width="12"
-            height="8"
-            viewBox="0 0 12 8"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className={`text-[#747475] transition-transform duration-300 ${isMenuOpen ? "rotate-180" : "group-hover:translate-y-0.5"}`}
-          >
-            <path
-              d="M1 1L6 6L11 1"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
+
+        {/* Avatar + dropdown */}
+        <div onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); setIsNotificationsOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+          <img src={admin?.image || "/images/missionpageImages/cake.png"} alt="Admin" style={{ width: 42, height: 42, borderRadius: "50%", objectFit: "cover", border: "1px solid #EAEAEA" }} />
         </div>
-
-        {/* Floating dropdown menu */}
         {isMenuOpen && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="absolute right-0 top-[calc(100%+12px)] w-[180px] bg-white rounded-[16px] border border-[#F2F4F3] shadow-[0_10px_30px_rgba(0,0,0,0.08)] py-2 z-30 animate-in fade-in slide-in-from-top-2 duration-200"
-          >
-            <div className="px-4 py-2 border-b border-[#F8FAF9] mb-1">
-              <p className="text-[13px] font-bold text-[#191C1C]">Admin Portal</p>
-              <p className="text-[11px] text-[#747475] truncate">admin@denish.com</p>
+          <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", right: 0, top: "calc(100% + 12px)", width: 180, background: "white", borderRadius: 16, border: "1px solid #F2F4F3", boxShadow: "0 10px 30px rgba(0,0,0,0.08)", padding: "8px 0", zIndex: 30 }}>
+            <div style={{ padding: "8px 16px 12px", borderBottom: "1px solid #F8FAF9" }}>
+              <p style={{ fontSize: 13, fontWeight: 700 }}>{admin?.name || "Admin Portal"}</p>
+              <p style={{ fontSize: 11, color: "#747475" }}>{admin?.email || "admin@denish.com"}</p>
             </div>
-
-            <Link
-              href="/admin/settings"
-              onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-2 text-[13px] text-[#191C1C] hover:bg-[#F8FAF9] transition-all group"
-            >
-              <Settings className="w-4 h-4 text-[#747475] group-hover:text-[#207951] group-hover:rotate-45 transition-transform duration-300" />
-              <span>Settings</span>
-            </Link>
-
-            <button
-              onClick={() => {
-                setIsMenuOpen(false);
-                handleLogout();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-2 text-[13px] text-[#FF4D4F] hover:bg-red-50/50 transition-all group text-left"
-            >
-              <LogOut className="w-4 h-4 text-[#FF4D4F] group-hover:translate-x-0.5 transition-transform" />
-              <span>Log out</span>
+            <NavLink to="/settings" onClick={() => setIsMenuOpen(false)} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 16px", fontSize: 13, color: "#191C1C", textDecoration: "none" }}>
+              <Settings size={16} color="#747475" /> Settings
+            </NavLink>
+            <button onClick={() => { setIsMenuOpen(false); handleLogout(); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "8px 16px", fontSize: 13, color: "#EF4444", background: "none", border: "none", cursor: "pointer", textAlign: "left", fontWeight: 600 }}>
+              <LogOut size={16} /> Log out
             </button>
           </div>
         )}

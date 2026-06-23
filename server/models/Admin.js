@@ -18,6 +18,10 @@ const AdminSchema = new mongoose.Schema({
   role: {
     type: String,
     default: 'superadmin'
+  },
+  image: {
+    type: String,
+    default: ''
   }
 }, { timestamps: true });
 

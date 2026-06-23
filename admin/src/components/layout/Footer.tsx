@@ -1,11 +1,8 @@
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "react-router-dom";
 // Brand icons replaced with SVGs
 
 export function Footer() {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
   if (pathname.startsWith("/admin")) return null;
   return (
     <footer className="bg-[#004D4C] text-white pt-16 pb-8">
@@ -14,7 +11,7 @@ export function Footer() {
           {/* Brand Info */}
           <div className="w-full max-w-[344px] space-y-4">
             <Link
-              href="/"
+              to="/"
               className="text-[20px] font-semibold leading-[28px] tracking-[0px] text-[#F2F4F3] inline-block mb-2"
               style={{ fontFamily: "var(--font-inter)", fontSize: "var(--fs-h4)" }}
             >
@@ -46,7 +43,7 @@ export function Footer() {
             >
               <li>
                 <Link
-                  href="/privacy"
+                  to="/privacy"
                   className="hover:text-white transition-colors underline decoration-transparent hover:decoration-white underline-offset-4"
                 >
                   Privacy Policy
@@ -54,7 +51,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/terms"
+                  to="/terms"
                   className="hover:text-white transition-colors underline decoration-transparent hover:decoration-white underline-offset-4"
                 >
                   Terms of Service
@@ -77,7 +74,7 @@ export function Footer() {
             >
               <li>
                 <Link
-                  href="/vendors"
+                  to="/vendors"
                   className="hover:text-white transition-colors underline decoration-transparent hover:decoration-white underline-offset-4"
                 >
                   For Vendors
@@ -85,7 +82,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/riders"
+                  to="/riders"
                   className="hover:text-white transition-colors underline decoration-transparent hover:decoration-white underline-offset-4"
                 >
                   For Riders
@@ -93,7 +90,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/"
+                  to="/"
                   className="hover:text-white transition-colors underline decoration-transparent hover:decoration-white underline-offset-4"
                 >
                   Main Site
@@ -131,7 +128,7 @@ export function Footer() {
           </p>
           <div className="flex space-x-6">
             <Link
-              href="#"
+              to="#"
               className="hover:text-white transition-transform hover:scale-110"
               aria-label="Facebook"
             >
@@ -149,7 +146,7 @@ export function Footer() {
               </svg>
             </Link>
             <Link
-              href="#"
+              to="#"
               className="hover:text-white transition-transform hover:scale-110"
               aria-label="Instagram"
             >
@@ -167,7 +164,7 @@ export function Footer() {
               </svg>
             </Link>
             <Link
-              href="#"
+              to="#"
               className="hover:text-white transition-transform hover:scale-110"
               aria-label="X"
             >

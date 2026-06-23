@@ -1,6 +1,7 @@
-"use client";
+
 
 import { useState } from "react";
+import { useAdminStore } from "@/lib/store";
 import {
   LineChart,
   Line,
@@ -14,61 +15,46 @@ import {
   Cell as PieCell,
 } from "recharts";
 
-const rangeData: Record<string, { name: string; revenue: number }[]> = {
-  "1D": [
-    { name: "08:00", revenue: 5000 },
-    { name: "10:00", revenue: 12000 },
-    { name: "12:00", revenue: 28000 },
-    { name: "14:00", revenue: 18000 },
-    { name: "16:00", revenue: 32000 },
-    { name: "18:00", revenue: 45000 },
-    { name: "20:00", revenue: 15000 },
-  ],
-  "1W": [
-    { name: "Mon", revenue: 25000 },
-    { name: "Tue", revenue: 42000 },
-    { name: "Wed", revenue: 31000 },
-    { name: "Thu", revenue: 58000 },
-    { name: "Fri", revenue: 45000 },
-    { name: "Sat", revenue: 72000 },
-    { name: "Sun", revenue: 50000 },
-  ],
-  "1M": [
-    { name: "8/04", revenue: 15000 },
-    { name: "9/04", revenue: 35000 },
-    { name: "10/04", revenue: 22000 },
-    { name: "11/04", revenue: 48000 },
-    { name: "12/04", revenue: 38000 },
-    { name: "13/04", revenue: 55000 },
-    { name: "14/04", revenue: 42000 },
-  ],
-  "6M": [
-    { name: "Nov", revenue: 120000 },
-    { name: "Dec", revenue: 240000 },
-    { name: "Jan", revenue: 180000 },
-    { name: "Feb", revenue: 210000 },
-    { name: "Mar", revenue: 310000 },
-    { name: "Apr", revenue: 280000 },
-  ],
-  "1Y": [
-    { name: "2021", revenue: 1200000 },
-    { name: "2022", revenue: 1800000 },
-    { name: "2023", revenue: 2400000 },
-    { name: "2024", revenue: 3100000 },
-    { name: "2025", revenue: 4500000 },
-    { name: "2026", revenue: 2100000 },
-  ],
-};
-
-const statusData = [
-  { name: "Delivered", value: 68, color: "#207951" },
-  { name: "Preparing", value: 15, color: "#00B4D8" },
-  { name: "Pending", value: 10, color: "#F9811F" },
-  { name: "Cancelled", value: 7, color: "#EF4444" },
-];
-
 export function ChartsSection() {
-  const [activeRange, setActiveRange] = useState("1M");
+  const [activeRange, setActiveRange] = useState("1W");
+  const ordersList = useAdminStore((state) => state.orders);
+
+  // 1. Dynamic Status Data
+  const statusCounts = ordersList.reduce((acc: any, order) => {
+    acc[order.status] = (acc[order.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  const total = ordersList.length || 1;
+  const statusData = [
+    { name: "Delivered", value: Math.round(((statusCounts['delivered'] || 0) / total) * 100), color: "#207951" },
+    { name: "Preparing", value: Math.round(((statusCounts['preparing'] || 0) / total) * 100), color: "#00B4D8" },
+    { name: "Pending", value: Math.round(((statusCounts['pending'] || 0) / total) * 100), color: "#F9811F" },
+    { name: "Cancelled", value: Math.round(((statusCounts['cancelled'] || 0) / total) * 100), color: "#EF4444" },
+  ];
+
+  // 2. Dynamic Revenue Data (1W example)
+  // In a real app we'd fetch this aggregated, but here we can calculate from ordersList
+  const getRevenueData = () => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const now = new Date();
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(now.getDate() - (6 - i));
+      return d;
+    });
+
+    return last7Days.map(date => {
+      const dayName = days[date.getDay()];
+      const dayOrders = ordersList.filter(o => 
+        new Date(o.date).toDateString() === date.toDateString()
+      );
+      const revenue = dayOrders.reduce((sum, o) => sum + (parseInt(o.total.replace(/[^\d]/g, ""), 10) || 0), 0);
+      return { name: dayName, revenue };
+    });
+  };
+
+  const revenueData = getRevenueData();
 
   return (
     <div className="space-y-8">
@@ -101,7 +87,7 @@ export function ChartsSection() {
           <div className="aspect-2/1 md:aspect-auto md:h-[300px] w-full relative **:outline-none focus:outline-none">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={rangeData[activeRange]}
+                data={revenueData}
                 margin={{ top: 0, right: 10, left: 5, bottom: 0 }}
               >
                 <CartesianGrid

@@ -1,6 +1,5 @@
-"use client";
 
-import React from "react";
+
 import {
   PieChart,
   Pie,
@@ -21,20 +20,22 @@ import {
   LineChart,
   Line,
   Legend,
-  LegendPayload,
+  type LegendPayload,
 } from "recharts";
 
-// --- Order by Cuisine (Donut Chart) ---
-const cuisineData = [
-  { name: "Local Dishes", value: 35, color: "#FE7200" },
-  { name: "Grills & BBQ", value: 25, color: "#29A378" },
-  { name: "Healthy", value: 15, color: "#0A85FF" },
-  { name: "Drinks", value: 12, color: "#F9B400" },
-  { name: "Continental", value: 8, color: "#8B5CF6" },
-  { name: "Raw Food", value: 5, color: "#EF4444" },
-];
+import { useAdminStore } from "@/lib/store";
 
 export function OrderCuisineChart() {
+  // cuisineData remains for UI demo, but could be computed if orders had categories
+  const cuisineData = [
+    { name: "Local Dishes", value: 35, color: "#FE7200" },
+    { name: "Grills & BBQ", value: 25, color: "#29A378" },
+    { name: "Healthy", value: 15, color: "#0A85FF" },
+    { name: "Drinks", value: 12, color: "#F9B400" },
+    { name: "Continental", value: 8, color: "#8B5CF6" },
+    { name: "Raw Food", value: 5, color: "#EF4444" },
+  ]; 
+
   return (
     <div className="bg-white w-full max-w-[314px] mx-auto lg:mx-0 lg:w-[314px] h-[342px] p-4 rounded-[12px] border border-[#EAEAEA] flex flex-col overflow-hidden">
       <h3 className="text-[18px] font-bold text-[#191C1C] mb-6">
@@ -80,17 +81,25 @@ export function OrderCuisineChart() {
   );
 }
 
-// --- Peak Ordering Hours (Area Chart) ---
-const hoursData = [
-  { time: "0:00", orders: 10 },
-  { time: "4:00", orders: 5 },
-  { time: "8:00", orders: 25 },
-  { time: "12:00", orders: 65 },
-  { time: "16:00", orders: 45 },
-  { time: "20:00", orders: 85 },
-];
-
 export function PeakHoursChart() {
+  const orders = useAdminStore((state) => state.orders);
+  
+  const hoursData = [
+    { time: "0:00", orders: 0 },
+    { time: "4:00", orders: 0 },
+    { time: "8:00", orders: 0 },
+    { time: "12:00", orders: 0 },
+    { time: "16:00", orders: 0 },
+    { time: "20:00", orders: 0 },
+  ];
+
+  orders.forEach(() => {
+    const hour = new Date().getHours(); 
+    const h = Math.floor(hour / 4) * 4;
+    const slot = hoursData.find(s => s.time === `${h}:00`);
+    if (slot) slot.orders++;
+  });
+
   return (
     <div className="bg-white w-full max-w-[314px] mx-auto lg:mx-0 lg:w-[314px] h-[342px] p-4 rounded-[12px] border border-[#EAEAEA] overflow-hidden">
       <h3 className="text-[18px] font-bold text-[#191C1C] mb-6">
@@ -142,17 +151,19 @@ export function PeakHoursChart() {
   );
 }
 
-// --- Customer Metrics (Radar Chart) ---
-const metricsData = [
-  { subject: "Retention", A: 80, fullMark: 100 },
-  { subject: "Satisfaction", A: 95, fullMark: 100 },
-  { subject: "Repeat Orders", A: 75, fullMark: 100 },
-  { subject: "Referrals", A: 60, fullMark: 100 },
-  { subject: "App Ratings", A: 85, fullMark: 100 },
-  { subject: "Support Score", A: 80, fullMark: 100 },
-];
-
 export function CustomerMetricsChart() {
+  const disputes = useAdminStore((state) => state.disputes);
+
+  const satisfaction = 100 - (disputes.length * 2);
+  const metricsData = [
+    { subject: "Retention", A: 80, fullMark: 100 },
+    { subject: "Satisfaction", A: Math.max( satisfaction, 10), fullMark: 100 },
+    { subject: "Repeat Orders", A: 75, fullMark: 100 },
+    { subject: "Referrals", A: 60, fullMark: 100 },
+    { subject: "App Ratings", A: 85, fullMark: 100 },
+    { subject: "Support Score", A: 80, fullMark: 100 },
+  ];
+
   return (
     <div className="bg-white w-full max-w-[314px] mx-auto lg:mx-0 lg:w-[314px] h-[342px] p-4 rounded-[12px] border border-[#EAEAEA] overflow-hidden">
       <h3 className="text-[18px] font-bold text-[#191C1C] mb-4">
@@ -180,19 +191,31 @@ export function CustomerMetricsChart() {
   );
 }
 
-// --- Monthly Revenue Trend (List) ---
-const revenueItems = [
-  { name: "Jollof Rice", orders: "342 orders", revenue: "₦855K", trend: 80 },
-  { name: "Suya Platter", orders: "287 orders", revenue: "₦105K", trend: 60 },
-  { name: "Carrots", orders: "158 orders", revenue: "₦15K", trend: 40 },
-  { name: "Carrots", orders: "158 orders", revenue: "₦15K", trend: 40 },
-  { name: "Carrots", orders: "158 orders", revenue: "₦15K", trend: 40 },
-  { name: "Carrots", orders: "158 orders", revenue: "₦15K", trend: 40 },
-  { name: "Carrots", orders: "158 orders", revenue: "₦15K", trend: 40 },
-  { name: "Carrots", orders: "158 orders", revenue: "₦15K", trend: 40 },
-];
-
 export function RevenueTrendList() {
+  const orders = useAdminStore((state) => state.orders);
+  
+  // Aggregate revenue by vendor
+  const vendorRevenue: Record<string, { orders: number, revenue: number }> = {};
+  orders.forEach(o => {
+    if (o.status === "delivered") {
+      const v = o.vendor;
+      const rev = parseInt(o.total.replace(/[^\d]/g, ""), 10) || 0;
+      if (!vendorRevenue[v]) vendorRevenue[v] = { orders: 0, revenue: 0 };
+      vendorRevenue[v].orders++;
+      vendorRevenue[v].revenue += rev;
+    }
+  });
+
+  const revenueItems = Object.entries(vendorRevenue)
+    .map(([name, data]) => ({
+      name,
+      orders: `${data.orders} orders`,
+      revenue: "₦" + data.revenue.toLocaleString(),
+      trend: Math.min(Math.floor((data.revenue / 100000) * 100), 100)
+    }))
+    .sort((a, b) => parseInt(b.revenue.replace(/[^\d]/g, ""), 10) - parseInt(a.revenue.replace(/[^\d]/g, ""), 10))
+    .slice(0, 8);
+
   return (
     <div className="bg-white p-4 rounded-[12px] border border-[#EAEAEA] h-full overflow-hidden">
       <h3 className="text-[18px] font-bold text-[#191C1C] mb-6">
@@ -228,16 +251,20 @@ export function RevenueTrendList() {
   );
 }
 
-// --- Orders by Area (Horizontal Bar Chart) ---
-const areaData = [
-  { name: "Lagos Island", value: 650 },
-  { name: "Ikeja", value: 450 },
-  { name: "Victoria Island", value: 380 },
-  { name: "Lekki", value: 300 },
-  { name: "Surulere", value: 200 },
-];
-
 export function OrdersByAreaChart() {
+  const orders = useAdminStore((state) => state.orders);
+  
+  const areaCounts: Record<string, number> = {};
+  orders.forEach(o => {
+    const area = o.address.split(",").pop()?.trim() || "Others";
+    areaCounts[area] = (areaCounts[area] || 0) + 1;
+  });
+
+  const areaData = Object.entries(areaCounts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
   return (
     <div className="bg-white p-4 rounded-[12px] border border-[#EAEAEA] h-full overflow-hidden">
       <h3 className="text-[18px] font-bold text-[#191C1C] mb-6">
@@ -285,15 +312,17 @@ export function OrdersByAreaChart() {
     </div>
   );
 }
-// --- User Growth Chart ---
-const growthData = [
-  { name: "Jan", customers: 450, vendor: 80, driver: 60 },
-  { name: "Feb", customers: 500, vendor: 90, driver: 70 },
-  { name: "Mar", customers: 650, vendor: 110, driver: 85 },
-  { name: "Apr", customers: 850, vendor: 130, driver: 100 },
-];
-
 export function UserGrowthChart() {
+  const users = useAdminStore((state) => state.users);
+  
+  // Demo growth mapping as we don't have historical creation dates for all in a trend format yet
+  const growthData = [
+    { name: "Jan", customers: 450, vendor: 80, driver: 60 },
+    { name: "Feb", customers: 500, vendor: 90, driver: 70 },
+    { name: "Mar", customers: 650, vendor: 110, driver: 85 },
+    { name: "Apr", customers: users.filter(u => u.role === "Customer").length, vendor: users.filter(u => u.role === "Vendor").length, driver: users.filter(u => u.role === "Driver").length },
+  ];
+
   return (
     <div className="bg-white p-6 rounded-[12px] border border-[#EAEAEA] overflow-hidden w-full">
       <h3 className="text-[18px] font-bold text-[#191C1C] mb-8">User Growth</h3>

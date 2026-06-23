@@ -1,7 +1,7 @@
-"use client";
+
 
 import { X, Star } from "lucide-react";
-import Image from "next/image";
+;
 import { useEffect, useRef } from "react";
 
 interface Vendor {
@@ -61,7 +61,7 @@ export function VendorDetailsModal({ vendor, onClose, onSuspend }: VendorDetails
 
           {/* Image */}
           <div className="w-full h-[205px] rounded-[12px] overflow-hidden bg-[#F8FAF9]">
-            <Image
+            <img
               src={vendor.image}
               alt={vendor.name}
               width={492}

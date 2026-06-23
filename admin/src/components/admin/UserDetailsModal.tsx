@@ -1,4 +1,4 @@
-"use client";
+
 
 import { X, Star, Check } from "lucide-react";
 import { motion } from "framer-motion";

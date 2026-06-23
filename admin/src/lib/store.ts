@@ -142,6 +142,8 @@ interface AdminState {
   users: User[];
   disputes: Dispute[];
   transactions: Transaction[];
+  banners: any[];
+  promotions: any[];
   
   // Setters/Updaters
   setOrders: (orders: Order[]) => void;
@@ -184,6 +186,9 @@ interface AdminState {
   addPromotionOnServer: (promoData: any) => Promise<void>;
   updatePromotionOnServer: (id: string, promoData: any) => Promise<void>;
   deletePromotionOnServer: (id: string) => Promise<void>;
+  updateProfileOnServer: (profileData: any) => Promise<void>;
+  admin: { name: string; email: string; image: string } | null;
+  fetchAdminProfile: () => Promise<void>;
 }
 
 
@@ -199,6 +204,8 @@ export const useAdminStore = create<AdminState>()(
       users: initialUsers,
       disputes: initialDisputes,
       transactions: initialTransactions,
+      banners: [],
+      promotions: [],
 
       setOrders: (orders) => set({ orders }),
       updateOrder: (updatedOrder) =>
@@ -370,7 +377,7 @@ export const useAdminStore = create<AdminState>()(
           const response = await fetch(`${API_BASE_URL}/all-data`);
           const data = await response.json();
           if (data.success) {
-            const { orders, vendors, drivers, users, transactions, disputes } = data.data;
+            const { orders, vendors, drivers, users, transactions, disputes, banners, promotions } = data.data;
             
             // Format orders
             const formattedOrders: Order[] = orders.map((o: any) => ({
@@ -434,7 +441,9 @@ export const useAdminStore = create<AdminState>()(
               vendors: formattedVendors,
               users: formattedUsers,
               transactions: transactions.map((t: any) => ({ id: t._id, ...t })),
-              disputes: disputes.map((d: any) => ({ id: d._id, ...d }))
+              disputes: disputes.map((d: any) => ({ id: d._id, ...d })),
+              banners: (banners || []).map((b: any) => ({ id: b._id, ...b })),
+              promotions: (promotions || []).map((p: any) => ({ id: p._id, ...p })),
             });
           }
         } catch (error) {
@@ -647,6 +656,34 @@ export const useAdminStore = create<AdminState>()(
           }
         } catch (error) {
           console.error("Error deleting promotion:", error);
+        }
+      },
+      updateProfileOnServer: async (profileData: any) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/profile`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(profileData),
+          });
+          if (response.ok) {
+            // Refetch data to sync
+            get().fetchAdminProfile();
+            get().fetchAllData();
+          }
+        } catch (error) {
+          console.error("Error updating profile:", error);
+        }
+      },
+      admin: null,
+      fetchAdminProfile: async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/profile`);
+          if (response.ok) {
+            const data = await response.json();
+            set({ admin: data.admin });
+          }
+        } catch (error) {
+          console.error("Error fetching admin profile:", error);
         }
       },
     }),

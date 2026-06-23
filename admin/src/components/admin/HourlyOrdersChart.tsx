@@ -1,6 +1,7 @@
-"use client";
+
 
 import { useState } from "react";
+import { useAdminStore } from "@/lib/store";
 import {
   BarChart,
   Bar,
@@ -11,35 +12,26 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const hourlyData = [
-  { hour: "00:00", orders: 15 },
-  { hour: "01:00", orders: 20 },
-  { hour: "02:00", orders: 30 },
-  { hour: "03:00", orders: 25 },
-  { hour: "04:00", orders: 15 },
-  { hour: "05:00", orders: 10 },
-  { hour: "06:00", orders: 25 },
-  { hour: "07:00", orders: 40 },
-  { hour: "08:00", orders: 30 },
-  { hour: "09:00", orders: 35 },
-  { hour: "10:00", orders: 45 },
-  { hour: "11:00", orders: 50 },
-  { hour: "12:00", orders: 65 },
-  { hour: "13:00", orders: 55 },
-  { hour: "14:00", orders: 48 },
-  { hour: "15:00", orders: 42 },
-  { hour: "16:00", orders: 35 },
-  { hour: "17:00", orders: 30 },
-  { hour: "18:00", orders: 55 },
-  { hour: "19:00", orders: 60 },
-  { hour: "20:00", orders: 45 },
-  { hour: "21:00", orders: 30 },
-  { hour: "22:00", orders: 20 },
-  { hour: "23:00", orders: 15 },
-];
-
 export function HourlyOrdersChart() {
   const [activeTime, setActiveTime] = useState("12:00");
+  const ordersList = useAdminStore((state) => state.orders);
+
+  // Group today's orders by hour
+  const getHourlyData = () => {
+    const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`);
+    const todayStr = new Date().toDateString();
+    
+    return hours.map(hour => {
+      const hourNum = parseInt(hour.split(":")[0]);
+      const count = ordersList.filter(o => {
+        const orderDate = new Date(o.date);
+        return orderDate.toDateString() === todayStr && orderDate.getHours() === hourNum;
+      }).length;
+      return { hour, orders: count };
+    });
+  };
+
+  const hourlyData = getHourlyData();
 
   return (
     <div className="bg-white p-6 rounded-[24px] shadow-sm border border-[#F2F4F3] h-full">
@@ -105,9 +97,6 @@ export function HourlyOrdersChart() {
               tickLine={false}
               width={30}
               tick={{ fill: "#B0B0B1", fontSize: 11 }}
-              tickFormatter={(value) => `${value}K`}
-              domain={[0, 40]}
-              ticks={[0, 10, 20, 30, 40]}
             />
             <Tooltip cursor={{ fill: "transparent" }} content={() => null} />
             <Bar

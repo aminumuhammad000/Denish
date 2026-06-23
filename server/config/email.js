@@ -10,13 +10,17 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-// Verify connection configuration
-transporter.verify(function (error, success) {
-    if (error) {
-        console.log('Email configuration error:', error);
-    } else {
-        console.log('Server is ready to take our messages');
-    }
-});
+// Verify connection configuration (only if not using placeholders)
+if (process.env.EMAIL_USER && process.env.EMAIL_USER !== 'your-email@gmail.com') {
+    transporter.verify(function (error, success) {
+        if (error) {
+            console.log('Email configuration error:', error);
+        } else {
+            console.log('Server is ready to take our messages');
+        }
+    });
+} else {
+    console.log('Email service skipped: Please configure EMAIL_USER and EMAIL_PASS in .env');
+}
 
 module.exports = transporter;

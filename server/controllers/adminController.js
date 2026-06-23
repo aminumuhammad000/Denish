@@ -8,6 +8,7 @@ const Settings = require('../models/Settings');
 const Banner = require('../models/Banner');
 const Promotion = require('../models/Promotion');
 const Admin = require('../models/Admin');
+const Notification = require('../models/Notification');
 const jwt = require('jsonwebtoken');
 
 
@@ -331,6 +332,62 @@ const getAllData = async (req, res) => {
   }
 };
 
+const getAdminProfile = async (req, res) => {
+  try {
+    const admin = await Admin.findOne({ email: 'admin@denish.com' }); // Find the main admin
+    if (!admin) return res.status(404).json({ success: false, message: 'Admin not found' });
+    res.status(200).json({ success: true, admin: { id: admin._id, name: admin.name, email: admin.email, image: admin.image } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const updateAdminProfile = async (req, res) => {
+  try {
+    const admin = await Admin.findOne({ email: 'admin@denish.com' });
+    if (!admin) return res.status(404).json({ success: false, message: 'Admin not found' });
+
+    const { name, email, password, image } = req.body;
+    if (name) admin.name = name;
+    if (email) admin.email = email;
+    if (image) admin.image = image;
+    if (password) admin.password = password;
+
+    await admin.save();
+    res.status(200).json({ success: true, admin: { id: admin._id, name: admin.name, email: admin.email, image: admin.image } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const getNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find().sort({ createdAt: -1 }).limit(20);
+    res.status(200).json({ success: true, notifications });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const markNotificationAsRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Notification.findByIdAndUpdate(id, { read: true });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const markAllNotificationsAsRead = async (req, res) => {
+  try {
+    await Notification.updateMany({ read: false }, { read: true });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllOrders,
@@ -356,7 +413,12 @@ module.exports = {
   updatePromotion,
   deletePromotion,
   getAllData,
-  adminLogin
+  adminLogin,
+  getAdminProfile,
+  updateAdminProfile,
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead
 };
 
 

@@ -1,6 +1,5 @@
-"use client";
 
-import React from "react";
+import { useAdminStore } from "@/lib/store";
 
 interface StatCardProps {
   label: string;
@@ -22,11 +21,29 @@ function StatCard({ label, value, change, isPositive = true }: StatCardProps) {
 }
 
 export function AnalyticsStats() {
+  const orders = useAdminStore((state) => state.orders);
+  const users = useAdminStore((state) => state.users);
+
+  // Avg Order Value
+  const deliveredOrders = orders.filter(o => o.status === "delivered");
+  const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (parseInt(o.total.replace(/[^\d]/g, ""), 10) || 0), 0);
+  const avgOrderValue = deliveredOrders.length > 0 ? Math.round(totalRevenue / deliveredOrders.length) : 0;
+
+  // Orders per day (last 7 days)
+  const last7DaysOrders = orders.filter(o => {
+    const orderDate = new Date(o.date);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - orderDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 7;
+  });
+  const ordersPerDay = Math.round(last7DaysOrders.length / 7);
+
   const stats = [
-    { label: "Avg. Order Value", value: "₦5,800", change: "+12%" },
-    { label: "Orders/Day", value: "42", change: "+8%" },
-    { label: "Avg. Delivery Time", value: "28 min", change: "-3 min" },
-    { label: "Customer Rating", value: "4.7", change: "+0.2" },
+    { label: "Avg. Order Value", value: "₦" + avgOrderValue.toLocaleString(), change: "+12%" },
+    { label: "Orders/Day", value: ordersPerDay.toString(), change: "+8%" },
+    { label: "Total Customers", value: users.filter(u => u.role === "Customer").length.toString(), change: "+15%" },
+    { label: "Customer Rating", value: "4.8", change: "+0.1" },
   ];
 
   return (

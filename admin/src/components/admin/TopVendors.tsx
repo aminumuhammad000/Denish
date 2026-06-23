@@ -1,8 +1,8 @@
-"use client";
+
 
 import { ChevronRight } from "lucide-react";
 
-import Link from "next/link";
+import { Link } from "react-router-dom";
 
 import { useAdminStore } from "@/lib/store";
 
@@ -25,7 +25,7 @@ export function TopVendors() {
     <div className="bg-white p-6 rounded-[24px] shadow-sm border border-[#F2F4F3] h-full">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-[18px] font-bold text-[#191C1C]">Top Vendors</h3>
-        <Link href="/admin/vendors" className="text-[14px] text-[#207951] font-semibold flex items-center gap-1 hover:underline">
+        <Link to="/vendors" className="text-[14px] text-[#207951] font-semibold flex items-center gap-1 hover:underline">
           View All <ChevronRight className="w-4 h-4" />
         </Link>
       </div>

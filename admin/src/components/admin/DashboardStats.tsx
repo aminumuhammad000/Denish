@@ -1,4 +1,4 @@
-"use client";
+
 
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { useAdminStore } from "@/lib/store";

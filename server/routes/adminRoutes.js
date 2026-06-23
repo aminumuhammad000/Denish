@@ -25,8 +25,14 @@ const {
   updatePromotion,
   deletePromotion,
   getAllData,
-  adminLogin
+  adminLogin,
+  getAdminProfile,
+  updateAdminProfile,
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead
 } = require('../controllers/adminController');
+const { upload } = require('../config/cloudinary');
 
 
 // For simplicity in this demo, we're not adding heavy auth middleware yet, 
@@ -63,6 +69,21 @@ router.put('/promotions/:id', updatePromotion);
 router.delete('/promotions/:id', deletePromotion);
 
 router.get('/all-data', getAllData);
+router.get('/profile', getAdminProfile);
+router.put('/profile', updateAdminProfile);
+
+router.get('/notifications', getNotifications);
+router.patch('/notifications/:id/read', markNotificationAsRead);
+router.patch('/notifications/read-all', markAllNotificationsAsRead);
+
+// Image upload route
+router.post('/upload', upload.single('image'), (req, res) => {
+  if (req.file) {
+    res.status(200).json({ success: true, url: req.file.path });
+  } else {
+    res.status(400).json({ success: false, message: 'Upload failed' });
+  }
+});
 
 module.exports = router;
 
