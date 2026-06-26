@@ -6,12 +6,10 @@ import {
   Image,
   TouchableOpacity,
   FlatList,
-  Dimensions,
+  useWindowDimensions,
   SafeAreaView,
 } from 'react-native';
 import { Colors } from '../constants/Colors';
-
-const { width, height } = Dimensions.get('window');
 
 const SLIDES = [
   {
@@ -38,6 +36,7 @@ const SLIDES = [
 ];
 
 const OnboardingScreen = ({ navigation }) => {
+  const { width, height } = useWindowDimensions();
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const ref = useRef();
 
@@ -64,12 +63,14 @@ const OnboardingScreen = ({ navigation }) => {
 
   const Slide = ({ item }) => {
     return (
-      <View style={styles.slide}>
-        <Image
-          source={item.image}
-          style={styles.image}
-          resizeMode="contain"
-        />
+      <View style={[styles.slide, { width }]}>
+        <View style={styles.imageContainer}>
+          <Image
+            source={item.image}
+            style={[styles.image, { width: width * 0.8, height: height * 0.35 }]}
+            resizeMode="contain"
+          />
+        </View>
         <View style={styles.textContainer}>
           <Text style={styles.title}>{item.title}</Text>
           <Text style={styles.description}>{item.description}</Text>
@@ -84,7 +85,7 @@ const OnboardingScreen = ({ navigation }) => {
         ref={ref}
         onMomentumScrollEnd={updateCurrentSlideIndex}
         data={SLIDES}
-        contentContainerStyle={{ height: height * 0.75 }}
+        contentContainerStyle={{ minHeight: height * 0.7 }}
         horizontal
         showsHorizontalScrollIndicator={false}
         pagingEnabled
@@ -92,7 +93,7 @@ const OnboardingScreen = ({ navigation }) => {
         keyExtractor={(item) => item.id}
       />
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { height: height * 0.25 }]}>
         {/* Pagination Indicator */}
         <View style={styles.indicatorContainer}>
           {SLIDES.map((_, index) => (
@@ -139,18 +140,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
   },
   slide: {
-    width,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
+  imageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+  },
   image: {
-    width: width * 0.8,
-    height: height * 0.4,
+    // Width and height are set dynamically
   },
   textContainer: {
-    marginTop: 40,
+    paddingVertical: 20,
     alignItems: 'center',
+    width: '100%',
   },
   title: {
     fontSize: 24,
@@ -160,35 +166,34 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   description: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#666',
     textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 10,
+    lineHeight: 24,
+    paddingHorizontal: 15,
   },
   footer: {
-    height: height * 0.25,
     justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
   indicatorContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 10,
   },
   indicator: {
-    height: 4,
-    width: 20,
+    height: 6,
+    width: 6,
     backgroundColor: '#E0E0E0',
-    marginHorizontal: 3,
-    borderRadius: 2,
+    marginHorizontal: 4,
+    borderRadius: 3,
   },
   activeIndicator: {
     backgroundColor: Colors.primary,
-    width: 30,
+    width: 20,
   },
   buttonContainer: {
-    marginBottom: 40,
+    marginBottom: 30,
   },
   btn: {
     backgroundColor: Colors.primary,
@@ -196,7 +201,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   btnText: {
     color: '#FFF',
@@ -205,12 +215,14 @@ const styles = StyleSheet.create({
   },
   skipBtn: {
     alignItems: 'center',
+    paddingVertical: 10,
   },
   skipBtnText: {
-    color: '#888',
+    color: '#999',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
 
 export default OnboardingScreen;
+

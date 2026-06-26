@@ -144,7 +144,7 @@ interface AdminState {
   transactions: Transaction[];
   banners: any[];
   promotions: any[];
-  
+
   // Setters/Updaters
   setOrders: (orders: Order[]) => void;
   updateOrder: (updatedOrder: Order) => void;
@@ -158,7 +158,7 @@ interface AdminState {
   updateDispute: (updatedDispute: Dispute) => void;
   setTransactions: (transactions: Transaction[]) => void;
   addTransaction: (newTransaction: Transaction) => void;
-  
+
   // Async Fetchers
   fetchStats: () => Promise<void>;
   fetchOrders: () => Promise<void>;
@@ -168,7 +168,7 @@ interface AdminState {
   fetchDisputes: () => Promise<void>;
   fetchTransactions: () => Promise<void>;
   fetchAllData: () => Promise<void>;
-  
+
   // Async Updaters
 
   updateVendorOnServer: (id: string, updatedData: Partial<Vendor>) => Promise<void>;
@@ -347,10 +347,12 @@ export const useAdminStore = create<AdminState>()(
           const response = await fetch(`${API_BASE_URL}/disputes`);
           const data = await response.json();
           if (data.success) {
-            set({ disputes: data.disputes.map((d: any) => ({
-              id: d._id,
-              ...d
-            })) });
+            set({
+              disputes: data.disputes.map((d: any) => ({
+                id: d._id,
+                ...d
+              }))
+            });
           }
         } catch (error) {
           console.error("Failed to fetch disputes:", error);
@@ -361,12 +363,14 @@ export const useAdminStore = create<AdminState>()(
           const response = await fetch(`${API_BASE_URL}/transactions`);
           const data = await response.json();
           if (data.success) {
-            set({ transactions: data.transactions.map((t: any) => ({
-              id: t._id,
-              ...t,
-              amount: "₦" + t.amount.toLocaleString(),
-              date: new Date(t.createdAt).toLocaleDateString(),
-            })) });
+            set({
+              transactions: data.transactions.map((t: any) => ({
+                id: t._id,
+                ...t,
+                amount: "₦" + t.amount.toLocaleString(),
+                date: new Date(t.createdAt).toLocaleDateString(),
+              }))
+            });
           }
         } catch (error) {
           console.error("Failed to fetch transactions:", error);
@@ -378,7 +382,7 @@ export const useAdminStore = create<AdminState>()(
           const data = await response.json();
           if (data.success) {
             const { orders, vendors, drivers, users, transactions, disputes, banners, promotions } = data.data;
-            
+
             // Format orders
             const formattedOrders: Order[] = orders.map((o: any) => ({
               id: o._id,

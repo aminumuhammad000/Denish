@@ -5,6 +5,7 @@ import {
   View,
   TouchableOpacity,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,9 +24,20 @@ const FeatureCard = ({ icon, title, subtitle, iconContainerColor }) => (
 );
 
 const VendorWelcomeScreen = ({ navigation }) => {
+  const { width, height } = useWindowDimensions();
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        {/* Illustration */}
+        <View style={[styles.illustrationContainer, { height: height * 0.25 }]}>
+          <Image 
+            source={require('../../assets/onboarding/payment.png')} 
+            style={styles.image}
+            resizeMode="contain"
+          />
+        </View>
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Sell with Denish</Text>
@@ -35,19 +47,19 @@ const VendorWelcomeScreen = ({ navigation }) => {
         {/* Features */}
         <View style={styles.featuresContainer}>
           <FeatureCard
-            icon={<Ionicons name="wallet-outline" size={28} color="#FF8C00" />}
+            icon={<Ionicons name="wallet-outline" size={28} color={Colors.primary} />}
             title="Fast Payouts"
             subtitle="Receive your earnings weekly."
             iconContainerColor="#FFF5E6"
           />
           <FeatureCard
-            icon={<Ionicons name="calendar-outline" size={28} color="#FF8C00" />}
+            icon={<Ionicons name="calendar-outline" size={28} color={Colors.primary} />}
             title="Simple Management"
             subtitle="Manage everything conveniently."
             iconContainerColor="#FFF5E6"
           />
           <FeatureCard
-            icon={<Ionicons name="shield-checkmark-outline" size={28} color="#FF8C00" />}
+            icon={<Ionicons name="shield-checkmark-outline" size={28} color={Colors.primary} />}
             title="Reliable Supports"
             subtitle="We've got you every time."
             iconContainerColor="#FFF5E6"
@@ -72,28 +84,39 @@ const VendorWelcomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.white,
   },
   container: {
     flex: 1,
-    padding: 16,
-    paddingVertical: 40,
+    padding: 24,
     justifyContent: 'center',
   },
-  header: {
-    marginTop: 20,
+  illustrationContainer: {
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 20,
+  },
+  image: {
+    width: '80%',
+    height: '100%',
+  },
+  header: {
+    marginBottom: 24,
+    alignItems: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
     color: '#1a1a1a',
     marginBottom: 10,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    color: '#888',
+    fontSize: 15,
+    color: '#666',
     fontWeight: '500',
+    textAlign: 'center',
   },
   featuresContainer: {
     gap: 12,
@@ -134,26 +157,30 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   footer: {
-    marginTop: 'auto',
-    marginBottom: 10,
+    marginTop: 30,
     alignItems: 'center',
   },
   button: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 15,
+    padding: 16,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonText: {
     color: Colors.white,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   approvalText: {
     color: '#AAA',
     fontSize: 12,
+    marginTop: 10,
   },
 });
 

@@ -4,6 +4,8 @@ import {
   Text,
   View,
   TouchableOpacity,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -23,10 +25,17 @@ const RoleCard = ({ icon, title, subtitle, onPress }) => (
 );
 
 const RoleSelectionScreen = ({ navigation }) => {
+  const { width, height } = useWindowDimensions();
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.header}>
+          <Image 
+            source={require('../assets/icon.png')} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>Welcome to Denish</Text>
           <Text style={styles.subtitle}>How would you like to use the app today?</Text>
         </View>
@@ -63,16 +72,22 @@ const RoleSelectionScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.white,
   },
   container: {
     flex: 1,
-    padding: 16,
+    padding: 24,
     justifyContent: 'center',
   },
   header: {
     marginBottom: 40,
     alignItems: 'center',
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 20,
+    borderRadius: 20,
   },
   title: {
     fontSize: 24,
@@ -81,10 +96,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#666',
     textAlign: 'center',
     paddingHorizontal: 20,
+    lineHeight: 20,
   },
   rolesContainer: {
     gap: 16,
@@ -92,21 +108,21 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#FFF',
-    padding: 16,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 20,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
     borderWidth: 1,
     borderColor: '#F5F5F5',
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     backgroundColor: '#FFF5E6',
     justifyContent: 'center',
     alignItems: 'center',
@@ -116,23 +132,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#1a1a1a',
     marginBottom: 2,
   },
   cardSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#888',
   },
   footer: {
-    marginTop: 40,
+    marginTop: 60,
     alignItems: 'center',
   },
   footerText: {
-    color: '#AAA',
-    fontSize: 10,
-    letterSpacing: 1,
+    color: '#CCC',
+    fontSize: 12,
+    letterSpacing: 2,
+    fontWeight: '600',
   },
 });
 
