@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
-const API_BASE = "/api";
+const API_BASE = "https://denish-production.up.railway.app/api";
 
 export default function Login() {
   const navigate = useNavigate();

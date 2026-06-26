@@ -192,7 +192,7 @@ interface AdminState {
 }
 
 
-const API_BASE_URL = "/api/admin";
+const API_BASE_URL = "https://denish-production.up.railway.app/api/admin";
 
 
 export const useAdminStore = create<AdminState>()(

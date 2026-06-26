@@ -201,7 +201,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch("/api/admin/profile");
+        const response = await fetch("https://denish-production.up.railway.app/api/admin/profile");
         if (response.ok) {
           const data = await response.json();
           const profile = {
@@ -260,7 +260,7 @@ export default function SettingsPage() {
     formData.append("image", file);
 
     try {
-      const response = await fetch("/api/admin/upload", {
+      const response = await fetch("https://denish-production.up.railway.app/api/admin/upload", {
         method: "POST",
         body: formData,
       });
