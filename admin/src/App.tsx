@@ -32,8 +32,24 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F8FAF9" }}>
+      {/* Responsive sidebar margin injected via a <style> tag */}
+      <style>{`
+        .admin-main {
+          margin-left: 0;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow-x: hidden;
+          min-width: 0;
+        }
+        @media (min-width: 1024px) {
+          .admin-main {
+            margin-left: 280px;
+          }
+        }
+      `}</style>
       <AdminSidebar />
-      <main style={{ marginLeft: 280, flex: 1, display: "flex", flexDirection: "column", overflowX: "hidden" }}>
+      <main className="admin-main">
         <TopNavbar />
         <div style={{ flex: 1 }}>{children}</div>
       </main>
