@@ -38,10 +38,10 @@ export default function PaymentsPage() {
     const dayTransactions = transactionsList.filter(t => new Date(t.date).toLocaleDateString() === dateStr);
     const inflow = dayTransactions
       .filter(t => t.type === "Order Payment" && (t.status === "Completed" as any))
-      .reduce((sum, t) => sum + (parseInt(t.amount.replace(/[^\d]/g, ""), 10) || 0), 0);
+      .reduce((sum, t) => sum + (parseInt(String(t.amount).replace(/[^\d]/g, ""), 10) || 0), 0);
     const outflow = dayTransactions
       .filter(t => (t.type.includes("Payout") || t.type.includes("Refund")) && t.status === "Completed")
-      .reduce((sum, t) => sum + (parseInt(t.amount.replace(/[^\d]/g, ""), 10) || 0), 0);
+      .reduce((sum, t) => sum + (parseInt(String(t.amount).replace(/[^\d]/g, ""), 10) || 0), 0);
     
     return {
       date: dateStr.split("/").slice(0, 2).join("/"), // MM/DD
@@ -64,17 +64,17 @@ export default function PaymentsPage() {
   // Dynamic calculations
   const inflowNum = transactionsList
     .filter(t => t.type === "Order Payment" && t.status === "Completed")
-    .reduce((sum, t) => sum + (parseInt(t.amount.replace(/[^\d]/g, ""), 10) || 0), 0);
+    .reduce((sum, t) => sum + (parseInt(String(t.amount).replace(/[^\d]/g, ""), 10) || 0), 0);
 
   const outflowNum = transactionsList
     .filter(t => (t.type.includes("Payout") || t.type.includes("Refund")) && t.status === "Completed")
-    .reduce((sum, t) => sum + (parseInt(t.amount.replace(/[^\d]/g, ""), 10) || 0), 0);
+    .reduce((sum, t) => sum + (parseInt(String(t.amount).replace(/[^\d]/g, ""), 10) || 0), 0);
 
   const netRevenueNum = inflowNum - outflowNum;
 
   const pendingPayoutsNum = transactionsList
     .filter(t => (t.type.includes("Payout") || t.type.includes("Refund")) && t.status === "Pending")
-    .reduce((sum, t) => sum + (parseInt(t.amount.replace(/[^\d]/g, ""), 10) || 0), 0);
+    .reduce((sum, t) => sum + (parseInt(String(t.amount).replace(/[^\d]/g, ""), 10) || 0), 0);
 
   const formatCurrency = (num: number) => {
     if (num >= 1000000) {
@@ -89,7 +89,7 @@ export default function PaymentsPage() {
   return (
     <>
       <div className="px-[clamp(0px,calc((1024px-100vw)*100),1rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center">
-        <div className="w-full max-w-[992px] flex flex-col gap-6">
+        <div className="w-full pb-8 flex flex-col gap-6 px-6">
           <div className="flex justify-between items-center">
             <h1 className="text-[28px] font-bold text-[#191C1C]">
               Payment Tracking

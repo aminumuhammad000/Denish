@@ -116,7 +116,7 @@ export default function CommissionManagementPage() {
     <>
 
         <div className="px-[clamp(0px,calc((1024px-100vw)*100),1rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center">
-          <div className="w-full max-w-[988px] flex flex-col gap-6">
+          <div className="w-full pb-8 flex flex-col gap-6 px-6">
             <div className="flex justify-between items-center shrink-0">
               <h1 className="text-[28px] font-bold text-[#191C1C]">
                 Commission Management

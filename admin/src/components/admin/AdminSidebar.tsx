@@ -74,6 +74,7 @@ export function AdminSidebar() {
       )}
 
       <aside
+        className="admin-sidebar"
         style={{
           width: 280,
           minWidth: 280,
@@ -136,7 +137,7 @@ export function AdminSidebar() {
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.2)", margin: "8px 0" }} />
 
         {/* Nav links */}
-        <nav style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+        <nav className="admin-sidebar" style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
           {navItems.map((item) => (
             <NavLink
               key={item.label}

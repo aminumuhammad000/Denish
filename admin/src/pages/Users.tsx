@@ -20,7 +20,39 @@ const statusStyles = {
 
 export default function UserManagementPage() {
   const [isMounted, setIsMounted] = useState(false);
-  const usersList = useAdminStore((state) => state.users);
+  const baseUsers = useAdminStore((state) => state.users);
+  const vendors = useAdminStore((state) => state.vendors);
+  const drivers = useAdminStore((state) => state.drivers);
+
+  const usersList: User[] = [
+    ...baseUsers.map((u) => ({ ...u, role: "Customer" as const })),
+    ...vendors.map((v) => ({
+      id: v.id,
+      name: v.name,
+      email: "Vendor Account",
+      phone: "N/A",
+      role: "Vendor" as const,
+      status: (v.status === "suspended" ? "Suspended" : "Active") as "Active" | "Suspended",
+      orders: v.orders,
+      spentEarned: v.revenue,
+      rating: v.rating,
+      complaints: 0,
+      lastActive: "Today",
+    })),
+    ...drivers.map((d) => ({
+      id: d.id,
+      name: d.name,
+      email: "Driver Account",
+      phone: d.phone,
+      role: "Driver" as const,
+      status: d.isSuspended ? "Suspended" : "Active" as "Active" | "Suspended",
+      orders: d.deliveries,
+      spentEarned: d.earnings,
+      rating: d.rating,
+      complaints: 0,
+      lastActive: "Today",
+    })),
+  ];
   const updateUserStatusOnServer = useAdminStore((state) => state.updateUserStatusOnServer);
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,7 +105,7 @@ export default function UserManagementPage() {
   return (
     <>
       <div className="px-[clamp(0px,calc((1024px-100vw)*100),1rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center">
-        <div className="w-full max-w-[988px] flex flex-col gap-6">
+        <div className="w-full pb-8 flex flex-col gap-6 px-6">
           <div className="flex justify-between items-center">
             <h1 className="text-[28px] font-bold text-[#191C1C]">
               User Management
@@ -253,7 +285,17 @@ export default function UserManagementPage() {
                       </td>
                       <td className="px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,1vw,0.75rem)]">
                         <span className="text-[16px] text-[#212121]">
-                          {user.spentEarned}
+                          {(() => {
+                            const e = user.spentEarned as any;
+                            if (e == null) return "₦0";
+                            if (typeof e === "string" && !e.includes("[object")) return e;
+                            if (typeof e === "number") return "₦" + e.toLocaleString();
+                            if (typeof e === "object") {
+                              const val = e.$numberDecimal ?? e.totalEarned ?? e.weeklyRevenue ?? e.availableBalance ?? 0;
+                              return "₦" + (parseFloat(val) || 0).toLocaleString();
+                            }
+                            return "₦0";
+                          })()}
                         </span>
                       </td>
                       <td className="px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,1vw,0.75rem)]">

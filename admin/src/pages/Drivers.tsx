@@ -77,7 +77,7 @@ export default function DriversPage() {
   return (
     <>
       <div className="px-[clamp(0px,calc((1024px-100vw)*100),1rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center">
-        <div className="w-full max-w-[988px] flex flex-col gap-6">
+        <div className="w-full pb-8 flex flex-col gap-6 px-6">
           <div className="flex justify-between items-center">
             <h1 className="text-[28px] font-bold text-[#191C1C]">
               Driver Management
@@ -251,7 +251,17 @@ export default function DriversPage() {
                       </td>
                       <td className="px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,1vw,0.75rem)]">
                         <span className="text-[16px] text-[#212121]">
-                          {driver.earnings}
+                          {(() => {
+                            const e = driver.earnings as any;
+                            if (e == null) return "₦0";
+                            if (typeof e === "string" && !e.includes("[object")) return e;
+                            if (typeof e === "number") return "₦" + e.toLocaleString();
+                            if (typeof e === "object") {
+                              const val = e.$numberDecimal ?? e.totalEarned ?? e.availableBalance ?? 0;
+                              return "₦" + (parseFloat(val) || 0).toLocaleString();
+                            }
+                            return "₦0";
+                          })()}
                         </span>
                       </td>
                       <td className="px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,1vw,0.75rem)]">

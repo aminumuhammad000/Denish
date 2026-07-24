@@ -80,6 +80,19 @@ export interface Transaction {
 }
 
 // Initial Datasets
+const extractNumber = (val: any): number => {
+  if (val == null) return 0;
+  if (typeof val === "number") return val;
+  if (typeof val === "string") return parseFloat(val) || 0;
+  if (typeof val === "object") {
+    if (val.$numberDecimal) return parseFloat(val.$numberDecimal) || 0;
+    if (val.totalEarned !== undefined) return extractNumber(val.totalEarned);
+    if (val.weeklyRevenue !== undefined) return extractNumber(val.weeklyRevenue);
+    if (val.availableBalance !== undefined) return extractNumber(val.availableBalance);
+  }
+  return 0;
+};
+
 const initialOrders: Order[] = [
   { id: "ORD-001", customer: "Aisha Mohammed", address: "12 Marina Road, Lagos", items: 2, total: "₦8,000", commission: "₦1,200", vendor: "Mama's Kitchen", status: "preparing", date: "10/04/2026" },
   { id: "ORD-002", customer: "Babajide Sanwo", address: "45 Bourdillon Road, Ikoyi", items: 3, total: "₦12,500", commission: "₦1,875", vendor: "Mama's Kitchen", status: "pending", date: "10/04/2026" },
@@ -192,7 +205,7 @@ interface AdminState {
 }
 
 
-const API_BASE_URL = "https://denish-production.up.railway.app/api/admin";
+const API_BASE_URL = "http://localhost:3000/api/admin";
 
 
 export const useAdminStore = create<AdminState>()(
@@ -284,11 +297,11 @@ export const useAdminStore = create<AdminState>()(
               location: d.location || "Lagos",
               phone: d.phone,
               vehicle: d.vehicleType || "Motorcycle",
-              deliveries: d.deliveriesCount || 0,
+              deliveries: d.earnings?.totalTrips || d.deliveriesCount || 0,
               rating: d.rating || 0,
               completion: "100%",
               status: d.status || "Offline",
-              earnings: "₦" + (d.earnings || 0).toLocaleString(),
+              earnings: "₦" + extractNumber(d.earnings).toLocaleString(),
             }));
             set({ drivers: formattedDrivers });
           }
@@ -306,10 +319,10 @@ export const useAdminStore = create<AdminState>()(
               name: v.businessName || v.name,
               category: v.category || "General",
               status: v.status || "pending",
-              orders: v.ordersCount || 0,
-              revenue: "₦" + (v.revenue || 0).toLocaleString(),
+              orders: v.earnings?.totalOrders || v.ordersCount || 0,
+              revenue: "₦" + (extractNumber(v.earnings) || v.revenue || 0).toLocaleString(),
               rating: v.rating || 0,
-              image: v.image || "/images/Vendor_management_images/mama's kitchen.png",
+              image: v.logoUrl || v.image || "/images/Vendor_management_images/mama's kitchen.png",
               commissionRate: v.commissionRate || 15,
             }));
             set({ vendors: formattedVendors });
@@ -403,11 +416,11 @@ export const useAdminStore = create<AdminState>()(
               location: d.location || "Lagos",
               phone: d.phone,
               vehicle: d.vehicleType || "Motorcycle",
-              deliveries: d.deliveriesCount || 0,
+              deliveries: d.earnings?.totalTrips || d.deliveriesCount || 0,
               rating: d.rating || 0,
               completion: "100%",
               status: d.status || "Offline",
-              earnings: "₦" + (d.earnings || 0).toLocaleString(),
+              earnings: "₦" + extractNumber(d.earnings).toLocaleString(),
             }));
 
             // Format vendors
@@ -416,10 +429,10 @@ export const useAdminStore = create<AdminState>()(
               name: v.businessName || v.name,
               category: v.category || "General",
               status: v.status || "pending",
-              orders: v.ordersCount || 0,
-              revenue: "₦" + (v.revenue || 0).toLocaleString(),
+              orders: v.earnings?.totalOrders || v.ordersCount || 0,
+              revenue: "₦" + (extractNumber(v.earnings) || v.revenue || 0).toLocaleString(),
               rating: v.rating || 0,
-              image: v.image || "/images/Vendor_management_images/mama's kitchen.png",
+              image: v.logoUrl || v.image || "/images/Vendor_management_images/mama's kitchen.png",
               commissionRate: v.commissionRate || 15,
             }));
 
@@ -444,7 +457,7 @@ export const useAdminStore = create<AdminState>()(
               drivers: formattedDrivers,
               vendors: formattedVendors,
               users: formattedUsers,
-              transactions: transactions.map((t: any) => ({ id: t._id, ...t })),
+              transactions: transactions.map((t: any) => ({ id: t._id, ...t, amount: "₦" + (t.amount || 0).toLocaleString(), date: new Date(t.createdAt).toLocaleDateString() })),
               disputes: disputes.map((d: any) => ({ id: d._id, ...d })),
               banners: (banners || []).map((b: any) => ({ id: b._id, ...b })),
               promotions: (promotions || []).map((p: any) => ({ id: p._id, ...p })),

@@ -42,6 +42,13 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
           overflow-x: hidden;
           min-width: 0;
         }
+        .admin-sidebar {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .admin-sidebar::-webkit-scrollbar {
+          display: none;
+        }
         @media (min-width: 1024px) {
           .admin-main {
             margin-left: 280px;

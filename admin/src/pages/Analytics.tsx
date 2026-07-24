@@ -30,7 +30,7 @@ export default function AnalyticsPage() {
     <>
       {/* Page Content Container */}
       <div className="px-[clamp(1rem,3vw,2rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center flex-1 bg-white">
-        <div className="w-full max-w-[992px] flex flex-col gap-8">
+        <div className="w-full pb-8 flex flex-col gap-8 px-6">
           {/* Page Header */}
           <div className="flex justify-between items-center">
             <h1 className="text-[28px] font-bold text-[#191C1C]">

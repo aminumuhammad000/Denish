@@ -408,7 +408,7 @@ export default function ContentManagementPage() {
 
         {/* Page Content */}
         <div className="px-8 py-8 flex flex-col items-center flex-1">
-          <div className="w-full max-w-[994px] flex flex-col gap-8">
+          <div className="w-full pb-8 flex flex-col gap-8 px-6">
             {/* Header */}
             <div className="flex justify-between items-center">
               <h1 className="text-[28px] font-bold text-[#191C1C]">

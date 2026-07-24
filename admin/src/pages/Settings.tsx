@@ -201,7 +201,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch("https://denish-production.up.railway.app/api/admin/profile");
+        const response = await fetch("http://localhost:3000/api/admin/profile");
         if (response.ok) {
           const data = await response.json();
           const profile = {
@@ -260,7 +260,7 @@ export default function SettingsPage() {
     formData.append("image", file);
 
     try {
-      const response = await fetch("https://denish-production.up.railway.app/api/admin/upload", {
+      const response = await fetch("http://localhost:3000/api/admin/upload", {
         method: "POST",
         body: formData,
       });
@@ -327,7 +327,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <div className="p-[clamp(1rem,3vw,2.5rem)] max-w-[1012px] mx-auto w-full">
+      <div className="p-[clamp(1rem,3vw,2.5rem)] w-full">
         {/* Header */}
         <div className="mb-10">
           <h1 className="text-[clamp(1.5rem,4vw,2rem)] font-bold text-[#191C1C] mb-2">
@@ -1040,6 +1040,135 @@ export default function SettingsPage() {
                 isDirty={hasUnsavedChanges("payments")}
                 onSave={() => handleSaveChanges("payments")}
               />
+
+              {/* API Keys Sub-section */}
+              <div className="flex flex-col gap-6 pt-4 border-t border-dashed border-[#EAEAEA]">
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-[16px] font-bold text-[#191C1C]">Payment Gateway API Keys</h3>
+                  <p className="text-[13px] text-[#747475]">Configure your API keys for each payment provider. Keys are masked for security.</p>
+                </div>
+
+                {/* Paystack */}
+                <div className="flex flex-col gap-4 p-5 border border-[#EAEAEA] rounded-[12px] bg-[#FAFAFA]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#00C3F7] flex items-center justify-center shrink-0">
+                      <span className="text-white text-[11px] font-black">PS</span>
+                    </div>
+                    <p className="text-[15px] font-semibold text-[#191C1C]">Paystack</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[12px] text-[#191C1C]">Public Key</label>
+                      <input
+                        type="text"
+                        placeholder="pk_live_xxxxxxxxxxxx"
+                        className="w-full h-[44px] border border-[#EAEAEA] rounded-[8px] px-4 text-[13px] text-[#191C1C] bg-white focus:outline-none focus:border-[#F9811F] font-mono"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[12px] text-[#191C1C]">Secret Key</label>
+                      <div className="relative">
+                        <input
+                          type="password"
+                          placeholder="sk_live_xxxxxxxxxxxx"
+                          className="w-full h-[44px] border border-[#EAEAEA] rounded-[8px] px-4 pr-10 text-[13px] text-[#191C1C] bg-white focus:outline-none focus:border-[#F9811F] font-mono"
+                        />
+                        <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A1A1A1] hover:text-[#191C1C]">
+                          <Eye size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button className="px-4 h-[36px] bg-[#191C1C] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[#333] transition-all">Save Paystack Keys</button>
+                  </div>
+                </div>
+
+                {/* Flutterwave */}
+                <div className="flex flex-col gap-4 p-5 border border-[#EAEAEA] rounded-[12px] bg-[#FAFAFA]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#F5A623] flex items-center justify-center shrink-0">
+                      <span className="text-white text-[11px] font-black">FW</span>
+                    </div>
+                    <p className="text-[15px] font-semibold text-[#191C1C]">Flutterwave</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[12px] text-[#191C1C]">Public Key</label>
+                      <input
+                        type="text"
+                        placeholder="FLWPUBK-xxxxxxxxxxxx"
+                        className="w-full h-[44px] border border-[#EAEAEA] rounded-[8px] px-4 text-[13px] text-[#191C1C] bg-white focus:outline-none focus:border-[#F9811F] font-mono"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[12px] text-[#191C1C]">Secret Key</label>
+                      <div className="relative">
+                        <input
+                          type="password"
+                          placeholder="FLWSECK-xxxxxxxxxxxx"
+                          className="w-full h-[44px] border border-[#EAEAEA] rounded-[8px] px-4 pr-10 text-[13px] text-[#191C1C] bg-white focus:outline-none focus:border-[#F9811F] font-mono"
+                        />
+                        <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A1A1A1] hover:text-[#191C1C]">
+                          <Eye size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[12px] text-[#191C1C]">Encryption Key</label>
+                      <div className="relative">
+                        <input
+                          type="password"
+                          placeholder="FLWENCKEY-xxxxxxxxxxxx"
+                          className="w-full h-[44px] border border-[#EAEAEA] rounded-[8px] px-4 pr-10 text-[13px] text-[#191C1C] bg-white focus:outline-none focus:border-[#F9811F] font-mono"
+                        />
+                        <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A1A1A1] hover:text-[#191C1C]">
+                          <Eye size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button className="px-4 h-[36px] bg-[#191C1C] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[#333] transition-all">Save Flutterwave Keys</button>
+                  </div>
+                </div>
+
+                {/* VTStack */}
+                <div className="flex flex-col gap-4 p-5 border border-[#EAEAEA] rounded-[12px] bg-[#FAFAFA]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#207951] flex items-center justify-center shrink-0">
+                      <span className="text-white text-[11px] font-black">VS</span>
+                    </div>
+                    <p className="text-[15px] font-semibold text-[#191C1C]">VTStack</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[12px] text-[#191C1C]">API Key</label>
+                      <input
+                        type="text"
+                        placeholder="vtstack_pub_xxxxxxxxxxxx"
+                        className="w-full h-[44px] border border-[#EAEAEA] rounded-[8px] px-4 text-[13px] text-[#191C1C] bg-white focus:outline-none focus:border-[#F9811F] font-mono"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[12px] text-[#191C1C]">Secret Key</label>
+                      <div className="relative">
+                        <input
+                          type="password"
+                          placeholder="vtstack_sec_xxxxxxxxxxxx"
+                          className="w-full h-[44px] border border-[#EAEAEA] rounded-[8px] px-4 pr-10 text-[13px] text-[#191C1C] bg-white focus:outline-none focus:border-[#F9811F] font-mono"
+                        />
+                        <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A1A1A1] hover:text-[#191C1C]">
+                          <Eye size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <button className="px-4 h-[36px] bg-[#191C1C] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[#333] transition-all">Save VTStack Keys</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </SettingsSection>
 

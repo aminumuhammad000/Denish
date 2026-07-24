@@ -138,7 +138,7 @@ export default function DisputesPage() {
     <>
       {/* Page Content */}
       <div className="px-[clamp(1rem,3vw,2rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center flex-1">
-        <div className="w-full max-w-[991px] flex flex-col gap-8">
+        <div className="w-full pb-8 flex flex-col gap-8 px-6">
           <h1 className="text-[clamp(1.5rem,4vw,1.75rem)] font-bold text-[#191C1C]">
             Complaints and Disputes
           </h1>

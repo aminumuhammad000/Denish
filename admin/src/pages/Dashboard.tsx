@@ -32,7 +32,7 @@ export default function AdminDashboard() {
     <>
       {/* Page Content Container */}
       <div className="px-[clamp(1rem,3vw,2rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center">
-        <div className="w-full max-w-[992px] flex flex-col gap-8">
+        <div className="w-full pb-8 flex flex-col gap-8 px-6">
           {/* Page Header Row */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 md:gap-0">
             <h1 className="text-[clamp(1.5rem,4vw,1.75rem)] font-bold text-[#191C1C]">
