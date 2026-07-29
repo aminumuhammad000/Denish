@@ -1,11 +1,7 @@
 import axios from 'axios';
-import { Platform } from 'react-native';
 
-// For Android emulator, use 10.0.2.2. For iOS emulator, use localhost.
-// Replace with your local machine's IP if testing on a physical device.
 const getBaseUrl = () => {
-  // Use Production server for stability
-  return 'https://denish-production.up.railway.app/api';
+  return 'https://api.denishng.com/api';
 };
 
 const api = axios.create({
