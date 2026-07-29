@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
-const API_BASE = "http://localhost:3000/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api";
 
 export default function Login() {
   const navigate = useNavigate();

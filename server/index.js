@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const { seedAdmin } = require('./seedAdmin');
 const vendorRoutes = require('./routes/vendorRoutes');
 const authRoutes = require('./routes/authRoutes');
 const customerRoutes = require('./routes/customerRoutes');
@@ -9,12 +10,8 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
-
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// Connect to MongoDB
-connectDB();
 
 app.use(cors());
 app.use(express.json());
@@ -30,11 +27,24 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/driver', driverRoutes);
 app.use('/api/admin', adminRoutes);
 
-
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running normally' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server started on http://0.0.0.0:${PORT}`);
-});
+connectDB()
+  .then(async () => {
+    try {
+      await seedAdmin();
+      console.log('Admin seed check complete.');
+    } catch (error) {
+      console.error('Admin seed check failed:', error);
+    }
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server started on http://0.0.0.0:${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error('Failed to connect to MongoDB:', error);
+    process.exit(1);
+  });

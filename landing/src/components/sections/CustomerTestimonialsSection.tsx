@@ -62,7 +62,7 @@ export function CustomerTestimonialsSection({
   testimonials = defaultTestimonials,
 }: Props) {
   return (
-    <section className="pt-16 pb-[113px] md:py-[113px] bg-[#F2F4F3] relative" id="testimonials">
+    <section className="pt-16 pb-[113px] md:py-[113px] bg-[#F2F4F3] relative scroll-mt-[120px]" id="testimonials">
       <div className="w-full max-w-[1216px] mx-auto px-4 xl:px-0 flex flex-col items-center">
         {/* Header Content */}
         <div className="text-center mb-10 md:mb-[64px]">

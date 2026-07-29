@@ -53,11 +53,29 @@ export function Footer() {
           <p className="font-normal text-[14px] leading-[20px] text-[#F2F4F3]">
             © 2026 Denish App. Excellence in Delivery.
           </p>
-          <div className="flex space-x-6">
-            <a href="#" className="hover:text-white transition-transform hover:scale-110" aria-label="Facebook">
-              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd"/></svg>
+          <div className="flex items-center space-x-6">
+            <a
+              href="https://www.instagram.com/denishapp/"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-white transition-transform hover:scale-110"
+              aria-label="Instagram"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7Zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5Zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5Zm5.25-3.25a1 1 0 1 1-1 1 1 1 0 0 1 1-1Z" />
+              </svg>
             </a>
-            {/* Same for other icons */}
+            <a
+              href="https://x.com/denishapp"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-white transition-transform hover:scale-110"
+              aria-label="X"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M18.9 2H22l-6.7 7.7L23.3 22h-5.9l-4.7-6.1L7.4 22H4.3l7.1-8.2L0.7 2h6.1l4.3 5.7L18.9 2Zm-1 18h1.1L6.2 4H5.1l12.8 16Z" />
+              </svg>
+            </a>
           </div>
         </div>
       </div>

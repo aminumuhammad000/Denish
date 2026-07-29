@@ -24,7 +24,7 @@ export function TopNavbar() {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/admin/notifications");
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api"}/admin/notifications`);
       if (response.ok) {
         const data = await response.json();
         setNotifications(
@@ -218,7 +218,7 @@ export function TopNavbar() {
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
-                      await fetch("http://localhost:3000/api/admin/notifications/read-all", { method: "PATCH" });
+                      await fetch(`${import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api"}/admin/notifications/read-all`, { method: "PATCH" });
                       fetchNotifications();
                     }}
                     style={{ fontSize: 11, color: "#207951", background: "none", border: "none", cursor: "pointer" }}
@@ -238,7 +238,7 @@ export function TopNavbar() {
                     key={n.id}
                     onClick={async () => {
                       if (!n.read) {
-                        await fetch(`http://localhost:3000/api/admin/notifications/${n.id}/read`, { method: "PATCH" });
+                        await fetch(`${import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api"}/admin/notifications/${n.id}/read`, { method: "PATCH" });
                         fetchNotifications();
                       }
                     }}

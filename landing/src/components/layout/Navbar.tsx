@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export type NavLink = {
@@ -20,6 +20,27 @@ const navbarLinks: NavLink[] = [
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { pathname } = useLocation();
+
+  const handleNavLinkClick = (event: MouseEvent<HTMLAnchorElement>, link: NavLink) => {
+    setIsOpen(false);
+
+    if (!link.isHash) return;
+
+    const targetId = link.href.split("#")[1];
+    if (!targetId) return;
+
+    event.preventDefault();
+
+    if (pathname === "/") {
+      const element = document.getElementById(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.history.replaceState(null, "", link.href);
+      }
+    } else {
+      window.location.href = link.href;
+    }
+  };
 
   return (
     <nav className="w-full bg-[#F8FAF9] border-b border-[#D9D9D9] sticky top-0 z-50">
@@ -47,6 +68,7 @@ export function Navbar() {
                 <Link
                   key={link.label}
                   to={link.href}
+                  onClick={(event) => handleNavLinkClick(event, link)}
                   className={`px-2 leading-none transition-colors ${
                     isActive
                       ? "text-[#004D4C] font-bold"
@@ -103,7 +125,7 @@ export function Navbar() {
                   <Link
                     key={link.label}
                     to={link.href}
-                    onClick={() => setIsOpen(false)}
+                    onClick={(event) => handleNavLinkClick(event, link)}
                     className={`block px-3 py-2 text-[20px] transition-all rounded-md ${
                       isActive ? "text-[#004D4C] font-bold bg-teal-50" : "text-[#3E4948] font-medium hover:text-[#0b5c54] hover:bg-teal-50"
                     }`}

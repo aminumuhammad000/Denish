@@ -1,15 +1,14 @@
 require('dotenv').config();
-const mongoose = require('mongoose');
 const Admin = require('./models/Admin');
 const connectDB = require('./config/db');
 
-const seedAdmin = async () => {
+const seedAdmin = async ({ exitOnComplete = false } = {}) => {
   try {
     await connectDB();
-    
+
     const adminEmail = 'admin@denish.com';
     const adminPassword = 'Admin@123456';
-    
+
     const existingAdmin = await Admin.findOne({ email: adminEmail });
     if (existingAdmin) {
       console.log('Admin already exists. Updating password...');
@@ -25,12 +24,18 @@ const seedAdmin = async () => {
       await newAdmin.save();
       console.log('Admin created successfully.');
     }
-    
-    process.exit(0);
+
+    if (exitOnComplete) process.exit(0);
+    return true;
   } catch (error) {
     console.error('Error seeding admin:', error);
-    process.exit(1);
+    if (exitOnComplete) process.exit(1);
+    throw error;
   }
 };
 
-seedAdmin();
+if (require.main === module) {
+  seedAdmin({ exitOnComplete: true });
+}
+
+module.exports = { seedAdmin };
