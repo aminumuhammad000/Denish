@@ -1,8 +1,9 @@
 
 
 import { useState, useEffect } from "react";
-import { MessageSquare, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { MessageSquare, AlertTriangle, CheckCircle2, Download } from "lucide-react";
 import { AdminPageSkeleton } from "@/components/layout/AdminPageSkeleton";
+import { exportToCSV } from "@/lib/exportUtils";
 
 import { useAdminStore, type Dispute, type Transaction } from "@/lib/store";
 
@@ -134,15 +135,53 @@ export default function DisputesPage() {
     setTimeout(() => setShowToast(false), 3000);
   };
 
+  const filteredDisputes = disputesList.filter((d) => {
+    const activeSearch = globalSearchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !activeSearch ||
+      d.title.toLowerCase().includes(activeSearch) ||
+      d.description.toLowerCase().includes(activeSearch) ||
+      d.from.toLowerCase().includes(activeSearch) ||
+      d.against.toLowerCase().includes(activeSearch) ||
+      d.orderId.toLowerCase().includes(activeSearch) ||
+      d.complaintId.toLowerCase().includes(activeSearch);
+
+    if (!matchesSearch) return false;
+    return activeFilter === "all" || d.status === activeFilter;
+  });
+
+  const handleExport = () => {
+    const exportData = filteredDisputes.map((dispute) => ({
+      "Complaint ID": dispute.complaintId,
+      "Order ID": dispute.orderId,
+      "Title": dispute.title,
+      "From": dispute.from,
+      "Against": dispute.against,
+      "Priority": dispute.priority,
+      "Status": dispute.status,
+      "Messages": dispute.messageCount,
+      "Description": dispute.description,
+    }));
+    exportToCSV(exportData, "denish-disputes.csv");
+  };
 
   return (
     <>
       {/* Page Content */}
       <div className="px-[clamp(1rem,3vw,2rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center flex-1">
         <div className="w-full pb-8 flex flex-col gap-8 px-6">
-          <h1 className="text-[clamp(1.5rem,4vw,1.75rem)] font-bold text-[#191C1C]">
-            Complaints and Disputes
-          </h1>
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-[clamp(1.5rem,4vw,1.75rem)] font-bold text-[#191C1C]">
+              Complaints and Disputes
+            </h1>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 border border-[#EAEAEA] rounded-[8px] text-[16px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-[#212121]" />
+              Export
+            </button>
+          </div>
 
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
@@ -194,22 +233,7 @@ export default function DisputesPage() {
 
           {/* Dispute Cards */}
           <div className="flex flex-col gap-4">
-            {disputesList
-              .filter((d) => {
-                const activeSearch = globalSearchQuery.trim().toLowerCase();
-                const matchesSearch =
-                  !activeSearch ||
-                  d.title.toLowerCase().includes(activeSearch) ||
-                  d.description.toLowerCase().includes(activeSearch) ||
-                  d.from.toLowerCase().includes(activeSearch) ||
-                  d.against.toLowerCase().includes(activeSearch) ||
-                  d.orderId.toLowerCase().includes(activeSearch) ||
-                  d.complaintId.toLowerCase().includes(activeSearch);
-
-                if (!matchesSearch) return false;
-                return activeFilter === "all" || d.status === activeFilter;
-              })
-              .map((dispute) => (
+            {filteredDisputes.map((dispute) => (
                 <div
                   key={dispute.id}
                   onClick={() => handleOpenDispute(dispute)}

@@ -40,8 +40,19 @@ interface PaymentsState {
   minThreshold: string;
 }
 
+interface SessionState {
+  id: string;
+  device: string;
+  browser: string;
+  location: string;
+  ip: string;
+  lastActive: string;
+  current: boolean;
+}
+
 interface SecurityState {
   twoFactor: boolean;
+  sessions: SessionState[];
 }
 
 interface SystemState {
@@ -88,6 +99,7 @@ const initialSettings: SettingsState = {
   },
   security: {
     twoFactor: true,
+    sessions: [],
   },
   system: {
     maintenanceMode: false,
@@ -195,6 +207,84 @@ const SaveButton = ({
   );
 };
 
+const normalizeSettings = (serverSettings?: any): SettingsState => {
+  const base = serverSettings || {};
+
+  return {
+    profile: {
+      fullName: base.profile?.fullName || initialSettings.profile.fullName,
+      email: base.profile?.email || initialSettings.profile.email,
+      phone: base.profile?.phone || initialSettings.profile.phone,
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+      image: base.profile?.image || initialSettings.profile.image,
+    },
+    platform: {
+      platformName: base.platform?.platformName || initialSettings.platform.platformName,
+      currency: base.platform?.currency || initialSettings.platform.currency,
+      deliveryModel: base.platform?.deliveryModel === "distance" ? "distance" : "flat",
+      baseFee: String(base.platform?.baseFee ?? initialSettings.platform.baseFee),
+      commission: String(base.platform?.commission ?? initialSettings.platform.commission),
+      autoCancelMin: Number(base.platform?.autoCancelMin ?? initialSettings.platform.autoCancelMin),
+      deliveryDeadlineMin: Number(base.platform?.deliveryDeadlineMin ?? initialSettings.platform.deliveryDeadlineMin),
+    },
+    notifications: {
+      vendorEmails: Boolean(base.notifications?.vendorEmails ?? initialSettings.notifications.vendorEmails),
+      disputeAlerts: Boolean(base.notifications?.disputeAlerts ?? initialSettings.notifications.disputeAlerts),
+      smsAlerts: Boolean(base.notifications?.smsAlerts ?? initialSettings.notifications.smsAlerts),
+      notificationEmail: base.notifications?.notificationEmail || initialSettings.notifications.notificationEmail,
+    },
+    payments: {
+      gateway: base.payments?.gateway || initialSettings.payments.gateway,
+      payoutCycle: base.payments?.payoutCycle === "monthly" ? "monthly" : "weekly",
+      minThreshold: String(base.payments?.minThreshold ?? initialSettings.payments.minThreshold),
+    },
+    security: {
+      twoFactor: Boolean(base.security?.twoFactor ?? initialSettings.security.twoFactor),
+      sessions: Array.isArray(base.security?.sessions)
+        ? base.security.sessions.map((session: any, index: number) => ({
+            id: session.id || `session-${index + 1}`,
+            device: session.device || "Device",
+            browser: session.browser || "Browser",
+            location: session.location || "Unknown",
+            ip: session.ip || "0.0.0.0",
+            lastActive: session.lastActive || "Just now",
+            current: Boolean(session.current),
+          }))
+        : initialSettings.security.sessions,
+    },
+    system: {
+      maintenanceMode: Boolean(base.system?.maintenanceMode ?? initialSettings.system.maintenanceMode),
+    },
+  };
+};
+
+const buildCurrentSession = (): SessionState => {
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  let device = "Desktop";
+  let browser = "Browser";
+
+  if (ua.includes("Mac")) device = "MacBook Pro";
+  else if (ua.includes("Windows")) device = "Windows";
+  else if (ua.includes("Linux")) device = "Linux";
+
+  if (ua.includes("Chrome") && !ua.includes("Edg")) browser = "Chrome";
+  else if (ua.includes("Edg")) browser = "Edge";
+  else if (ua.includes("Safari")) browser = "Safari";
+  else if (ua.includes("Firefox")) browser = "Firefox";
+
+  return {
+    id: `session-${Date.now()}`,
+    device,
+    browser,
+    location: "Current device",
+    ip: "Device network",
+    lastActive: "Just now",
+    current: true,
+  };
+};
+
 export default function SettingsPage() {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -208,7 +298,7 @@ export default function SettingsPage() {
           const profile = {
             fullName: data.admin.name,
             email: data.admin.email,
-            phone: "+234 813 048 5734", // Keep original demo phone or update if in DB
+            phone: "+234 813 048 5734",
             currentPassword: "",
             newPassword: "",
             confirmPassword: "",
@@ -222,9 +312,40 @@ export default function SettingsPage() {
       }
     };
 
+    const fetchSettingsData = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api";
+        const response = await fetch(`${apiBase}/admin/settings`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            const normalized = normalizeSettings(data.settings);
+            const hasSessions = normalized.security.sessions.length > 0;
+            const withSession = hasSessions
+              ? normalized
+              : {
+                  ...normalized,
+                  security: {
+                    ...normalized.security,
+                    sessions: [buildCurrentSession()],
+                  },
+                };
+            setSavedSettings(withSession);
+            setDraftSettings(withSession);
+
+            if (!hasSessions) {
+              await updateSettingsOnServer({ security: withSession.security });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch settings:", error);
+      }
+    };
+
     const timer = setTimeout(() => {
       setIsMounted(true);
-      fetchProfile();
+      Promise.all([fetchProfile(), fetchSettingsData()]);
     }, 0);
     return () => clearTimeout(timer);
   }, []);
@@ -1222,134 +1343,66 @@ export default function SettingsPage() {
                   Active sessions
                 </p>
 
-                {/* Session 1 (Current) */}
-                <div className="flex items-center justify-between border border-[#EAEAEA] rounded-[8px] p-4 bg-[#FDFDFD]">
-                  <div className="flex items-center gap-4">
-                    <div className="text-[#A1A1A1]">
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M4 18h16a2 2 0 002-2V8a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2z"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M12 22h.01M2 18h20"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-[14px] font-medium text-[#191C1C]">
-                          MacBook Pro | Chrome
-                        </p>
-                        <span className="bg-[#E5F6EE] text-[#29A378] text-[10px] font-medium px-2 py-0.5 rounded-[4px]">
-                          Current
-                        </span>
+                {draftSettings.security.sessions.length === 0 ? (
+                  <div className="border border-dashed border-[#EAEAEA] rounded-[8px] p-4 bg-[#FDFDFD] text-[13px] text-[#747475]">
+                    No active sessions have been saved yet.
+                  </div>
+                ) : (
+                  draftSettings.security.sessions.map((session) => (
+                    <div key={session.id} className="flex items-center justify-between border border-[#EAEAEA] rounded-[8px] p-4 bg-[#FDFDFD] gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="text-[#A1A1A1]">
+                          <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M4 18h16a2 2 0 002-2V8a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <path
+                              d="M12 22h.01M2 18h20"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-[14px] font-medium text-[#191C1C]">
+                              {session.device} | {session.browser}
+                            </p>
+                            {session.current && (
+                              <span className="bg-[#E5F6EE] text-[#29A378] text-[10px] font-medium px-2 py-0.5 rounded-[4px]">
+                                Current
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[12px] text-[#747475]">
+                            {session.location} | {session.ip} | {session.lastActive}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-[12px] text-[#747475]">
-                        Lagos, NG | 102.89.34.12 | Just now
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Session 2 */}
-                <div className="flex items-center justify-between border border-[#EAEAEA] rounded-[8px] p-4 bg-[#FDFDFD]">
-                  <div className="flex items-center gap-4">
-                    <div className="text-[#A1A1A1]">
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
+                      <button
+                        onClick={() => {
+                          const nextSessions = draftSettings.security.sessions.filter((item) => item.id !== session.id);
+                          handleUpdateDraft("security", "sessions", nextSessions);
+                        }}
+                        className="bg-[#F4F4F4] text-[#747475] border border-[#EAEAEA] px-4 py-1.5 rounded-[8px] text-[12px] font-medium hover:bg-gray-100 transition-colors"
                       >
-                        <rect
-                          x="5"
-                          y="2"
-                          width="14"
-                          height="20"
-                          rx="2"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M12 18h.01"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                        Revoke
+                      </button>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <p className="text-[14px] font-medium text-[#191C1C]">
-                        iPhone 15 | Safari
-                      </p>
-                      <p className="text-[12px] text-[#747475]">
-                        Lagos, NG | 197.210.55.84 | 2 hours ago
-                      </p>
-                    </div>
-                  </div>
-                  <button className="bg-[#F4F4F4] text-[#747475] border border-[#EAEAEA] px-4 py-1.5 rounded-[8px] text-[12px] font-medium hover:bg-gray-100 transition-colors">
-                    Revoke
-                  </button>
-                </div>
-
-                {/* Session 3 */}
-                <div className="flex items-center justify-between border border-[#EAEAEA] rounded-[8px] p-4 bg-[#FDFDFD]">
-                  <div className="flex items-center gap-4">
-                    <div className="text-[#A1A1A1]">
-                      <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M4 18h16a2 2 0 002-2V8a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2z"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M12 22h.01M2 18h20"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <p className="text-[14px] font-medium text-[#191C1C]">
-                        Windows | Edge
-                      </p>
-                      <p className="text-[12px] text-[#747475]">
-                        Abuja, NG | 105.112.19.40 | Yesterday
-                      </p>
-                    </div>
-                  </div>
-                  <button className="bg-[#F4F4F4] text-[#747475] border border-[#EAEAEA] px-4 py-1.5 rounded-[8px] text-[12px] font-medium hover:bg-gray-100 transition-colors">
-                    Revoke
-                  </button>
-                </div>
+                  ))
+                )}
               </div>
 
               <div className="flex flex-col gap-1 mt-2">
@@ -1357,7 +1410,12 @@ export default function SettingsPage() {
                   Last login
                 </p>
                 <p className="text-[12px] text-[#747475]">
-                  Apr 17, 2018 | 08:14 | MacBook Pro | Chrome | IP: 102.89.34.12
+                  {(() => {
+                    const activeSession = draftSettings.security.sessions.find((session) => session.current) || draftSettings.security.sessions[0];
+                    return activeSession
+                      ? `${activeSession.lastActive} | ${activeSession.device} | ${activeSession.browser} | IP: ${activeSession.ip}`
+                      : "No recent session recorded";
+                  })()}
                 </p>
               </div>
 

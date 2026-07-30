@@ -1,6 +1,7 @@
 
 
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useAdminStore } from "@/lib/store";
 
 interface StatCardProps {
@@ -9,9 +10,10 @@ interface StatCardProps {
   change: string;
   trend: "up" | "down";
   iconPath: string;
+  href: string;
 }
 
-function StatCard({ label, value, change, trend, iconPath }: StatCardProps) {
+function StatCard({ label, value, change, trend, iconPath, href }: StatCardProps) {
   const getValueColor = () => {
     switch (label) {
       case "Total Orders":
@@ -31,7 +33,10 @@ function StatCard({ label, value, change, trend, iconPath }: StatCardProps) {
   };
 
   return (
-    <div className="bg-white p-[clamp(12px,1.5vw,18px)] rounded-[12px] shadow-sm border border-[#FAFAFA] flex flex-col gap-[clamp(8px,1vw,12px)]">
+    <Link
+      to={href}
+      className="bg-white p-[clamp(12px,1.5vw,18px)] rounded-[12px] shadow-sm border border-[#FAFAFA] flex flex-col gap-[clamp(8px,1vw,12px)] transition-all hover:shadow-md hover:-translate-y-[1px] hover:border-[#F9811F] cursor-pointer"
+    >
       <div className="flex justify-between items-start gap-2">
         <p className="text-[#848484] text-[12px] font-medium leading-snug">{label}</p>
         <div className="w-[32px] h-[32px] shrink-0 rounded-full bg-[#F8FAF9] flex items-center justify-center text-[#747475]">
@@ -59,7 +64,7 @@ function StatCard({ label, value, change, trend, iconPath }: StatCardProps) {
           <span className="truncate">{change} from last week</span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -104,28 +109,32 @@ export function DashboardStats() {
         value={String(totalOrders)} 
         change="+12%" 
         trend="up" 
-        iconPath="/images/Dashboard_sidebar_icons/orders.svg" 
+        iconPath="/images/Dashboard_sidebar_icons/orders.svg"
+        href="/orders"
       />
       <StatCard 
         label="Revenue" 
         value={revenue} 
         change="+8.2%" 
         trend="up" 
-        iconPath="/images/coin_icon.svg" 
+        iconPath="/images/coin_icon.svg"
+        href="/payments"
       />
       <StatCard 
         label="Active Orders" 
         value={String(activeOrders)} 
         change="+5" 
         trend="up" 
-        iconPath="/images/Dashboard_sidebar_icons/orders.svg" 
+        iconPath="/images/Dashboard_sidebar_icons/orders.svg"
+        href="/orders"
       />
       <StatCard 
         label="Total Users" 
         value={String(totalUsers)} 
         change="+23" 
         trend="up" 
-        iconPath="/images/Dashboard_sidebar_icons/users.svg" 
+        iconPath="/images/Dashboard_sidebar_icons/users.svg"
+        href="/users"
       />
       
       <StatCard 
@@ -133,28 +142,32 @@ export function DashboardStats() {
         value={String(totalVendors)} 
         change="+2" 
         trend="up" 
-        iconPath="/images/Dashboard_sidebar_icons/vendors.svg" 
+        iconPath="/images/Dashboard_sidebar_icons/vendors.svg"
+        href="/vendors"
       />
       <StatCard 
         label="Total Drivers" 
         value={String(totalDrivers)} 
         change="+1" 
         trend="up" 
-        iconPath="/images/Dashboard_sidebar_icons/drivers.svg" 
+        iconPath="/images/Dashboard_sidebar_icons/drivers.svg"
+        href="/drivers"
       />
       <StatCard 
         label="Order Completion Rate" 
         value={completionRate} 
         change="+1.2%" 
         trend="up" 
-        iconPath="/images/Dashboard_sidebar_icons/orders.svg" 
+        iconPath="/images/Dashboard_sidebar_icons/orders.svg"
+        href="/orders"
       />
       <StatCard 
         label="Pending Approvals" 
         value={String(pendingApprovals)} 
         change="-2" 
         trend="down" 
-        iconPath="/images/info_icon.svg" 
+        iconPath="/images/info_icon.svg"
+        href="/vendors"
       />
     </div>
   );

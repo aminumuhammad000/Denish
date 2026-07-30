@@ -229,10 +229,23 @@ const updateSettings = async (req, res) => {
   try {
     let settings = await Settings.findOne();
     if (!settings) {
-      settings = new Settings(req.body);
-    } else {
-      Object.assign(settings, req.body);
+      settings = new Settings();
     }
+
+    const mergeDeep = (target, source) => {
+      const output = { ...(target || {}) };
+      Object.entries(source || {}).forEach(([key, value]) => {
+        if (value && typeof value === 'object' && !Array.isArray(value) && output[key] && typeof output[key] === 'object' && !Array.isArray(output[key])) {
+          output[key] = mergeDeep(output[key], value);
+        } else {
+          output[key] = value;
+        }
+      });
+      return output;
+    };
+
+    const mergedSettings = mergeDeep(settings.toObject(), req.body);
+    settings.set(mergedSettings);
     await settings.save();
     res.status(200).json({ success: true, settings });
   } catch (error) {

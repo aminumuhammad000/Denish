@@ -1,9 +1,10 @@
 
 
-import { Search, Star, Eye } from "lucide-react";
+import { Search, Star, Eye, Download } from "lucide-react";
 import { useState, useEffect } from "react";
 import { UserDetailsModal } from "@/components/admin/UserDetailsModal";
 import { AdminPageSkeleton } from "@/components/layout/AdminPageSkeleton";
+import { exportToCSV } from "@/lib/exportUtils";
 
 import { useAdminStore, type User } from "@/lib/store";
 
@@ -108,6 +109,22 @@ export default function UserManagementPage() {
     setSelectedUser(updatedUser);
   };
 
+  const handleExport = () => {
+    const exportData = filteredUsers.map((user) => ({
+      "User ID": user.id,
+      "Name": user.name,
+      "Email": user.email,
+      "Phone": user.phone,
+      "Role": user.role,
+      "Status": user.status,
+      "Orders": user.orders,
+      "Spent/Earned": user.spentEarned,
+      "Rating": user.rating,
+      "Complaints": user.complaints,
+      "Last Active": user.lastActive,
+    }));
+    exportToCSV(exportData, "denish-users.csv");
+  };
 
   return (
     <>
@@ -117,6 +134,13 @@ export default function UserManagementPage() {
             <h1 className="text-[28px] font-bold text-[#191C1C]">
               User Management
             </h1>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 border border-[#EAEAEA] rounded-[8px] text-[16px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-[#212121]" />
+              Export
+            </button>
           </div>
 
           {/* Quick Stats */}

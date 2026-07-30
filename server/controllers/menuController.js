@@ -30,9 +30,25 @@ const getVendorMenu = async (req, res) => {
 
 const getVendorMenuById = async (req, res) => {
   try {
-    const { vendorId } = req.params;
-    const vendor = await Vendor.findById(vendorId);
-    if (!vendor) return res.status(404).json({ success: false, error: 'Vendor not found' });
+    const vendorId = req.params.vendorId || req.query.vendorId || req.body?.vendorId;
+    if (!vendorId) {
+      return res.status(400).json({ success: false, error: 'Vendor id is required' });
+    }
+
+    let vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      vendor = await Vendor.findOne({ businessName: vendorId }) || await Vendor.findOne({ name: vendorId });
+    }
+
+    if (!vendor) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          vendor: { id: vendorId, name: 'Unknown Vendor' },
+          items: [],
+        },
+      });
+    }
 
     const menuItems = await MenuItem.find({ vendorId: vendor._id }).sort({ category: 1, name: 1 });
     res.status(200).json({

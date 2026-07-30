@@ -49,6 +49,7 @@ router.get('/users', getAllUsers);
 router.get('/transactions', getAllTransactions);
 router.get('/disputes', getAllDisputes);
 router.get('/vendors/:vendorId/menu', getVendorMenuById);
+router.get('/vendors/:vendorId/menu-items', getVendorMenuById);
 
 router.patch('/vendors/:id/status', updateVendorStatus);
 router.patch('/drivers/:id/status', updateDriverStatus);

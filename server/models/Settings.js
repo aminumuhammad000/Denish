@@ -12,6 +12,7 @@ const settingsSchema = new mongoose.Schema({
     deliveryModel: { type: String, enum: ["flat", "distance"], default: "flat" },
     baseFee: { type: String, default: "500" },
     commission: { type: String, default: "15" },
+    deliveryFeeCommission: { type: String, default: "5" },
     autoCancelMin: { type: Number, default: 60 },
     deliveryDeadlineMin: { type: Number, default: 40 },
   },
@@ -28,6 +29,15 @@ const settingsSchema = new mongoose.Schema({
   },
   security: {
     twoFactor: { type: Boolean, default: true },
+    sessions: [{
+      id: { type: String, default: '' },
+      device: { type: String, default: '' },
+      browser: { type: String, default: '' },
+      location: { type: String, default: '' },
+      ip: { type: String, default: '' },
+      lastActive: { type: String, default: '' },
+      current: { type: Boolean, default: false },
+    }],
   },
   system: {
     maintenanceMode: { type: Boolean, default: false },

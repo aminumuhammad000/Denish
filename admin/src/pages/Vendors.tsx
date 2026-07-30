@@ -55,10 +55,25 @@ export default function VendorsPage() {
     setMenuVendor(vendor);
     setIsMenuLoading(true);
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api";
-      const response = await fetch(`${apiBase}/admin/vendors/${vendor.id}/menu`);
-      const data = await response.json();
-      if (data.success) {
+      const apiBase = (import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api").replace(/\/$/, "");
+      const candidates = [
+        `${apiBase}/admin/vendors/${vendor.id}/menu`,
+        `${apiBase}/admin/vendors/${vendor.id}/menu-items`,
+      ];
+
+      let data: any = null;
+      for (const url of candidates) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) continue;
+          data = await response.json();
+          if (data?.success) break;
+        } catch {
+          // try next fallback
+        }
+      }
+
+      if (data?.success) {
         setMenuItems(data.data?.items || []);
       } else {
         setMenuItems([]);

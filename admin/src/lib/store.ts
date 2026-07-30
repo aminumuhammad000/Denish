@@ -158,6 +158,7 @@ interface AdminState {
   transactions: Transaction[];
   banners: any[];
   promotions: any[];
+  settings: any;
 
   // Setters/Updaters
   globalSearchQuery: string;
@@ -176,6 +177,7 @@ interface AdminState {
   addTransaction: (newTransaction: Transaction) => void;
 
   // Async Fetchers
+  fetchSettings: () => Promise<void>;
   fetchStats: () => Promise<void>;
   fetchOrders: () => Promise<void>;
   fetchDrivers: () => Promise<void>;
@@ -223,6 +225,7 @@ export const useAdminStore = create<AdminState>()(
       transactions: initialTransactions,
       banners: [],
       promotions: [],
+      settings: null,
 
       setGlobalSearchQuery: (globalSearchQuery) => set({ globalSearchQuery }),
       setOrders: (orders) => set({ orders }),
@@ -257,6 +260,17 @@ export const useAdminStore = create<AdminState>()(
         })),
 
       // Async Fetchers implementation
+      fetchSettings: async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/settings`);
+          const data = await response.json();
+          if (data.success) {
+            set({ settings: data.settings });
+          }
+        } catch (error) {
+          console.error("Failed to fetch settings:", error);
+        }
+      },
       fetchStats: async () => {
         try {
           const response = await fetch(`${API_BASE_URL}/stats`);
@@ -603,7 +617,10 @@ export const useAdminStore = create<AdminState>()(
             body: JSON.stringify(updatedSettings),
           });
           if (response.ok) {
-            // Update local state if needed (usually handled by re-fetching all data)
+            const data = await response.json();
+            if (data.success && data.settings) {
+              set({ settings: data.settings });
+            }
           }
         } catch (error) {
           console.error("Error updating settings:", error);

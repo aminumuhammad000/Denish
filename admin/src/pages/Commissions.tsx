@@ -1,6 +1,6 @@
 
 
-import { Search } from "lucide-react";
+import { Search, Download } from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { AdminPageSkeleton } from "@/components/layout/AdminPageSkeleton";
@@ -15,11 +15,15 @@ import {
 } from "recharts";
 
 import { useAdminStore } from "@/lib/store";
+import { exportToCSV } from "@/lib/exportUtils";
 
 export default function CommissionManagementPage() {
   const [isMounted, setIsMounted] = useState(false);
   const vendorList = useAdminStore((state) => state.vendors);
   const updateVendorOnServer = useAdminStore((state) => state.updateVendorOnServer);
+  const updateSettingsOnServer = useAdminStore((state) => state.updateSettingsOnServer);
+  const fetchSettings = useAdminStore((state) => state.fetchSettings);
+  const settings = useAdminStore((state) => state.settings);
   const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const ordersList = useAdminStore((state) => state.orders);
 
@@ -56,6 +60,17 @@ export default function CommissionManagementPage() {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  useEffect(() => {
+    if (settings?.platform) {
+      setDefaultRate(Number(settings.platform.commission ?? 15));
+      setDeliveryFeeComm(Number(settings.platform.deliveryFeeCommission ?? 5));
+    }
+  }, [settings]);
+
   if (!isMounted) {
     return <AdminPageSkeleton />;
   }
@@ -71,6 +86,31 @@ export default function CommissionManagementPage() {
     setEditingVendorId(null);
   };
 
+
+  const handleSaveDefaultRate = async () => {
+    await updateSettingsOnServer({ platform: { commission: String(defaultRate) } });
+    setToastMessage(`Saved default commission rate as ${defaultRate}%`);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
+  const handleSaveDeliveryFee = async () => {
+    await updateSettingsOnServer({ platform: { deliveryFeeCommission: String(deliveryFeeComm) } });
+    setToastMessage(`Saved delivery fee commission as ${deliveryFeeComm}%`);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
+  const handleExport = () => {
+    const exportData = vendorCommissions.map((vendor) => ({
+      "Vendor": vendor.name,
+      "Rate": `${vendor.rate}%`,
+      "Total Paid": vendor.totalPaid,
+      "Pending": vendor.pending,
+      "Status": vendor.status,
+    }));
+    exportToCSV(exportData, "denish-commissions.csv");
+  };
 
   const handleCollectCommission = (vendorName: string, amount: string) => {
     setToastMessage(`Collected ${amount} commission from ${vendorName}`);
@@ -127,6 +167,13 @@ export default function CommissionManagementPage() {
               <h1 className="text-[28px] font-bold text-[#191C1C]">
                 Commission Management
               </h1>
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-2 px-4 py-2 border border-[#EAEAEA] rounded-[8px] text-[16px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4 text-[#212121]" />
+                Export
+              </button>
             </div>
 
             {/* Quick Stats */}
@@ -292,7 +339,10 @@ export default function CommissionManagementPage() {
                             %
                           </span>
                         </div>
-                        <button className="w-[87px] h-full bg-[#F97015] text-white text-[12px] font-bold rounded-[10px] hover:bg-[#e06512] transition-all cursor-pointer">
+                        <button
+                          onClick={idx === 0 ? handleSaveDefaultRate : handleSaveDeliveryFee}
+                          className="w-[87px] h-full bg-[#F97015] text-white text-[12px] font-bold rounded-[10px] hover:bg-[#e06512] transition-all cursor-pointer"
+                        >
                           Update
                         </button>
                       </div>

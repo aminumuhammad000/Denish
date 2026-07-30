@@ -3,16 +3,15 @@
  */
 
 export function exportToCSV(data: any[], filename: string) {
-  if (!data || data.length === 0) return;
-  
-  // Extract headers
-  const headers = Object.keys(data[0]);
-  
-  // Format rows
-  const rows = data.map(item => {
-    return headers.map(header => {
-      const val = item[header];
-      // Escape strings containing commas, newlines, or double quotes
+  if (!Array.isArray(data)) return;
+
+  const headers = data.length > 0
+    ? Object.keys(data[0])
+    : ["empty"];
+
+  const rows = data.map((item) => {
+    return headers.map((header) => {
+      const val = item?.[header];
       const strVal = val === null || val === undefined ? "" : String(val);
       const cleanVal = strVal.replace(/"/g, '""');
       if (cleanVal.includes(",") || cleanVal.includes("\n") || cleanVal.includes('"')) {
@@ -22,15 +21,14 @@ export function exportToCSV(data: any[], filename: string) {
     }).join(",");
   });
 
-  // Construct CSV content with UTF-8 BOM to preserve special characters (like ₦)
   const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
-  
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
-  
+
   const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", filename);
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

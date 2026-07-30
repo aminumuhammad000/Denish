@@ -2,7 +2,9 @@
 
 ;
 import { useState, useEffect } from "react";
+import { Download } from "lucide-react";
 import { AdminPageSkeleton } from "@/components/layout/AdminPageSkeleton";
+import { exportToCSV } from "@/lib/exportUtils";
 import {
   LineChart,
   Line,
@@ -77,6 +79,35 @@ export default function PaymentsPage() {
     .filter(t => (t.type.includes("Payout") || t.type.includes("Refund")) && t.status === "Pending")
     .reduce((sum, t) => sum + (parseInt(String(t.amount).replace(/[^\d]/g, ""), 10) || 0), 0);
 
+  const filteredTransactions = transactionsList.filter((txn) => {
+    const activeSearch = globalSearchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !activeSearch ||
+      txn.id.toLowerCase().includes(activeSearch) ||
+      txn.from.toLowerCase().includes(activeSearch) ||
+      txn.to.toLowerCase().includes(activeSearch) ||
+      txn.type.toLowerCase().includes(activeSearch) ||
+      txn.method.toLowerCase().includes(activeSearch);
+
+    if (!matchesSearch) return false;
+    if (activeTab === "All Transactions") return true;
+    return txn.type === activeTab.slice(0, -1);
+  });
+
+  const handleExport = () => {
+    const exportData = filteredTransactions.map((txn) => ({
+      ID: txn.id,
+      Type: txn.type,
+      From: txn.from,
+      To: txn.to,
+      Amount: txn.amount,
+      Method: txn.method,
+      Status: txn.status,
+      Date: txn.date,
+    }));
+    exportToCSV(exportData, "denish-payments.csv");
+  };
+
   const formatCurrency = (num: number) => {
     if (num >= 1000000) {
       return "₦" + (num / 1000000).toFixed(1) + "M";
@@ -95,6 +126,13 @@ export default function PaymentsPage() {
             <h1 className="text-[28px] font-bold text-[#191C1C]">
               Payment Tracking
             </h1>
+            <button
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 border border-[#EAEAEA] rounded-[8px] text-[16px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-[#212121]" />
+              Export
+            </button>
           </div>
 
           {/* Quick Stats */}
@@ -253,22 +291,7 @@ export default function PaymentsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactionsList
-                    .filter((txn) => {
-                      const activeSearch = globalSearchQuery.trim().toLowerCase();
-                      const matchesSearch =
-                        !activeSearch ||
-                        txn.id.toLowerCase().includes(activeSearch) ||
-                        txn.from.toLowerCase().includes(activeSearch) ||
-                        txn.to.toLowerCase().includes(activeSearch) ||
-                        txn.type.toLowerCase().includes(activeSearch) ||
-                        txn.method.toLowerCase().includes(activeSearch);
-
-                      if (!matchesSearch) return false;
-                      if (activeTab === "All Transactions") return true;
-                      return txn.type === activeTab.slice(0, -1); // "Vendor Payouts" -> "Vendor Payout"
-                    })
-                    .map((txn, index) => (
+                  {filteredTransactions.map((txn, index) => (
                       <tr
                         key={index}
                         className="border-b border-[#747475] last:border-0 hover:bg-[#F8FAF9]/50 transition-all cursor-pointer"
