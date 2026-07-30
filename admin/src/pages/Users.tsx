@@ -21,6 +21,7 @@ const statusStyles = {
 export default function UserManagementPage() {
   const [isMounted, setIsMounted] = useState(false);
   const baseUsers = useAdminStore((state) => state.users);
+  const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const vendors = useAdminStore((state) => state.vendors);
   const drivers = useAdminStore((state) => state.drivers);
 
@@ -78,9 +79,13 @@ export default function UserManagementPage() {
   const suspendedCount = usersList.filter(u => u.status === "Suspended").length;
 
   const filteredUsers = usersList.filter((user) => {
+    const activeSearch = (globalSearchQuery || searchQuery).trim().toLowerCase();
     const matchesSearch =
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      !activeSearch ||
+      user.name.toLowerCase().includes(activeSearch) ||
+      user.email.toLowerCase().includes(activeSearch) ||
+      user.phone.toLowerCase().includes(activeSearch) ||
+      user.role.toLowerCase().includes(activeSearch);
 
     if (activeFilter === "All" || activeFilter === "All Status")
       return matchesSearch;
@@ -97,7 +102,9 @@ export default function UserManagementPage() {
   });
 
   const handleUpdateUser = async (updatedUser: User) => {
-    await updateUserStatusOnServer(updatedUser.id, updatedUser.status);
+    await updateUserStatusOnServer(updatedUser.id, updatedUser.status, {
+      isWarned: updatedUser.isWarned,
+    });
     setSelectedUser(updatedUser);
   };
 

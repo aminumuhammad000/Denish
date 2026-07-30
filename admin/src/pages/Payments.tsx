@@ -25,6 +25,7 @@ const statusStyles = {
 export default function PaymentsPage() {
   const [isMounted, setIsMounted] = useState(false);
   const transactionsList = useAdminStore((state) => state.transactions);
+  const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const [activeTab, setActiveTab] = useState("All Transactions");
 
   // Group transactions by date for the last 7 days
@@ -254,6 +255,16 @@ export default function PaymentsPage() {
                 <tbody>
                   {transactionsList
                     .filter((txn) => {
+                      const activeSearch = globalSearchQuery.trim().toLowerCase();
+                      const matchesSearch =
+                        !activeSearch ||
+                        txn.id.toLowerCase().includes(activeSearch) ||
+                        txn.from.toLowerCase().includes(activeSearch) ||
+                        txn.to.toLowerCase().includes(activeSearch) ||
+                        txn.type.toLowerCase().includes(activeSearch) ||
+                        txn.method.toLowerCase().includes(activeSearch);
+
+                      if (!matchesSearch) return false;
                       if (activeTab === "All Transactions") return true;
                       return txn.type === activeTab.slice(0, -1); // "Vendor Payouts" -> "Vendor Payout"
                     })

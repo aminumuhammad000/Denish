@@ -43,6 +43,7 @@ export default function DisputesPage() {
   const [isMounted, setIsMounted] = useState(false);
   const disputesList = useAdminStore((state) => state.disputes);
   const updateDisputeStatusOnServer = useAdminStore((state) => state.updateDisputeStatusOnServer);
+  const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const usersList = useAdminStore((state) => state.users);
   const updateUserStatusOnServer = useAdminStore((state) => state.updateUserStatusOnServer);
   const addTransactionOnServer = useAdminStore((state) => state.addTransactionOnServer);
@@ -194,9 +195,20 @@ export default function DisputesPage() {
           {/* Dispute Cards */}
           <div className="flex flex-col gap-4">
             {disputesList
-              .filter(
-                (d) => activeFilter === "all" || d.status === activeFilter,
-              )
+              .filter((d) => {
+                const activeSearch = globalSearchQuery.trim().toLowerCase();
+                const matchesSearch =
+                  !activeSearch ||
+                  d.title.toLowerCase().includes(activeSearch) ||
+                  d.description.toLowerCase().includes(activeSearch) ||
+                  d.from.toLowerCase().includes(activeSearch) ||
+                  d.against.toLowerCase().includes(activeSearch) ||
+                  d.orderId.toLowerCase().includes(activeSearch) ||
+                  d.complaintId.toLowerCase().includes(activeSearch);
+
+                if (!matchesSearch) return false;
+                return activeFilter === "all" || d.status === activeFilter;
+              })
               .map((dispute) => (
                 <div
                   key={dispute.id}

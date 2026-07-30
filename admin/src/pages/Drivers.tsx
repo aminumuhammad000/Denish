@@ -19,6 +19,7 @@ export default function DriversPage() {
   const [isMounted, setIsMounted] = useState(false);
   const driversList = useAdminStore((state) => state.drivers);
   const updateDriverStatusOnServer = useAdminStore((state) => state.updateDriverStatusOnServer);
+  const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const [activeTab, setActiveTab] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
@@ -41,17 +42,23 @@ export default function DriversPage() {
   const offlineCount = driversList.filter(d => d.status === "Offline" || d.isSuspended).length;
 
   const filteredDrivers = driversList.filter((driver) => {
-    const matchesSearch = driver.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase()) ||
-      driver.location.toLowerCase().includes(searchQuery.toLowerCase());
+    const activeSearch = (globalSearchQuery || searchQuery).trim().toLowerCase();
+    const matchesSearch =
+      !activeSearch ||
+      driver.name.toLowerCase().includes(activeSearch) ||
+      driver.location.toLowerCase().includes(activeSearch) ||
+      driver.phone.toLowerCase().includes(activeSearch) ||
+      driver.vehicle.toLowerCase().includes(activeSearch);
     
     const matchesTab = activeTab === "All" || driver.status === activeTab;
     return matchesSearch && matchesTab;
   });
 
   const handleUpdateDriver = async (updatedDriver: Driver) => {
-    await updateDriverStatusOnServer(updatedDriver.id, updatedDriver.status);
+    await updateDriverStatusOnServer(updatedDriver.id, updatedDriver.status, {
+      isWarned: updatedDriver.isWarned,
+      isSuspended: updatedDriver.isSuspended,
+    });
     setSelectedDriver(updatedDriver);
   };
 

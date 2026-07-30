@@ -18,6 +18,7 @@ interface Driver {
   name: string;
   location: string;
   phone: string;
+  email?: string;
   vehicle: string;
   deliveries: number;
   rating: number;
@@ -75,6 +76,11 @@ export function DriverDetailsModal({
     { day: "Sat", value: 30000 },
     { day: "Sun", value: 32000 },
   ];
+
+  const handleContact = () => {
+    const recipient = driver?.email || "support@denish.ng";
+    window.location.href = `mailto:${recipient}?subject=${encodeURIComponent(`Inquiry about ${driver?.name || "driver"}`)}`;
+  };
 
   const recentDeliveries = [
     {
@@ -309,7 +315,10 @@ export function DriverDetailsModal({
         {/* Action Buttons - Fixed at bottom */}
         <div className="p-[clamp(12px,2vh,20px)] pt-0">
           <div className="flex items-center justify-between gap-[clamp(8px,1.2vh,12px)] pt-[clamp(10px,1.5vh,16px)] border-t border-transparent">
-            <button className="flex-[1.5] flex items-center justify-center gap-3 h-[clamp(36px,4.7vh,48px)] bg-[#29A378] text-white rounded-[8px] text-[clamp(13px,1.6vh,16px)] font-medium hover:bg-[#207951] transition-all">
+            <button
+              onClick={handleContact}
+              className="flex-[1.5] flex items-center justify-center gap-3 h-[clamp(36px,4.7vh,48px)] bg-[#29A378] text-white rounded-[8px] text-[clamp(13px,1.6vh,16px)] font-medium hover:bg-[#207951] transition-all"
+            >
               <Phone className="w-[clamp(16px,2vh,20px)] h-[clamp(16px,2vh,20px)]" />
               Contact
             </button>

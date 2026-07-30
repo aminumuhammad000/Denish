@@ -43,15 +43,23 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
           min-width: 0;
         }
         .admin-sidebar {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.28) transparent;
+          -ms-overflow-style: auto;
         }
         .admin-sidebar::-webkit-scrollbar {
-          display: none;
+          width: 5px;
+        }
+        .admin-sidebar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .admin-sidebar::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.28);
+          border-radius: 999px;
         }
         @media (min-width: 1024px) {
           .admin-main {
-            margin-left: 280px;
+            margin-left: 240px;
           }
         }
       `}</style>

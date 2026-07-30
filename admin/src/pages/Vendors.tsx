@@ -1,8 +1,8 @@
 
 
 import { Search, Star, Eye, Check, X, Download } from "lucide-react";
-;
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { VendorDetailsModal } from "@/components/admin/VendorDetailsModal";
 import { AdminPageSkeleton } from "@/components/layout/AdminPageSkeleton";
 import { exportToCSV } from "@/lib/exportUtils";
@@ -19,11 +19,15 @@ export default function VendorsPage() {
   const [isMounted, setIsMounted] = useState(false);
   const vendorList = useAdminStore((state) => state.vendors);
   const updateVendorStatusOnServer = useAdminStore((state) => state.updateVendorStatusOnServer);
+  const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [toastMessage, setToastMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
+  const [menuVendor, setMenuVendor] = useState<Vendor | null>(null);
+  const [menuItems, setMenuItems] = useState<any[]>([]);
+  const [isMenuLoading, setIsMenuLoading] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -47,6 +51,27 @@ export default function VendorsPage() {
     }, 3000);
   };
 
+  const handleViewMenu = async (vendor: Vendor) => {
+    setMenuVendor(vendor);
+    setIsMenuLoading(true);
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api";
+      const response = await fetch(`${apiBase}/admin/vendors/${vendor.id}/menu`);
+      const data = await response.json();
+      if (data.success) {
+        setMenuItems(data.data?.items || []);
+      } else {
+        setMenuItems([]);
+        toast.error("Could not load the vendor menu");
+      }
+    } catch (error) {
+      console.error("Failed to load vendor menu", error);
+      setMenuItems([]);
+      toast.error("Could not load the vendor menu");
+    } finally {
+      setIsMenuLoading(false);
+    }
+  };
 
   // Dynamic calculations based on state
   const totalVendors = vendorList.length;
@@ -82,9 +107,12 @@ export default function VendorsPage() {
   })();
 
   const filteredVendors = vendorList.filter((v) => {
+    const activeSearch = (globalSearchQuery || searchQuery).trim().toLowerCase();
     const matchesSearch =
-      v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.category.toLowerCase().includes(searchQuery.toLowerCase());
+      !activeSearch ||
+      v.name.toLowerCase().includes(activeSearch) ||
+      v.category.toLowerCase().includes(activeSearch) ||
+      v.id.toLowerCase().includes(activeSearch);
     
     const matchesTab =
       activeTab === "All" ||
@@ -285,7 +313,58 @@ export default function VendorsPage() {
         vendor={selectedVendor}
         onClose={() => setSelectedVendor(null)}
         onSuspend={() => selectedVendor && toggleVendorStatus(selectedVendor.id, selectedVendor.status)}
+        onViewMenu={() => selectedVendor && handleViewMenu(selectedVendor)}
       />
+
+      {menuVendor && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-[560px] rounded-[20px] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-[22px] font-semibold text-[#191C1C]">{menuVendor.name} Menu</h3>
+                <p className="text-[13px] text-[#747475]">Live menu items from the vendor account</p>
+              </div>
+              <button
+                onClick={() => {
+                  setMenuVendor(null);
+                  setMenuItems([]);
+                }}
+                className="rounded-full p-2 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-[#747475]" />
+              </button>
+            </div>
+
+            {isMenuLoading ? (
+              <div className="rounded-[12px] border border-[#EAEAEA] bg-[#FAFAFA] p-4 text-[14px] text-[#747475]">
+                Loading menu items...
+              </div>
+            ) : menuItems.length === 0 ? (
+              <div className="rounded-[12px] border border-[#EAEAEA] bg-[#FAFAFA] p-4 text-[14px] text-[#747475]">
+                No menu items were found for this vendor.
+              </div>
+            ) : (
+              <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                {menuItems.map((item) => (
+                  <div key={item._id || item.id} className="flex items-start justify-between rounded-[12px] border border-[#EAEAEA] bg-[#F8F8F8] p-3">
+                    <div>
+                      <p className="text-[15px] font-semibold text-[#212121]">{item.name}</p>
+                      <p className="text-[13px] text-[#747475]">{item.category || "General"}</p>
+                      <p className="mt-1 text-[13px] text-[#747475]">{item.description || "No description provided"}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[15px] font-semibold text-[#212121]">₦{Number(item.price || 0).toLocaleString()}</p>
+                      <p className={`text-[12px] ${item.available ? "text-[#29A378]" : "text-[#E14343]"}`}>
+                        {item.available ? "Available" : "Unavailable"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       {showToast && (

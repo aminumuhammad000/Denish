@@ -149,8 +149,16 @@ const updateVendorStatus = async (req, res) => {
 const updateDriverStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
-    const driver = await Driver.findByIdAndUpdate(id, { status }, { new: true });
+    const { status, isWarned, isSuspended } = req.body;
+    const updates = {};
+
+    if (typeof status !== 'undefined') {
+      updates.status = status === 'Suspended' ? 'Suspended' : (status === 'Pending' ? 'Pending' : 'Active');
+    }
+    if (typeof isWarned !== 'undefined') updates.isWarned = Boolean(isWarned);
+    if (typeof isSuspended !== 'undefined') updates.isSuspended = Boolean(isSuspended);
+
+    const driver = await Driver.findByIdAndUpdate(id, updates, { new: true });
     res.status(200).json({ success: true, driver });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -160,8 +168,13 @@ const updateDriverStatus = async (req, res) => {
 const updateUserStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
-    const customer = await Customer.findByIdAndUpdate(id, { status }, { new: true });
+    const { status, isWarned } = req.body;
+    const updates = {};
+
+    if (typeof status !== 'undefined') updates.status = status;
+    if (typeof isWarned !== 'undefined') updates.isWarned = Boolean(isWarned);
+
+    const customer = await Customer.findByIdAndUpdate(id, updates, { new: true });
     res.status(200).json({ success: true, user: customer });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

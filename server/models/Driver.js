@@ -27,6 +27,14 @@ const driverSchema = new mongoose.Schema({
     enum: ['Pending', 'Active', 'Suspended'],
     default: 'Pending',
   },
+  isWarned: {
+    type: Boolean,
+    default: false,
+  },
+  isSuspended: {
+    type: Boolean,
+    default: false,
+  },
   earnings: {
     totalEarned: { type: Number, default: 0 },
     availableBalance: { type: Number, default: 0 },

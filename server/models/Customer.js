@@ -33,6 +33,15 @@ const customerSchema = new mongoose.Schema({
     type: { type: String, default: 'card' }
   }],
   profilePic: String,
+  status: {
+    type: String,
+    enum: ['Active', 'Suspended'],
+    default: 'Active',
+  },
+  isWarned: {
+    type: Boolean,
+    default: false,
+  },
   resetPasswordOTP: String,
   resetPasswordExpires: Date,
 }, { timestamps: true });

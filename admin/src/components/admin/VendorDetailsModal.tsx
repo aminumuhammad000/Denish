@@ -19,9 +19,10 @@ interface VendorDetailsModalProps {
   vendor: Vendor | null;
   onClose: () => void;
   onSuspend?: () => void;
+  onViewMenu?: () => void;
 }
 
-export function VendorDetailsModal({ vendor, onClose, onSuspend }: VendorDetailsModalProps) {
+export function VendorDetailsModal({ vendor, onClose, onSuspend, onViewMenu }: VendorDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -109,7 +110,10 @@ export function VendorDetailsModal({ vendor, onClose, onSuspend }: VendorDetails
 
           {/* Action Buttons */}
           <div className="flex items-center gap-[12px] pt-2">
-            <button className="flex-1 h-[42px] bg-[#207951] text-white rounded-[8px] text-[14px] font-medium hover:bg-[#1a6342] transition-all">
+            <button
+              onClick={onViewMenu}
+              className="flex-1 h-[42px] bg-[#207951] text-white rounded-[8px] text-[14px] font-medium hover:bg-[#1a6342] transition-all"
+            >
               View Menu
             </button>
             <button 

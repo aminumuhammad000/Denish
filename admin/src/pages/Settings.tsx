@@ -201,7 +201,8 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch("http://localhost:3000/api/admin/profile");
+        const apiBase = import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api";
+        const response = await fetch(`${apiBase}/admin/profile`);
         if (response.ok) {
           const data = await response.json();
           const profile = {
@@ -260,7 +261,8 @@ export default function SettingsPage() {
     formData.append("image", file);
 
     try {
-      const response = await fetch("http://localhost:3000/api/admin/upload", {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api";
+      const response = await fetch(`${apiBase}/admin/upload`, {
         method: "POST",
         body: formData,
       });

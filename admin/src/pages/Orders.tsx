@@ -22,6 +22,7 @@ export default function OrdersPage() {
   const [isMounted, setIsMounted] = useState(false);
   const ordersList = useAdminStore((state) => state.orders);
   const updateOrderOnServer = useAdminStore((state) => state.updateOrderOnServer);
+  const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const [activeTab, setActiveTab] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -51,10 +52,13 @@ export default function OrdersPage() {
   const pendingCount = ordersList.filter(o => o.status === "pending").length;
 
   const filteredOrders = ordersList.filter((order) => {
+    const activeSearch = (globalSearchQuery || searchQuery).trim().toLowerCase();
     const matchesSearch =
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.vendor.toLowerCase().includes(searchQuery.toLowerCase());
+      !activeSearch ||
+      order.id.toLowerCase().includes(activeSearch) ||
+      order.customer.toLowerCase().includes(activeSearch) ||
+      order.vendor.toLowerCase().includes(activeSearch) ||
+      order.address.toLowerCase().includes(activeSearch);
     
     const matchesTab =
       activeTab === "All" ||

@@ -28,6 +28,28 @@ const getVendorMenu = async (req, res) => {
   }
 };
 
+const getVendorMenuById = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) return res.status(404).json({ success: false, error: 'Vendor not found' });
+
+    const menuItems = await MenuItem.find({ vendorId: vendor._id }).sort({ category: 1, name: 1 });
+    res.status(200).json({
+      success: true,
+      data: {
+        vendor: {
+          id: vendor._id,
+          name: vendor.businessName || vendor.name,
+        },
+        items: menuItems,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 const toggleMenuItem = async (req, res) => {
   try {
     const item = await MenuItem.findById(req.params.id);
@@ -79,6 +101,7 @@ const updateMenuItem = async (req, res) => {
 
 module.exports = {
   getVendorMenu,
+  getVendorMenuById,
   toggleMenuItem,
   addMenuItem,
   updateMenuItem

@@ -33,6 +33,7 @@ const {
   markAllNotificationsAsRead
 } = require('../controllers/adminController');
 const { upload } = require('../config/cloudinary');
+const { getVendorMenuById } = require('../controllers/menuController');
 
 
 // For simplicity in this demo, we're not adding heavy auth middleware yet, 
@@ -47,6 +48,7 @@ router.get('/drivers', getAllDrivers);
 router.get('/users', getAllUsers);
 router.get('/transactions', getAllTransactions);
 router.get('/disputes', getAllDisputes);
+router.get('/vendors/:vendorId/menu', getVendorMenuById);
 
 router.patch('/vendors/:id/status', updateVendorStatus);
 router.patch('/drivers/:id/status', updateDriverStatus);

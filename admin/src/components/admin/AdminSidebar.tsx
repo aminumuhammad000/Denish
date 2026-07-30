@@ -76,8 +76,8 @@ export function AdminSidebar() {
       <aside
         className="admin-sidebar"
         style={{
-          width: 280,
-          minWidth: 280,
+          width: 240,
+          minWidth: 240,
           height: "100dvh",
           background: "#207951",
           display: "flex",

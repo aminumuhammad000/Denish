@@ -11,6 +11,8 @@ export function TopNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const admin = useAdminStore((state) => state.admin);
+  const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
+  const setGlobalSearchQuery = useAdminStore((state) => state.setGlobalSearchQuery);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -120,7 +122,9 @@ export function TopNavbar() {
           <Search size={16} color="#747475" style={{ flexShrink: 0 }} />
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search admin..."
+            value={globalSearchQuery}
+            onChange={(e) => setGlobalSearchQuery(e.target.value)}
             style={{
               border: "none",
               background: "transparent",

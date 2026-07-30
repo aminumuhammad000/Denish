@@ -18,6 +18,7 @@ export interface Driver {
   name: string;
   location: string;
   phone: string;
+  email?: string;
   vehicle: string;
   deliveries: number;
   rating: number;
@@ -159,6 +160,8 @@ interface AdminState {
   promotions: any[];
 
   // Setters/Updaters
+  globalSearchQuery: string;
+  setGlobalSearchQuery: (query: string) => void;
   setOrders: (orders: Order[]) => void;
   updateOrder: (updatedOrder: Order) => void;
   setDrivers: (drivers: Driver[]) => void;
@@ -187,8 +190,8 @@ interface AdminState {
   updateVendorOnServer: (id: string, updatedData: Partial<Vendor>) => Promise<void>;
   updateVendorStatusOnServer: (id: string, status: string) => Promise<void>;
 
-  updateDriverStatusOnServer: (id: string, status: string) => Promise<void>;
-  updateUserStatusOnServer: (id: string, status: string) => Promise<void>;
+  updateDriverStatusOnServer: (id: string, status: string, extra?: Partial<Driver>) => Promise<void>;
+  updateUserStatusOnServer: (id: string, status: string, extra?: Partial<User>) => Promise<void>;
   updateDisputeStatusOnServer: (id: string, status: string) => Promise<void>;
   addTransactionOnServer: (transaction: Transaction) => Promise<void>;
   updateOrderOnServer: (id: string, updatedData: Partial<Order>) => Promise<void>;
@@ -211,6 +214,7 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://api.denishng
 export const useAdminStore = create<AdminState>()(
   persist(
     (set, get) => ({
+      globalSearchQuery: "",
       orders: initialOrders,
       drivers: initialDrivers,
       vendors: initialVendors,
@@ -220,6 +224,7 @@ export const useAdminStore = create<AdminState>()(
       banners: [],
       promotions: [],
 
+      setGlobalSearchQuery: (globalSearchQuery) => set({ globalSearchQuery }),
       setOrders: (orders) => set({ orders }),
       updateOrder: (updatedOrder) =>
         set((state) => ({
@@ -483,12 +488,16 @@ export const useAdminStore = create<AdminState>()(
           console.error("Failed to update vendor status:", error);
         }
       },
-      updateDriverStatusOnServer: async (id, status) => {
+      updateDriverStatusOnServer: async (id, status, extra = {}) => {
         try {
+          const payload: any = { status };
+          if (typeof extra.isWarned === 'boolean') payload.isWarned = extra.isWarned;
+          if (typeof extra.isSuspended === 'boolean') payload.isSuspended = extra.isSuspended;
+
           const response = await fetch(`${API_BASE_URL}/drivers/${id}/status`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status }),
+            body: JSON.stringify(payload),
           });
           if (response.ok) {
             get().fetchDrivers();
@@ -497,16 +506,21 @@ export const useAdminStore = create<AdminState>()(
           console.error("Failed to update driver status:", error);
         }
       },
-      updateUserStatusOnServer: async (id: string, status: string) => {
+      updateUserStatusOnServer: async (id: string, status: string, extra: Partial<User> = {}) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/user/${id}/status`, {
+          const payload: any = { status };
+          if (typeof extra.isWarned === 'boolean') payload.isWarned = extra.isWarned;
+
+          const response = await fetch(`${API_BASE_URL}/users/${id}/status`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status }),
+            body: JSON.stringify(payload),
           });
           if (response.ok) {
+            const data = await response.json();
+            const updatedUser = data.user || data.customer || data.data;
             set((state) => ({
-              users: state.users.map((u) => (u.id === id ? { ...u, status: status as User["status"] } : u)),
+              users: state.users.map((u) => (u.id === id ? { ...u, ...(updatedUser ? { status: updatedUser.status || status as User["status"], isWarned: typeof updatedUser.isWarned === 'boolean' ? updatedUser.isWarned : u.isWarned } : {} ) } : u)),
             }));
           }
         } catch (error) {

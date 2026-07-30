@@ -20,6 +20,7 @@ export default function CommissionManagementPage() {
   const [isMounted, setIsMounted] = useState(false);
   const vendorList = useAdminStore((state) => state.vendors);
   const updateVendorOnServer = useAdminStore((state) => state.updateVendorOnServer);
+  const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const ordersList = useAdminStore((state) => state.orders);
 
   // Group commission by month for the last 4 months
@@ -101,6 +102,11 @@ export default function CommissionManagementPage() {
       status: vendor.status
     };
   }).filter(vc => {
+    const matchesSearch =
+      !(globalSearchQuery || searchQuery).trim() ||
+      vc.name.toLowerCase().includes((globalSearchQuery || searchQuery).trim().toLowerCase());
+
+    if (!matchesSearch) return false;
     if (activeFilter === "All") return true;
     if (activeFilter === "Approved") return vc.status === "approved";
     if (activeFilter === "Pending") return vc.status === "pending";

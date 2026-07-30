@@ -46,6 +46,14 @@ export function UserDetailsModal({ user, onClose, onUpdateUser }: UserDetailsMod
     setIsBanned(user.status === "Suspended");
   }, [user]);
 
+  const handleEmail = () => {
+    if (user.email) {
+      window.location.href = `mailto:${user.email}`;
+    } else {
+      toast.info("No email address is available for this user.");
+    }
+  };
+
   const handleWarn = () => {
     const newState = !isWarned;
     setIsWarned(newState);
@@ -199,7 +207,10 @@ export function UserDetailsModal({ user, onClose, onUpdateUser }: UserDetailsMod
 
         {/* 5. Action Buttons Container (42px) */}
         <div className="h-[42px] flex gap-3">
-          <button className="flex-1 flex items-center justify-center gap-2 h-[42px] border border-[#212121] rounded-[8px] hover:bg-gray-50 transition-all group">
+          <button
+            onClick={handleEmail}
+            className="flex-1 flex items-center justify-center gap-2 h-[42px] border border-[#212121] rounded-[8px] hover:bg-gray-50 transition-all group"
+          >
             <div
               className="w-5 h-5 bg-[#212121]"
               style={{
