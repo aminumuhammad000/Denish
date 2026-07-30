@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView,
-  TouchableOpacity, ActivityIndicator, Alert
+  TouchableOpacity, ActivityIndicator, Alert, useWindowDimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -77,6 +77,7 @@ function timeAgo(dateStr) {
 }
 
 const OrdersScreen = () => {
+  const { width } = useWindowDimensions();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('New');
@@ -170,17 +171,17 @@ const OrdersScreen = () => {
           filteredOrders.map((order, idx) => (
             <View key={order._id || idx} style={styles.orderCard}>
               {/* Order top row */}
-              <View style={styles.orderTopRow}>
-                <View style={styles.orderTopLeft}>
-                  <Text style={styles.orderId}>{order.orderId}</Text>
-                  <Text style={styles.orderTime}>{timeAgo(order.createdAt)}</Text>
-                </View>
-                <Text style={styles.orderAmount}>₦{(order.amount || 0).toLocaleString()}</Text>
-              </View>
+                  <View style={styles.orderTopRow}>
+                    <View style={[styles.orderTopLeft, { maxWidth: Math.round(width * 0.62) }]}> 
+                      <Text style={styles.orderId} numberOfLines={1} ellipsizeMode="tail">{order.orderId}</Text>
+                      <Text style={styles.orderTime} numberOfLines={1}>{timeAgo(order.createdAt)}</Text>
+                    </View>
+                    <Text style={[styles.orderAmount, { maxWidth: Math.round(width * 0.32), textAlign: 'right' }]} numberOfLines={1}>₦{(order.amount || 0).toLocaleString()}</Text>
+                  </View>
 
               {/* Customer & items */}
-              <Text style={styles.customerName}>{order.customerName} | {order.itemsCount} items</Text>
-              <Text style={styles.itemsText}>{order.items || `${order.itemsCount} items`}</Text>
+              <Text style={styles.customerName} numberOfLines={1} ellipsizeMode="tail">{order.customerName} | {order.itemsCount} items</Text>
+              <Text style={styles.itemsText} numberOfLines={2} ellipsizeMode="tail">{order.items || `${order.itemsCount} items`}</Text>
 
               {/* Action buttons */}
               {activeTab === 'New' && (
@@ -191,7 +192,7 @@ const OrdersScreen = () => {
                   <TouchableOpacity style={styles.rejectBtn} onPress={() => handleReject(order)}>
                     <Ionicons name="close" size={16} color="#E74C3C" />
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.acceptBtn} onPress={() => handleAccept(order)}>
+                  <TouchableOpacity style={[styles.acceptBtn, { minWidth: 90 }]} onPress={() => handleAccept(order)}>
                     <Text style={styles.acceptBtnText}>Accept</Text>
                   </TouchableOpacity>
                 </View>
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
   acceptBtn: {
     backgroundColor: '#FF8C00',
     borderRadius: 10,
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     alignItems: 'center',
   },
