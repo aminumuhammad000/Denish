@@ -152,15 +152,15 @@ export default function VendorsPage() {
   return (
     <>
       <div className="px-[clamp(1rem,3vw,2rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center">
-        <div className="w-full pb-8 flex flex-col gap-6 px-6">
+        <div className="w-full pb-8 flex flex-col gap-4 sm:gap-6 px-3 sm:px-6">
           {/* Page Header */}
-          <div className="flex justify-between items-center">
-            <h1 className="text-[28px] font-bold text-[#191C1C]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+            <h1 className="text-[22px] sm:text-[28px] font-bold text-[#191C1C] leading-tight break-words">
               Vendor Management
             </h1>
             <button 
               onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 border border-[#EAEAEA] rounded-[8px] text-[16px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer"
+              className="flex items-center justify-center gap-2 px-4 py-2 border border-[#EAEAEA] rounded-[8px] text-[14px] sm:text-[16px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer self-stretch sm:self-auto"
             >
               <Download className="w-4 h-4 text-[#212121]" />
               Export

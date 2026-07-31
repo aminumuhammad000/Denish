@@ -168,15 +168,15 @@ export default function DisputesPage() {
   return (
     <>
       {/* Page Content */}
-      <div className="px-[clamp(1rem,3vw,2rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center flex-1">
-        <div className="w-full pb-8 flex flex-col gap-8 px-6">
-          <div className="flex items-center justify-between gap-4">
-            <h1 className="text-[clamp(1.5rem,4vw,1.75rem)] font-bold text-[#191C1C]">
+      <div className="px-3 py-4 sm:px-6 sm:py-8 flex flex-col items-center flex-1">
+        <div className="w-full pb-8 flex flex-col gap-4 sm:gap-8 px-0 sm:px-0">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <h1 className="text-[22px] sm:text-[clamp(1.5rem,4vw,1.75rem)] font-bold text-[#191C1C] leading-tight break-words">
               Complaints and Disputes
             </h1>
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 px-4 py-2 border border-[#EAEAEA] rounded-[8px] text-[16px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer"
+              className="flex items-center justify-center gap-2 px-4 py-2 border border-[#EAEAEA] rounded-[8px] text-[14px] sm:text-[16px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer self-stretch sm:self-auto"
             >
               <Download className="w-4 h-4 text-[#212121]" />
               Export
