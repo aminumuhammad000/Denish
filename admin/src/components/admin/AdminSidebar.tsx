@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Settings, LogOut, X } from "lucide-react";
 import { useAdminStore } from "../../lib/store";
+import { clearAdminSession } from "../../lib/auth";
 
 const navItems = [
   { iconPath: "/images/Dashboard_sidebar_icons/overview.svg", label: "Overview", href: "/dashboard" },
@@ -44,7 +45,7 @@ export function AdminSidebar() {
   }, [isMobile]);
 
   const handleLogout = () => {
-    localStorage.removeItem("admin_token");
+    clearAdminSession();
     navigate("/login");
   };
 

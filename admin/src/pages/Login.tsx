@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { setAdminSessionExpiry } from "../lib/auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api";
 
@@ -24,7 +25,10 @@ export default function Login() {
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.token) localStorage.setItem("admin_token", data.token);
+        if (data.token) {
+          localStorage.setItem("admin_token", data.token);
+          setAdminSessionExpiry();
+        }
         navigate("/dashboard");
       } else {
         const data = await response.json();

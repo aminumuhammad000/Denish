@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Search, Bell, Menu, Settings, LogOut } from "lucide-react";
 import { useAdminStore } from "../../lib/store";
+import { clearAdminSession } from "../../lib/auth";
 
 interface Notification { id: string; title: string; message: string; time: string; read: boolean; }
 
@@ -45,7 +46,7 @@ export function TopNavbar() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("admin_token");
+    clearAdminSession();
     navigate("/login");
   };
 

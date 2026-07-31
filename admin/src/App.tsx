@@ -6,6 +6,7 @@ import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { Toaster } from "sonner";
 import { useAdminStore } from "./lib/store";
 import { useEffect } from "react";
+import { clearAdminSession, isAdminSessionExpired, resetAdminSessionActivity } from "./lib/auth";
 
 // Lazy-load pages
 import LoginPage from "./pages/Login";
@@ -29,6 +30,30 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
     fetchAdminProfile();
     fetchAllData();
   }, [fetchAdminProfile, fetchAllData]);
+
+  useEffect(() => {
+    if (!localStorage.getItem("admin_token")) return;
+
+    const handleActivity = () => resetAdminSessionActivity();
+    const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"];
+
+    const checkSession = () => {
+      if (isAdminSessionExpired()) {
+        clearAdminSession();
+        window.location.href = "/login";
+        return;
+      }
+    };
+
+    resetAdminSessionActivity();
+    events.forEach((event) => window.addEventListener(event, handleActivity));
+    const interval = window.setInterval(checkSession, 1000);
+
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, handleActivity));
+      window.clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F8FAF9" }}>
