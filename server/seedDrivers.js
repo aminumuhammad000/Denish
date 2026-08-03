@@ -1,96 +1,113 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const connectDB = require('./config/db');
 const Driver = require('./models/Driver');
 
-const seedDrivers = async () => {
+const DRIVER_ACCOUNTS = [
+  {
+    name: 'Bayo Adeyemi',
+    email: 'driver@denish.ng',
+    phone: '08012345678',
+    password: 'driver123',
+    profilePic: null,
+    vehicleType: 'Motorcycle',
+    vehicle: {
+      type: 'Motorcycle',
+      make: 'Honda CB500',
+      plate: 'LAG-234-BA',
+      color: 'Red',
+    },
+    bank: {
+      name: 'GTBank',
+      accountName: 'Bayo Adeyemi',
+      accountNumber: '0123456789',
+    },
+    status: 'Active',
+    earnings: {
+      totalEarned: 248000,
+      availableBalance: 62500,
+      totalTrips: 97,
+    },
+  },
+  {
+    name: 'Chukwuemeka Eze',
+    email: 'driver2@denish.ng',
+    phone: '08098765432',
+    password: 'driver123',
+    profilePic: null,
+    vehicleType: 'Bike',
+    vehicle: {
+      type: 'Bike',
+      make: 'TVS Apache 200',
+      plate: 'ABJ-110-CK',
+      color: 'Black',
+    },
+    bank: {
+      name: 'Access Bank',
+      accountName: 'Chukwuemeka Eze',
+      accountNumber: '0987654321',
+    },
+    status: 'Active',
+    earnings: {
+      totalEarned: 185000,
+      availableBalance: 41000,
+      totalTrips: 73,
+    },
+  },
+];
+
+/**
+ * Seeds driver accounts idempotently.
+ * Can be called at server startup OR run standalone via `node seedDrivers.js`
+ */
+const seedDrivers = async ({ exitOnComplete = false } = {}) => {
   try {
-    await connectDB();
-
-    const drivers = [
-      {
-        name: 'Bayo Adeyemi',
-        email: 'driver@denish.ng',
-        phone: '08012345678',
-        password: 'driver123',
-        profilePic: null,
-        vehicleType: 'Motorcycle',
-        vehicle: {
-          type: 'Motorcycle',
-          make: 'Honda CB500',
-          plate: 'LAG-234-BA',
-          color: 'Red',
-        },
-        bank: {
-          name: 'GTBank',
-          accountName: 'Bayo Adeyemi',
-          accountNumber: '0123456789',
-        },
-        status: 'Active',
-        earnings: {
-          totalEarned: 248000,
-          availableBalance: 62500,
-          totalTrips: 97,
-        },
-      },
-      {
-        name: 'Chukwuemeka Eze',
-        email: 'driver2@denish.ng',
-        phone: '08098765432',
-        password: 'driver123',
-        profilePic: null,
-        vehicleType: 'Bike',
-        vehicle: {
-          type: 'Bike',
-          make: 'TVS Apache 200',
-          plate: 'ABJ-110-CK',
-          color: 'Black',
-        },
-        bank: {
-          name: 'Access Bank',
-          accountName: 'Chukwuemeka Eze',
-          accountNumber: '0987654321',
-        },
-        status: 'Active',
-        earnings: {
-          totalEarned: 185000,
-          availableBalance: 41000,
-          totalTrips: 73,
-        },
-      },
-    ];
-
-    for (const driverData of drivers) {
-      await Driver.findOneAndUpdate(
-        { email: driverData.email },
-        driverData,
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
+    // Only connect to DB if not already connected (standalone CLI mode)
+    if (mongoose.connection.readyState === 0) {
+      const connectDB = require('./config/db');
+      await connectDB();
     }
 
-    console.log('');
-    console.log('====================================================');
-    console.log('  ✅  DRIVER SEED COMPLETED SUCCESSFULLY!');
-    console.log('====================================================');
-    console.log('  Use any of the following credentials to log in:');
-    console.log('');
-    drivers.forEach((d, i) => {
-      console.log(`  ${i + 1}. ${d.name}`);
-      console.log(`     Email:    ${d.email}`);
-      console.log(`     Phone:    ${d.phone}`);
-      console.log(`     Password: ${d.password}`);
-      console.log(`     Vehicle:  ${d.vehicle.color} ${d.vehicle.make} (${d.vehicle.plate})`);
-      console.log(`     Status:   ${d.status}`);
-      console.log('');
-    });
-    console.log('====================================================');
-    console.log('');
+    for (const driverData of DRIVER_ACCOUNTS) {
+      const existing = await Driver.findOne({ email: driverData.email });
+      if (!existing) {
+        await Driver.create(driverData);
+        console.log(`✅ Driver created: ${driverData.name} (${driverData.email})`);
+      } else {
+        console.log(`ℹ️  Driver already exists: ${driverData.name} (${driverData.email})`);
+      }
+    }
 
-    process.exit(0);
+    if (exitOnComplete) {
+      console.log('');
+      console.log('====================================================');
+      console.log('  ✅  DRIVER SEED COMPLETED SUCCESSFULLY!');
+      console.log('====================================================');
+      console.log('  Driver Login Credentials:');
+      console.log('');
+      DRIVER_ACCOUNTS.forEach((d, i) => {
+        console.log(`  ${i + 1}. ${d.name}`);
+        console.log(`     Email:    ${d.email}`);
+        console.log(`     Phone:    ${d.phone}`);
+        console.log(`     Password: ${d.password}`);
+        console.log(`     Vehicle:  ${d.vehicle.color} ${d.vehicle.make} (${d.vehicle.plate})`);
+        console.log(`     Status:   ${d.status}`);
+        console.log('');
+      });
+      console.log('====================================================');
+      process.exit(0);
+    }
+
+    return true;
   } catch (error) {
     console.error('❌ Error seeding drivers:', error);
-    process.exit(1);
+    if (exitOnComplete) process.exit(1);
+    throw error;
   }
 };
 
-seedDrivers();
+// Allow running standalone: node seedDrivers.js
+if (require.main === module) {
+  seedDrivers({ exitOnComplete: true });
+}
+
+module.exports = { seedDrivers };
