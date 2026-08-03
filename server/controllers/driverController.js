@@ -218,6 +218,110 @@ const markAllDriverNotificationsRead = async (req, res) => {
   }
 };
 
+// ─── GET Driver Chat Threads ───────────────────────────────────────────────────
+const getDriverChats = async (req, res) => {
+  try {
+    const Message = require('../models/Message');
+    let driver = await Driver.findOne();
+    const driverId = driver ? driver._id.toString() : 'driver-1';
+    const driverName = driver ? driver.name : 'Bayo Adeyemi';
+
+    const messages = await Message.find({
+      $or: [
+        { senderId: driverId },
+        { recipientId: driverId },
+        { senderName: driverName },
+        { recipientName: driverName }
+      ]
+    }).sort({ createdAt: -1 });
+
+    const threadMap = {};
+    messages.forEach(msg => {
+      const isSender = msg.senderName === driverName || msg.senderId === driverId;
+      const otherName = isSender ? msg.recipientName : msg.senderName;
+      const otherId = isSender ? msg.recipientId : msg.senderId;
+
+      if (!threadMap[otherName]) {
+        let avatar = 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100';
+        if (otherName.toLowerCase().includes('kitchen') || otherName.toLowerCase().includes('restaurant') || otherName.toLowerCase().includes('spicy')) {
+          avatar = 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100';
+        } else if (otherName.toLowerCase().includes('support')) {
+          avatar = 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100';
+        }
+
+        threadMap[otherName] = {
+          id: otherId || otherName,
+          name: otherName,
+          lastMsg: msg.text || (msg.imageUrl ? '📷 Image' : 'Voice Call'),
+          time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          unread: (!msg.read && !isSender) ? 1 : 0,
+          avatar
+        };
+      }
+    });
+
+    const threads = Object.values(threadMap);
+    res.status(200).json({ success: true, threads });
+  } catch (error) {
+    console.error('getDriverChats error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── GET Driver Messages for a Specific Contact ───────────────────────────────
+const getDriverMessages = async (req, res) => {
+  try {
+    const Message = require('../models/Message');
+    const { recipientName } = req.query;
+    const messages = await Message.find({
+      $or: [
+        { recipientName },
+        { senderName: recipientName }
+      ]
+    }).sort({ createdAt: 1 });
+
+    const formatted = messages.map(m => ({
+      id: m._id,
+      text: m.text,
+      image: m.imageUrl,
+      type: m.type,
+      subText: m.subText,
+      time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      sender: m.senderName === recipientName ? 'them' : 'me'
+    }));
+
+    res.status(200).json({ success: true, messages: formatted });
+  } catch (error) {
+    console.error('getDriverMessages error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── SEND Driver Message ──────────────────────────────────────────────────────
+const sendDriverMessage = async (req, res) => {
+  try {
+    const Message = require('../models/Message');
+    const { recipientName, text, imageUrl, type, subText } = req.body;
+    let driver = await Driver.findOne();
+
+    const newMsg = await Message.create({
+      senderId: driver ? driver._id.toString() : 'driver-1',
+      senderName: driver ? driver.name : 'Bayo Adeyemi',
+      recipientId: 'chat-partner',
+      recipientName: recipientName || "John Doe (Customer)",
+      text,
+      imageUrl,
+      type: type || 'text',
+      subText
+    });
+
+    res.status(200).json({ success: true, data: newMsg });
+  } catch (error) {
+    console.error('sendDriverMessage error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getDriverProfile,
   updateDriverProfile,
@@ -227,4 +331,7 @@ module.exports = {
   getDriverNotifications,
   markDriverNotificationRead,
   markAllDriverNotificationsRead,
+  getDriverChats,
+  getDriverMessages,
+  sendDriverMessage,
 };

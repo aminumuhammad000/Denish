@@ -23,6 +23,11 @@ router.get('/notifications', getDriverNotifications);
 router.patch('/notifications/read-all', markAllDriverNotificationsRead);
 router.patch('/notifications/:id/read', markDriverNotificationRead);
 
+// Chat routes
+router.get('/chats', getDriverChats);
+router.get('/messages', getDriverMessages);
+router.post('/messages', sendDriverMessage);
+
 // Profile pic upload
 router.post('/upload-profile-pic', upload.single('image'), (req, res) => {
   try {

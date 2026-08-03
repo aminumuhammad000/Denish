@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet, Text, View, FlatList, TouchableOpacity, Image, TextInput
+  StyleSheet, Text, View, FlatList, TouchableOpacity, Image, TextInput, ActivityIndicator, RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { getDriverChats } from '../services/api';
 
-const CHATS = [
+const DEFAULT_CHATS = [
   {
     id: '1',
     name: "John Doe (Customer)",
@@ -33,11 +34,40 @@ const CHATS = [
 ];
 
 const DriverChatListScreen = ({ navigation }) => {
+  const [chats, setChats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
 
-  const filteredChats = CHATS.filter(chat => 
-    chat.name.toLowerCase().includes(search.toLowerCase()) ||
-    chat.lastMsg.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    loadChats();
+  }, []);
+
+  const loadChats = async () => {
+    try {
+      const res = await getDriverChats();
+      if (res && res.success && res.threads && res.threads.length > 0) {
+        setChats(res.threads);
+      } else {
+        setChats(DEFAULT_CHATS);
+      }
+    } catch (e) {
+      console.error('Error loading driver chats:', e);
+      setChats(DEFAULT_CHATS);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadChats();
+  };
+
+  const filteredChats = chats.filter(chat => 
+    (chat.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (chat.lastMsg || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -62,37 +92,46 @@ const DriverChatListScreen = ({ navigation }) => {
         )}
       </View>
 
-      <FlatList
-        data={filteredChats}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.chatRow} 
-            onPress={() => navigation.navigate('ChatDetail', { name: item.name, role: 'Driver' })}
-          >
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
-            <View style={styles.chatInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.time}>{item.time}</Text>
+      {loading ? (
+        <View style={styles.centerLoading}>
+          <ActivityIndicator size="large" color="#FF6B52" />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredChats}
+          keyExtractor={item => item.id || item.name}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={styles.chatRow} 
+              onPress={() => navigation.navigate('ChatDetail', { name: item.name, role: 'Driver' })}
+            >
+              <Image source={{ uri: item.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }} style={styles.avatar} />
+              <View style={styles.chatInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name}>{item.name}</Text>
+                  <Text style={styles.time}>{item.time}</Text>
+                </View>
+                <Text style={styles.lastMsg} numberOfLines={1}>{item.lastMsg}</Text>
               </View>
-              <Text style={styles.lastMsg} numberOfLines={1}>{item.lastMsg}</Text>
+              {item.unread > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadText}>{item.unread}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF6B52']} />
+          }
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="chatbubbles-outline" size={60} color="#DDD" />
+              <Text style={styles.emptyText}>No messages found</Text>
             </View>
-            {item.unread > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadText}>{item.unread}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="chatbubbles-outline" size={60} color="#DDD" />
-            <Text style={styles.emptyText}>No messages found</Text>
-          </View>
-        }
-      />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -118,6 +157,7 @@ const styles = StyleSheet.create({
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, height: 45, fontSize: 15, color: '#1a1a1a' },
   list: { paddingBottom: 20 },
+  centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   chatRow: {
     flexDirection: 'row',
     padding: 16,

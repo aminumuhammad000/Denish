@@ -555,4 +555,38 @@ export const markAllDriverNotificationsRead = async () => {
   }
 };
 
+// ─── Driver Chats ─────────────────────────────────────────────────────────────
+
+export const getDriverChats = async () => {
+  try {
+    const response = await api.get('/driver/chats');
+    return response.data;
+  } catch (error) {
+    console.error('API getDriverChats error:', error);
+    return { success: false, threads: [] };
+  }
+};
+
+export const fetchDriverMessages = async (recipientName) => {
+  try {
+    const response = await api.get('/driver/messages', {
+      params: { recipientName }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API fetchDriverMessages error:', error);
+    return { success: false, messages: [] };
+  }
+};
+
+export const sendDriverChatMessage = async (data) => {
+  try {
+    const response = await api.post('/driver/messages', data);
+    return response.data;
+  } catch (error) {
+    console.error('API sendDriverChatMessage error:', error);
+    throw error;
+  }
+};
+
 export default api;
