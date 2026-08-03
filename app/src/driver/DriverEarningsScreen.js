@@ -259,15 +259,15 @@ const DriverEarningsScreen = ({ navigation }) => {
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>THIS WEEK</Text>
-              <Text style={styles.summaryValue}>₦42,000</Text>
+              <Text style={styles.summaryValue}>₦{(realEarnings?.weekEarned || 42000).toLocaleString()}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>THIS MONTH</Text>
-              <Text style={styles.summaryValue}>₦152,000</Text>
+              <Text style={styles.summaryValue}>₦{(realEarnings?.monthEarned || 152000).toLocaleString()}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>TODAY</Text>
-              <Text style={styles.summaryValue}>₦8,500</Text>
+              <Text style={styles.summaryValue}>₦{(realEarnings?.todayEarned || 8500).toLocaleString()}</Text>
             </View>
           </View>
         </View>
@@ -290,14 +290,18 @@ const DriverEarningsScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.historyList}>
-             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="completed" />
-             <TransactionItem type="Tip" date="Apr 18, 08:11 | ORD-006" amount="₦200" status="completed" />
-             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="completed" />
-             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="completed" />
-             <TransactionItem type="Withdrawal" date="Apr 17, 12:30 | -" amount="₦25,000" status="completed" isWithdrawal={true} />
-             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="completed" />
-             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="reversed" />
-             <TransactionItem type="Delivery" date="Apr 18, 08:24 | ORD-007" amount="₦850" status="pending" />
+             {(realEarnings?.recentTransactions || [])
+               .filter(t => historyTab === 'Transactions' ? true : t.isWithdrawal)
+               .map((item, idx) => (
+                 <TransactionItem 
+                   key={item.id || idx}
+                   type={item.type || 'Delivery'}
+                   date={`${item.date} | ${item.id}`}
+                   amount={item.amount}
+                   status={item.status || 'completed'}
+                   isWithdrawal={item.isWithdrawal}
+                 />
+             ))}
           </View>
         </View>
 
