@@ -88,17 +88,25 @@ const PayoutAccountScreen = ({ navigation }) => {
 
   const handleAccountChange = async (val) => {
     setFormData(prev => ({ ...prev, accountNumber: val, accountName: '' }));
+    setErrorHeader('');
     
-    // Auto-verify account details via Flutterwave backend validation when 10 digits are entered
+    // Auto-verify account details via Flutterwave backend when 10 digits are entered
     if (val.length === 10 && formData.bankCode) {
       setVerifying(true);
-      setErrorHeader('');
       try {
         const result = await verifyAccount(formData.bankCode, val);
-        const resolvedName = result?.data?.accountName || result?.data?.account_name || 'Usman Umar (Verified)';
-        setFormData(prev => ({ ...prev, accountName: resolvedName, accountNumber: val }));
+        if (result?.success && result?.data) {
+          const resolvedName = result.data.accountName || result.data.account_name || '';
+          if (resolvedName) {
+            setFormData(prev => ({ ...prev, accountName: resolvedName, accountNumber: val }));
+          } else {
+            setErrorHeader('Account name not found. Please check the account number.');
+          }
+        } else {
+          setErrorHeader(result?.message || 'Verification failed. Please check the account number.');
+        }
       } catch (err) {
-        setFormData(prev => ({ ...prev, accountName: 'Usman Umar (Verified)', accountNumber: val }));
+        setErrorHeader('Could not verify account. Please check your details.');
       } finally {
         setVerifying(false);
       }
