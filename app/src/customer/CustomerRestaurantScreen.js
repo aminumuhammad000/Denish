@@ -103,12 +103,31 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
         {/* Info Card */}
         <View style={styles.infoCard}>
           <View style={styles.infoTopRow}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.restaurantName}>{vendor.businessName || vendor.name}</Text>
               <Text style={styles.restaurantCategory}>{vendor.category || 'Local Dishes'}</Text>
             </View>
-            <View style={styles.openBadge}>
-              <Text style={styles.openText}>OPEN</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity 
+                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E6F7F0', justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => navigation.navigate('Calling', {
+                  name: vendor.businessName || vendor.name,
+                  phone: vendor.phone || '08123456789',
+                  orderId: 'VND-001',
+                  subtitle: vendor.address || 'Lagos, Nigeria'
+                })}
+              >
+                <Ionicons name="call" size={18} color="#27A572" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF3E0', justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => navigation.navigate('ChatDetail', { name: vendor.businessName || vendor.name, type: 'Vendor' })}
+              >
+                <Ionicons name="chatbubble-ellipses" size={18} color="#FF7D01" />
+              </TouchableOpacity>
+              <View style={styles.openBadge}>
+                <Text style={styles.openText}>OPEN</Text>
+              </View>
             </View>
           </View>
 
