@@ -1,34 +1,66 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { uploadItemImage } from '../services/api';
-import { Image, ActivityIndicator, Alert } from 'react-native';
+import { uploadItemImage, fetchMessages, sendChatMessage } from '../services/api';
 
 const ChatDetailScreen = ({ route, navigation }) => {
-  const { name = 'Kolawole Adeleke', type = 'Driver' } = route?.params || {};
+  const { name = 'Temmy Store', type = 'Vendor' } = route?.params || {};
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([
-    { id: '1', text: "I'm delivering the items at your reception desk.", time: "14:01", sender: 'me' },
-    { id: '2', text: "Thanks, the food was hot 🔥", time: "14:02", sender: 'them' },
-    { id: '3', text: "You're welcome, sir.", time: "14:03", sender: 'me' },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
 
-  const sendMessage = (text, imageUrl = null) => {
-    if (!text && !imageUrl) return;
+  React.useEffect(() => {
+    loadMessages();
+  }, [name]);
+
+  const loadMessages = async () => {
+    try {
+      const res = await fetchMessages(name);
+      if (res.success && res.messages?.length > 0) {
+        setMessages(res.messages);
+      } else {
+        setMessages([
+          { id: '1', text: "I'm delivering the items at your reception desk.", time: "14:01", sender: 'me' },
+          { id: '2', text: "Thanks, the food was hot 🔥", time: "14:02", sender: 'them' },
+          { id: '3', text: "You're welcome, sir.", time: "14:03", sender: 'me' },
+        ]);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const sendMessage = async (text, imageUrl = null, msgType = 'text', subText = '') => {
+    if (!text && !imageUrl && msgType === 'text') return;
+    
+    // Optimistic UI update
     const newMessage = {
       id: Date.now().toString(),
       text: text,
       image: imageUrl,
+      type: msgType,
+      subText: subText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       sender: 'me'
     };
-    setMessages([...messages, newMessage]);
+    setMessages(prev => [...prev, newMessage]);
     setMessage('');
+
+    try {
+      await sendChatMessage({
+        recipientName: name,
+        text,
+        imageUrl,
+        type: msgType,
+        subText
+      });
+    } catch (e) {
+      console.error('Failed to send message to backend:', e);
+    }
   };
 
   const pickImage = async () => {
@@ -39,7 +71,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
     }
 
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images || ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.7,
     });
@@ -54,7 +86,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
     try {
       const response = await uploadItemImage(uri);
       if (response.success) {
-        sendMessage(null, response.imageUrl);
+        sendMessage(null, response.imageUrl, 'image');
       } else {
         throw new Error(response.error || 'Upload failed');
       }
@@ -66,17 +98,8 @@ const ChatDetailScreen = ({ route, navigation }) => {
   };
 
   const handleCall = () => {
-    // Add call record to messages
-    const callMessage = {
-      id: Date.now().toString(),
-      text: "Voice Call",
-      subText: "Outgoing",
-      type: 'call',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      sender: 'me'
-    };
-    setMessages([...messages, callMessage]);
-    navigation.navigate('Calling', { name });
+    sendMessage("Voice Call", null, 'call', 'Outgoing');
+    navigation.navigate('Calling', { name, phone: '09123882672' });
   };
 
   return (

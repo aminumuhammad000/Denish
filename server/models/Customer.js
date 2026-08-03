@@ -19,6 +19,10 @@ const customerSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  loyaltyPoints: {
+    type: Number,
+    default: 0
+  },
   address: String,
   addresses: [{
     label: String,
@@ -32,6 +36,11 @@ const customerSchema = new mongoose.Schema({
     icon: String,
     type: { type: String, default: 'card' }
   }],
+  notifications: {
+    orders: { type: Boolean, default: true },
+    promotions: { type: Boolean, default: true },
+    recommendations: { type: Boolean, default: false }
+  },
   profilePic: String,
   status: {
     type: String,

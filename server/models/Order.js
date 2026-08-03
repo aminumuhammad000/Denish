@@ -2,8 +2,10 @@ const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
   orderId: { type: String, required: true },
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
   customerName: { type: String, default: 'Anonymous' },
   address: { type: String, default: 'No address' },
+  deliveryAddress: { type: String },
   vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor', required: true },
   vendorName: { type: String, default: 'Unknown Vendor' },
   items: [{
@@ -13,6 +15,7 @@ const orderSchema = new mongoose.Schema({
     quantity: Number
   }],
   total: { type: Number, required: true },
+  totalAmount: { type: Number },
   status: { 
     type: String, 
     enum: ['pending', 'preparing', 'ready', 'on the way', 'delivered', 'cancelled'], 

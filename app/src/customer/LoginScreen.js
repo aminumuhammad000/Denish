@@ -21,16 +21,20 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      alert('Please enter your email/phone and password.');
+      return;
+    }
     setLoading(true);
     try {
       const response = await customerLogin(email, password);
       if (response && response.success) {
         navigation.navigate('CustomerHome');
       } else {
-        alert('Login failed');
+        alert(response.error || 'Login failed');
       }
     } catch (error) {
-       alert('Network error. Please try again.');
+       alert(error.response?.data?.error || 'Invalid credentials or network error.');
     } finally {
       setLoading(false);
     }

@@ -10,6 +10,7 @@ import {
   Dimensions,
   StatusBar,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -64,7 +65,11 @@ const ListCard = ({ name, sub, price, image, onPress }) => (
 const CustomerHomeScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [vendors, setVendors] = useState([]);
+  const [items, setItems] = useState([]);
+  const [banners, setBanners] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [selectedAddress, setSelectedAddress] = useState('Lagos Island');
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
   const { cartItems } = useCart();
   const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const [loading, setLoading] = useState(true);
@@ -76,8 +81,19 @@ const CustomerHomeScreen = ({ navigation }) => {
           getRestaurants(),
           getCustomerProfile().catch(() => ({ success: false }))
         ]);
-        if (resVendors.success) setVendors(resVendors.data);
-        if (resProfile.success) setProfile(resProfile.data);
+        if (resVendors.success) {
+          setVendors(resVendors.data || []);
+          if (resVendors.items) setItems(resVendors.items);
+          if (resVendors.banners) setBanners(resVendors.banners);
+        }
+        if (resProfile.success) {
+          setProfile(resProfile.data);
+          if (resProfile.data.address) {
+            setSelectedAddress(resProfile.data.address);
+          } else if (resProfile.data.addresses?.length > 0) {
+            setSelectedAddress(resProfile.data.addresses[0].addr || resProfile.data.addresses[0].label);
+          }
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -86,6 +102,13 @@ const CustomerHomeScreen = ({ navigation }) => {
     };
     fetchData();
   }, []);
+
+  const userAddresses = profile?.addresses?.length > 0 
+    ? profile.addresses 
+    : [
+        { _id: '1', label: 'Home', addr: profile?.address || '15 Admiralty Way, Lekki, Lagos', tag: 'Default' },
+        { _id: '2', label: 'Work', addr: '42 Marina Street, Lagos Island', tag: 'Work' }
+      ];
 
   return (
     <View style={styles.container}>
@@ -129,13 +152,82 @@ const CustomerHomeScreen = ({ navigation }) => {
                 onFocus={() => navigation.navigate('Search')}
               />
             </View>
-            <View style={styles.locationLink}>
+            <TouchableOpacity style={styles.locationLink} onPress={() => setAddressModalVisible(true)}>
                <Ionicons name="location" size={14} color="#FFF" />
-               <Text style={styles.locationText}>Deliver to Lagos Island</Text>
+               <Text style={styles.locationText} numberOfLines={1}>Deliver to {selectedAddress}</Text>
                <Ionicons name="chevron-down" size={12} color="#FFF" />
-            </View>
+            </TouchableOpacity>
           </SafeAreaView>
         </View>
+
+        {/* Address Dropdown Selection Modal */}
+        <Modal
+          visible={addressModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setAddressModalVisible(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay} 
+            activeOpacity={1} 
+            onPress={() => setAddressModalVisible(false)}
+          >
+            <View style={styles.addressModalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Delivery Address</Text>
+                <TouchableOpacity onPress={() => setAddressModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 300 }}>
+                {userAddresses.map((item, idx) => {
+                  const addrText = item.addr || item.label;
+                  const isSelected = selectedAddress === addrText || selectedAddress.includes(item.label);
+                  return (
+                    <TouchableOpacity
+                      key={item._id || idx}
+                      style={[styles.addressItemRow, isSelected && styles.addressItemActive]}
+                      onPress={() => {
+                        setSelectedAddress(addrText);
+                        setAddressModalVisible(false);
+                      }}
+                    >
+                      <View style={styles.addressIconBox}>
+                        <Ionicons 
+                          name={item.label?.toLowerCase().includes('work') ? 'briefcase' : 'home'} 
+                          size={20} 
+                          color={isSelected ? Colors.primary : '#666'} 
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.addressLabelText}>{item.label || 'Saved Address'}</Text>
+                          {item.tag && <View style={styles.tagBadge}><Text style={styles.tagText}>{item.tag}</Text></View>}
+                        </View>
+                        <Text style={styles.addressFullText} numberOfLines={2}>{item.addr || item.label}</Text>
+                      </View>
+                      {isSelected && (
+                        <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              <TouchableOpacity 
+                style={styles.addAddressModalBtn}
+                onPress={() => {
+                  setAddressModalVisible(false);
+                  navigation.navigate('CustomerProfile');
+                }}
+              >
+                <Ionicons name="add" size={18} color="#FFF" />
+                <Text style={styles.addAddressModalBtnText}>Manage Saved Addresses</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         <View style={styles.main}>
           {/* Swipeable Banners */}
@@ -197,7 +289,7 @@ const CustomerHomeScreen = ({ navigation }) => {
                 key={v._id}
                 name={v.businessName || v.name}
                 sub={v.category || "Provisions"}
-                rating="4.8"
+                rating={v.rating || "4.8"}
                 image={v.logoUrl || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400"}
                 onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: v._id })}
               />
@@ -207,28 +299,46 @@ const CustomerHomeScreen = ({ navigation }) => {
           {/* Cooked Foods */}
           <SectionHeader title="Cooked Foods" showViewAll onPress={() => navigation.navigate('Category', { category: 'Cooked Foods' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
-             <SquareCard name="Chunky Rice" sub="Smokey party cooked rice" price="2,500" image="https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Jollof Rice" sub="Smokey party cooked rice" price="2,500" image="https://images.unsplash.com/photo-1512152272829-e3139592d56f?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Fried Rice" sub="Smokey party cooked rice" price="2,500" image="https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Coconut Rice" sub="Smokey party cooked rice" price="2,800" image="https://images.unsplash.com/photo-1516684732162-798a0062be99?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             {items.filter(i => i.category === 'Cooked Foods' || !i.category).map(item => (
+               <SquareCard 
+                 key={item._id}
+                 name={item.name} 
+                 sub={item.description} 
+                 price={item.price?.toLocaleString()} 
+                 image={item.image || "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=400&q=80"} 
+                 onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
+               />
+             ))}
           </ScrollView>
 
           {/* Grilled Foods */}
           <SectionHeader title="Grilled Foods" showViewAll onPress={() => navigation.navigate('Category', { category: 'Grilled Foods' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
-             <SquareCard name="Grilled Meat" sub="Smokey party grilled meat" price="3,200" image="https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Grilled Fish" sub="Smokey party grilled fish" price="3,500" image="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Suya Meat" sub="Smokey party grilled meat" price="2,000" image="https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="BBQ Chicken" sub="Smokey party grilled chicken" price="4,500" image="https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             {items.filter(i => i.category === 'Grilled Foods').map(item => (
+               <SquareCard 
+                 key={item._id}
+                 name={item.name} 
+                 sub={item.description} 
+                 price={item.price?.toLocaleString()} 
+                 image={item.image || "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80"} 
+                 onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
+               />
+             ))}
           </ScrollView>
 
           {/* Featured Orders */}
           <SectionHeader title="Featured orders" showViewAll onPress={() => navigation.navigate('Category', { category: 'Featured orders' })} />
           <View style={styles.list}>
-             <ListCard name="Jollof Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1512152272829-e3139592d56f?w=600&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <ListCard name="Agoyin Beans" sub="Smokey party cooked jollof rice" price="2,200" image="https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <ListCard name="White Rice" sub="Smokey party cooked jollof rice" price="2,500" image="https://images.unsplash.com/photo-1516684732162-798a0062be99?w=600&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <ListCard name="Raw Carrots" sub="Smokey party cooked jollof rice" price="1,200" image="https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             {items.slice(0, 4).map(item => (
+               <ListCard 
+                 key={item._id}
+                 name={item.name} 
+                 sub={item.description} 
+                 price={item.price?.toLocaleString()} 
+                 image={item.image || "https://images.unsplash.com/photo-1512152272829-e3139592d56f?w=600&q=80"} 
+                 onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
+               />
+             ))}
           </View>
 
           {/* Drinks */}
@@ -334,6 +444,20 @@ const styles = StyleSheet.create({
   listSub: { fontSize: 11, color: '#999', marginVertical: 2 },
   listPrice: { fontSize: 13, fontWeight: '700', color: '#FF7D01' },
   addBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEE', justifyContent: 'center', alignItems: 'center' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  addressModalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 34 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#111' },
+  addressItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#F0F0F0', backgroundColor: '#FAFAFA' },
+  addressItemActive: { borderColor: Colors.primary, backgroundColor: '#FFF8F2' },
+  addressIconBox: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  addressLabelText: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+  addressFullText: { fontSize: 12, color: '#777', marginTop: 2 },
+  tagBadge: { backgroundColor: '#FF7D0120', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  tagText: { color: '#FF7D01', fontSize: 10, fontWeight: '700' },
+  addAddressModalBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, paddingVertical: 14, borderRadius: 12, marginTop: 12, gap: 6 },
+  addAddressModalBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 }
 });
 
 export default CustomerHomeScreen;

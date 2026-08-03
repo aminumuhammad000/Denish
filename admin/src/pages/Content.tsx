@@ -147,6 +147,144 @@ function BannerCard({
       </div>
     </div>
   );
+function SystemContentEditor() {
+  const [selectedKey, setSelectedKey] = useState("terms_of_service");
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(false);
+
+  useEffect(() => {
+    fetchContent(selectedKey);
+  }, [selectedKey]);
+
+  const fetchContent = async (key: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`http://localhost:3000/api/admin/content/${key}`);
+      const data = await res.json();
+      if (data.success) {
+        setTitle(data.data.title || "");
+        setContent(data.data.content || "");
+        setContactEmail(data.data.contactEmail || "support@denish.com");
+        setContactPhone(data.data.contactPhone || "+234 800 336 4741");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await fetch(`http://localhost:3000/api/admin/content/${selectedKey}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, content, contactEmail, contactPhone }),
+      });
+      setToast(true);
+      setTimeout(() => setToast(false), 3000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-[16px] border border-[#EAEAEA] p-6 flex flex-col gap-6">
+      {toast && (
+        <div className="bg-[#E9F5EF] text-[#3DD26A] p-4 rounded-[10px] font-bold text-[14px]">
+          Content updated successfully! Changes are live in the app.
+        </div>
+      )}
+
+      {/* Page Selectors */}
+      <div className="flex gap-3">
+        {[
+          { key: "terms_of_service", label: "Terms of Service" },
+          { key: "privacy_policy", label: "Privacy Policy" },
+          { key: "help_and_support", label: "Help & Support" },
+        ].map((item) => (
+          <button
+            key={item.key}
+            onClick={() => setSelectedKey(item.key)}
+            className={`px-4 py-2 rounded-[10px] text-[14px] font-bold border transition-all ${
+              selectedKey === item.key
+                ? "bg-[#191C1C] text-white border-[#191C1C]"
+                : "bg-gray-50 text-[#747475] border-[#EAEAEA] hover:bg-gray-100"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="py-12 text-center text-[#747475] font-medium">Loading content...</div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="block text-[14px] font-bold text-[#191C1C] mb-2">Page Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full p-3 border border-[#EAEAEA] rounded-[10px] text-[14px] font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[14px] font-bold text-[#191C1C] mb-2">Page Content</label>
+            <textarea
+              rows={10}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="w-full p-3 border border-[#EAEAEA] rounded-[10px] text-[14px] font-medium leading-relaxed"
+            />
+          </div>
+
+          {selectedKey === "help_and_support" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[14px] font-bold text-[#191C1C] mb-2">Contact Email</label>
+                <input
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  className="w-full p-3 border border-[#EAEAEA] rounded-[10px] text-[14px] font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-[14px] font-bold text-[#191C1C] mb-2">Contact Phone</label>
+                <input
+                  type="text"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  className="w-full p-3 border border-[#EAEAEA] rounded-[10px] text-[14px] font-medium"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-[#F9811F] text-white px-8 py-3 rounded-[10px] font-bold text-[15px] hover:bg-[#e0741b] transition-all"
+            >
+              {saving ? "Saving Changes..." : "Publish to Mobile App"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ContentManagementPage() {
@@ -475,12 +613,23 @@ export default function ContentManagementPage() {
                   }}
                 />
                 Promotions & Coupons
+              <button
+                onClick={() => setActiveTab("system_pages")}
+                className={`flex items-center gap-2 min-h-[40px] py-1.5 sm:py-0 px-4 sm:px-5 rounded-[10px] border border-[#EAEAEA] text-[14px] font-bold leading-[1.1] sm:leading-normal transition-all text-left sm:text-center ${
+                  activeTab === "system_pages"
+                    ? "bg-[#F9811F] text-white"
+                    : "bg-white text-[#747475] hover:bg-gray-50"
+                }`}
+              >
+                Legal & Support Pages
               </button>
             </div>
 
             {/* Tab Content */}
-            {activeTab === "banners" ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
+            {activeTab === "system_pages" ? (
+              <SystemContentEditor />
+            ) : activeTab === "banners" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {banners.map((banner) => (
                   <BannerCard
                     key={banner.id}

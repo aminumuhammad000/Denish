@@ -54,10 +54,55 @@ const CATEGORY_DATA = {
   ],
 };
 
+import { getRestaurants } from '../services/api';
+import { ActivityIndicator } from 'react-native';
+
 const CategoryScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { category } = route.params;
-  const items = CATEGORY_DATA[category] || [];
+  const [items, setItems] = React.useState([]);
+  const [vendors, setVendors] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    loadCategoryData();
+  }, [category]);
+
+  const loadCategoryData = async () => {
+    try {
+      const res = await getRestaurants();
+      if (res.success) {
+        setVendors(res.data || []);
+        if (category === 'Featured vendors') {
+          setItems((res.data || []).map(v => ({
+            id: v._id,
+            name: v.businessName || v.name,
+            sub: v.category || 'Local dishes',
+            rating: v.rating || '4.8',
+            image: v.logoUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400',
+            vendorId: v._id
+          })));
+        } else {
+          const fetchedItems = res.items || [];
+          const filtered = fetchedItems.filter(i => 
+            category === 'Featured orders' ? true : i.category === category
+          ).map(i => ({
+            id: i._id,
+            name: i.name,
+            sub: i.description,
+            price: i.price?.toLocaleString(),
+            image: i.image || 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=400&q=80',
+            vendorId: i.vendorId
+          }));
+          setItems(filtered);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
@@ -94,21 +139,27 @@ const CategoryScreen = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={items}
-        renderItem={renderItem}
-        keyExtractor={i => i.id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="restaurant-outline" size={50} color="#DDD" />
-            <Text style={styles.emptyText}>No items in this category yet</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={items}
+          renderItem={renderItem}
+          keyExtractor={i => i.id}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="restaurant-outline" size={50} color="#DDD" />
+              <Text style={styles.emptyText}>No items in this category yet</Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 };

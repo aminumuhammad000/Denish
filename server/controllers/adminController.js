@@ -9,6 +9,7 @@ const Banner = require('../models/Banner');
 const Promotion = require('../models/Promotion');
 const Admin = require('../models/Admin');
 const Notification = require('../models/Notification');
+const SystemContent = require('../models/SystemContent');
 const jwt = require('jsonwebtoken');
 
 
@@ -414,6 +415,40 @@ const markAllNotificationsAsRead = async (req, res) => {
   }
 };
 
+const getSystemContent = async (req, res) => {
+  try {
+    const { key } = req.params;
+    let content = await SystemContent.findOne({ key });
+    if (!content) {
+      // Default fallbacks if key not seeded yet
+      const defaults = {
+        terms_of_service: { key: 'terms_of_service', title: 'Terms of Service', content: 'Welcome to Denish. By using our platform, you agree to comply with and be bound by the following terms of service...' },
+        privacy_policy: { key: 'privacy_policy', title: 'Privacy Policy', content: 'Your privacy is important to us. Denish collects minimal data required to fulfill your orders securely...' },
+        help_and_support: { key: 'help_and_support', title: 'Help & Support', content: 'Need assistance with an order or account? Our support team is available 24/7.', contactEmail: 'support@denish.com', contactPhone: '+234 800 336 4741' }
+      };
+      content = defaults[key] || { key, title: 'Information', content: 'Content unavailable.' };
+    }
+    res.status(200).json({ success: true, data: content });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const updateSystemContent = async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { title, content, contactEmail, contactPhone } = req.body;
+    const updated = await SystemContent.findOneAndUpdate(
+      { key },
+      { key, title, content, contactEmail, contactPhone },
+      { upsert: true, new: true }
+    );
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllOrders,
@@ -444,7 +479,9 @@ module.exports = {
   updateAdminProfile,
   getNotifications,
   markNotificationAsRead,
-  markAllNotificationsAsRead
+  markAllNotificationsAsRead,
+  getSystemContent,
+  updateSystemContent
 };
 
 

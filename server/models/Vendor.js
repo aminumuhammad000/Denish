@@ -59,6 +59,9 @@ const vendorSchema = new mongoose.Schema({
     enum: ['Pending', 'Approved', 'Suspended'],
     default: 'Pending',
   },
+  rating: { type: Number, default: 4.8 },
+  deliveryTime: { type: String, default: '25-35 min' },
+  deliveryFee: { type: Number, default: 500 },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Vendor', vendorSchema);

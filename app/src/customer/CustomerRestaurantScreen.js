@@ -115,15 +115,15 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <Ionicons name="star" size={14} color="#F59E0B" />
-              <Text style={styles.metaValue}>4.8</Text>
+              <Text style={styles.metaValue}>{vendor.rating || 4.8}</Text>
             </View>
             <View style={styles.metaItem}>
               <Ionicons name="time-outline" size={14} color="#999" />
-              <Text style={styles.metaValue}>25-35 min</Text>
+              <Text style={styles.metaValue}>{vendor.deliveryTime || '25-35 min'}</Text>
             </View>
             <View style={styles.metaItem}>
               <MaterialCommunityIcons name="currency-ngn" size={14} color="#999" />
-              <Text style={styles.metaValue}>500</Text>
+              <Text style={styles.metaValue}>{vendor.deliveryFee || 500}</Text>
             </View>
           </View>
         </View>

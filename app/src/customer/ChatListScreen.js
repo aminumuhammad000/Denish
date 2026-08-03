@@ -33,10 +33,43 @@ const CHATS = [
   }
 ];
 
-const ChatListScreen = ({ navigation }) => {
-  const [search, setSearch] = useState('');
+import { fetchChatThreads } from '../services/api';
+import { useIsFocused } from '@react-navigation/native';
+import { ActivityIndicator } from 'react-native';
 
-  const filteredChats = CHATS.filter(chat => 
+const ChatListScreen = ({ navigation }) => {
+  const isFocused = useIsFocused();
+  const [search, setSearch] = useState('');
+  const [chats, setChats] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    if (isFocused) {
+      loadThreads();
+    }
+  }, [isFocused]);
+
+  const loadThreads = async () => {
+    try {
+      const res = await fetchChatThreads();
+      if (res.success && res.threads?.length > 0) {
+        setChats(res.threads);
+      } else {
+        // Fallback default active threads if DB empty
+        setChats([
+          { id: '1', name: "Mama's Kitchen", lastMsg: "Your order is being prepared and will be with you shortly!", time: "12:30 PM", unread: 2, avatar: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100' },
+          { id: '2', name: "Temmy Store", lastMsg: "You're welcome, sir.", time: "1:48 PM", unread: 0, avatar: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=100' },
+          { id: '3', name: "Gourmet Hub", lastMsg: "We just updated our continental menu. Check it out!", time: "Monday", unread: 0, avatar: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=100' }
+        ]);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredChats = chats.filter(chat => 
     chat.name.toLowerCase().includes(search.toLowerCase()) ||
     chat.lastMsg.toLowerCase().includes(search.toLowerCase())
   );

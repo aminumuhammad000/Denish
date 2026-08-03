@@ -8,6 +8,7 @@
     "dev": "node --watch index.js",
     "build": "echo \"No build step required for Node server\"",
     "seed": "node seedAdmin.js",
+    "seed:vendors": "node seedVendors.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

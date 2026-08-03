@@ -1,7 +1,14 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 
+// For Android emulator, use 10.0.2.2. For iOS emulator, use localhost.
+// Replace with your local machine's IP if testing on a physical device.
+// For physical devices on local network, use local IP 192.168.1.85. For Simulator, localhost works as well.
 const getBaseUrl = () => {
-  return 'https://api.denishng.com/api';
+  if (Platform.OS === 'ios' && !__DEV__) {
+    return 'http://192.168.1.85:3000/api';
+  }
+  return 'http://192.168.1.85:3000/api';
 };
 
 const api = axios.create({
@@ -289,6 +296,116 @@ export const savePaymentMethod = async (paymentData) => {
     return response.data;
   } catch (error) {
     console.error('API savePaymentMethod error:', error);
+    throw error;
+  }
+};
+
+export const deleteCustomerAddress = async (addressId) => {
+  try {
+    const response = await api.delete(`/customer/address/${addressId}`);
+    return response.data;
+  } catch (error) {
+    console.error('API deleteCustomerAddress error:', error);
+    throw error;
+  }
+};
+
+export const deleteCustomerPaymentMethod = async (paymentId) => {
+  try {
+    const response = await api.delete(`/customer/payment-method/${paymentId}`);
+    return response.data;
+  } catch (error) {
+    console.error('API deleteCustomerPaymentMethod error:', error);
+    throw error;
+  }
+};
+
+export const fetchSystemContent = async (key) => {
+  try {
+    const response = await api.get(`/admin/content/${key}`);
+    return response.data;
+  } catch (error) {
+    console.error('API fetchSystemContent error:', error);
+    throw error;
+  }
+};
+
+export const fetchChatThreads = async () => {
+  try {
+    const response = await api.get('/customer/chats');
+    return response.data;
+  } catch (error) {
+    console.error('API fetchChatThreads error:', error);
+    throw error;
+  }
+};
+
+export const fetchMessages = async (recipientName) => {
+  try {
+    const response = await api.get('/customer/messages', { params: { recipientName } });
+    return response.data;
+  } catch (error) {
+    console.error('API fetchMessages error:', error);
+    throw error;
+  }
+};
+
+export const sendChatMessage = async (payload) => {
+  try {
+    const response = await api.post('/customer/messages', payload);
+    return response.data;
+  } catch (error) {
+    console.error('API sendChatMessage error:', error);
+    throw error;
+  }
+};
+
+export const initiateCallSession = async (payload) => {
+  try {
+    const response = await api.post('/customer/call/initiate', payload);
+    return response.data;
+  } catch (error) {
+    console.error('API initiateCallSession error:', error);
+    throw error;
+  }
+};
+
+export const fetchIncomingCall = async () => {
+  try {
+    const response = await api.get('/customer/call/incoming');
+    return response.data;
+  } catch (error) {
+    console.error('API fetchIncomingCall error:', error);
+    throw error;
+  }
+};
+
+export const respondCallSession = async (payload) => {
+  try {
+    const response = await api.post('/customer/call/respond', payload);
+    return response.data;
+  } catch (error) {
+    console.error('API respondCallSession error:', error);
+    throw error;
+  }
+};
+
+export const initFlutterwaveCheckout = async (payload) => {
+  try {
+    const response = await api.post('/customer/flw/initialize', payload);
+    return response.data;
+  } catch (error) {
+    console.error('API initFlutterwaveCheckout error:', error);
+    throw error;
+  }
+};
+
+export const verifyFlutterwaveCheckout = async (payload) => {
+  try {
+    const response = await api.post('/customer/flw/verify', payload);
+    return response.data;
+  } catch (error) {
+    console.error('API verifyFlutterwaveCheckout error:', error);
     throw error;
   }
 };

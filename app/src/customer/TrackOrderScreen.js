@@ -23,7 +23,7 @@ const TrackOrderScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     loadTracking();
-    const interval = setInterval(loadTracking, 30000);
+    const interval = setInterval(loadTracking, 5000);
     return () => clearInterval(interval);
   }, [orderId]);
 
@@ -41,15 +41,24 @@ const TrackOrderScreen = ({ navigation, route }) => {
     }
   };
 
-  const currentStatus = trackingData?.status || 'delivered'; // Mocking 'delivered' for this task
+  const currentStatus = trackingData?.status || 'placed'; // Live MongoDB order status
 
   const steps = [
-    { title: 'Order confirmed', sub: 'Vendor has accepted your order', status: 'completed' },
-    { title: 'Vendor preparing', sub: 'Your items are being packaged', status: ['preparing', 'ready', 'assigned', 'on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' },
+    { title: 'Order confirmed', sub: 'Vendor has accepted your order', status: ['placed', 'accepted', 'preparing', 'assigned', 'on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' },
+    { title: 'Vendor preparing', sub: 'Your items are being packaged', status: ['preparing', 'assigned', 'on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' },
     { title: 'Driver assigned', sub: 'Driver is heading to pickup', status: ['assigned', 'on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' },
     { title: 'On the way', sub: 'Driver is heading to you', status: ['on the way', 'delivered'].includes(currentStatus) ? 'completed' : 'pending' },
     { title: 'Delivered', sub: 'Enjoy your meal!', status: currentStatus === 'delivered' ? 'completed' : 'pending' },
   ];
+
+  const handleCallDriver = () => {
+    navigation.navigate('Calling', {
+      name: trackingData?.driverName || 'Kola Adeleke',
+      phone: trackingData?.driverPhone || '09123882672',
+      orderId,
+      subtitle: `${trackingData?.totalAmount ? '₦' + trackingData.totalAmount.toLocaleString() : '₦5,700'} | 3.5 km`
+    });
+  };
 
   const handleReviewSubmit = () => {
     Alert.alert('Success', 'Thank you for your feedback!');
@@ -70,7 +79,7 @@ const TrackOrderScreen = ({ navigation, route }) => {
       
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.navigate('CustomerHome')} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
@@ -92,12 +101,12 @@ const TrackOrderScreen = ({ navigation, route }) => {
           <View style={styles.statusRow}>
             <View>
               <Text style={styles.statusLabel}>{currentStatus === 'delivered' ? 'Delivered' : 'Arriving in'}</Text>
-              <Text style={styles.statusTime}>{currentStatus === 'delivered' ? 'Today' : `${arrivalTime} min`}</Text>
+              <Text style={styles.statusTime}>{currentStatus === 'delivered' ? 'Today' : `${arrivalTime || 25} min`}</Text>
             </View>
             <View style={styles.statusInfoRight}>
               <Text style={styles.statusLabelSmall}>Status</Text>
               <Text style={[styles.statusMain, currentStatus === 'delivered' && { color: '#27A572' }]}>
-                {currentStatus === 'delivered' ? 'Delivered successfully' : 'Driver heading to you'}
+                {currentStatus === 'delivered' ? 'Delivered successfully' : currentStatus === 'on the way' ? 'Driver heading to you' : 'Order placed'}
               </Text>
             </View>
           </View>
@@ -105,9 +114,9 @@ const TrackOrderScreen = ({ navigation, route }) => {
 
         {/* Driver Info Card */}
         <View style={styles.driverCard}>
-          <Image source={{ uri: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }} style={styles.driverPic} />
+          <Image source={{ uri: trackingData?.driverPic || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }} style={styles.driverPic} />
           <View style={styles.driverInfo}>
-            <Text style={styles.driverName}>Kola Adeleke</Text>
+            <Text style={styles.driverName}>{trackingData?.driverName || 'Kola Adeleke'}</Text>
             <View style={styles.driverMeta}>
               <Ionicons name="star" size={12} color="#FFD700" />
               <Text style={styles.driverRating}>4.8</Text>
@@ -116,10 +125,10 @@ const TrackOrderScreen = ({ navigation, route }) => {
             </View>
           </View>
           <View style={styles.driverActions}>
-             <TouchableOpacity style={styles.driverActionBtn} onPress={() => Alert.alert('Call', 'Calling driver...')}>
+             <TouchableOpacity style={styles.driverActionBtn} onPress={handleCallDriver}>
                <Ionicons name="call" size={18} color="#27A572" />
              </TouchableOpacity>
-             <TouchableOpacity style={styles.driverActionBtnChat} onPress={() => navigation.navigate('ChatDetail', { name: 'Kola Adeleke', type: 'Driver' })}>
+             <TouchableOpacity style={styles.driverActionBtnChat} onPress={() => navigation.navigate('ChatDetail', { name: trackingData?.driverName || 'Kola Adeleke', type: 'Driver' })}>
                <Ionicons name="chatbubble-ellipses" size={18} color="#FF7D01" />
              </TouchableOpacity>
           </View>
@@ -154,8 +163,8 @@ const TrackOrderScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity style={styles.actionBtn} disabled>
-            <Text style={styles.actionBtnText}>Placing order</Text>
+          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Colors.primary }]} onPress={() => navigation.navigate('CustomerHome')}>
+            <Text style={styles.actionBtnText}>Back to Home</Text>
           </TouchableOpacity>
         )}
       </View>

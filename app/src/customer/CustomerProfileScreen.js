@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Modal, TextInput, Alert, Clipboard
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 
-import { getCustomerProfile } from '../services/api';
+import { getCustomerProfile, saveAddress, savePaymentMethod, deleteCustomerAddress, deleteCustomerPaymentMethod, updateCustomerProfile } from '../services/api';
 import { useIsFocused } from '@react-navigation/native';
 import CustomerBottomTab from './components/CustomerBottomTab';
 
@@ -14,6 +14,16 @@ const CustomerProfileScreen = ({ navigation }) => {
   const isFocused = useIsFocused();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [referralModalVisible, setReferralModalVisible] = useState(false);
+  const [addressLabel, setAddressLabel] = useState('');
+  const [addressStreet, setAddressStreet] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardType, setCardType] = useState('Visa');
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
   const [notifications, setNotifications] = useState({
     orders: true,
     promotions: true,
@@ -31,11 +41,28 @@ const CustomerProfileScreen = ({ navigation }) => {
       const res = await getCustomerProfile();
       if (res.success) {
         setProfile(res.data);
+        if (res.data.notifications) {
+          setNotifications({
+            orders: res.data.notifications.orders ?? true,
+            promotions: res.data.notifications.promotions ?? true,
+            recommendations: res.data.notifications.recommendations ?? false,
+          });
+        }
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNotificationToggle = async (key, value) => {
+    const updated = { ...notifications, [key]: value };
+    setNotifications(updated);
+    try {
+      await updateCustomerProfile({ notifications: updated });
+    } catch (e) {
+      console.error('Failed to update notification preference:', e);
     }
   };
 
@@ -83,7 +110,7 @@ const CustomerProfileScreen = ({ navigation }) => {
         <View style={styles.loyaltyCard}>
           <MaterialCommunityIcons name="gift-outline" size={40} color="#FFF" />
           <Text style={styles.loyaltyLabel}>Loyalty points</Text>
-          <Text style={styles.loyaltyPoints}>340</Text>
+          <Text style={styles.loyaltyPoints}>{profile?.loyaltyPoints ?? 0}</Text>
         </View>
 
         {/* Saved Addresses */}
@@ -92,42 +119,53 @@ const CustomerProfileScreen = ({ navigation }) => {
             <MaterialCommunityIcons name="map-marker-outline" size={20} color="#FF8C00" />
             <Text style={styles.sectionTitle}>Saved addresses</Text>
           </View>
-          <TouchableOpacity><Text style={styles.addText}>+ Add</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setAddressModalVisible(true)}>
+            <Text style={styles.addText}>+ Add</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.card}>
-          <View style={styles.addressRow}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.row}>
-                <Text style={styles.addressName}>Home</Text>
-                <View style={styles.defaultBadge}><Text style={styles.defaultText}>Default</Text></View>
-              </View>
-              <Text style={styles.addressText}>12 Marina Road, Lagos Island, Lagos</Text>
+          {profile?.addresses && profile.addresses.length > 0 ? (
+            profile.addresses.map((addr, index) => (
+              <React.Fragment key={addr._id || index}>
+                {index > 0 && <View style={styles.divider} />}
+                <View style={styles.addressRow}>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.row}>
+                      <Text style={styles.addressName}>{addr.label || addr.title || 'Address'}</Text>
+                      {addr.isDefault && <View style={styles.defaultBadge}><Text style={styles.defaultText}>Default</Text></View>}
+                    </View>
+                    <Text style={styles.addressText}>{addr.addr || addr.address || addr.street || JSON.stringify(addr)}</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={{ padding: 6 }}
+                    onPress={() => {
+                      Alert.alert('Delete Address', 'Are you sure you want to delete this address?', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Delete', 
+                          style: 'destructive',
+                          onPress: async () => {
+                            try {
+                              await deleteCustomerAddress(addr._id);
+                              fetchProfile();
+                            } catch(e) {
+                              Alert.alert('Error', 'Failed to delete address.');
+                            }
+                          } 
+                        }
+                      ]);
+                    }}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF5252" />
+                  </TouchableOpacity>
+                </View>
+              </React.Fragment>
+            ))
+          ) : (
+            <View style={{ padding: 15 }}>
+              <Text style={{ color: '#888' }}>No saved addresses yet.</Text>
             </View>
-            <View style={styles.addressActions}>
-              <TouchableOpacity><MaterialCommunityIcons name="square-edit-outline" size={20} color="#666" /></TouchableOpacity>
-              <TouchableOpacity><MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF5252" /></TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.addressRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.addressName}>Office</Text>
-              <Text style={styles.addressText}>Plot 8, Akin Adesola Street, Victoria Island</Text>
-              <Text style={styles.setDefaultText}>Set default</Text>
-            </View>
-            <TouchableOpacity><MaterialCommunityIcons name="square-edit-outline" size={20} color="#666" /></TouchableOpacity>
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <View style={styles.addressRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.addressName}>Mum's</Text>
-              <Text style={styles.addressText}>23 Allen Avenue, Ikeja, Lagos</Text>
-            </View>
-            <View style={styles.addressActions}>
-              <TouchableOpacity><MaterialCommunityIcons name="square-edit-outline" size={20} color="#666" /></TouchableOpacity>
-              <TouchableOpacity><MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF5252" /></TouchableOpacity>
-            </View>
-          </View>
+          )}
         </View>
 
         {/* Payment Methods */}
@@ -136,21 +174,49 @@ const CustomerProfileScreen = ({ navigation }) => {
             <MaterialCommunityIcons name="wallet-outline" size={20} color="#FF8C00" />
             <Text style={styles.sectionTitle}>Payment method</Text>
           </View>
-          <TouchableOpacity><Text style={styles.addText}>+ Add card</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setPaymentModalVisible(true)}>
+            <Text style={styles.addText}>+ Add card</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.card}>
           <View style={styles.paymentRow}>
-            <MaterialCommunityIcons name="credit-card-outline" size={24} color="#333" />
-            <View style={{ flex: 1, marginLeft: 15 }}>
-              <Text style={styles.paymentName}>Visa ● ● ● ● 4242</Text>
-              <Text style={styles.paymentMeta}>Expires 09/27</Text>
-            </View>
-          </View>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.paymentRow}>
             <MaterialCommunityIcons name="cash" size={24} color="#333" />
             <Text style={[styles.paymentName, { marginLeft: 15 }]}>Cash on delivery</Text>
-          </TouchableOpacity>
+          </View>
+          {profile?.paymentMethods && profile.paymentMethods.map((pay, index) => (
+            <React.Fragment key={pay._id || index}>
+              <View style={styles.divider} />
+              <View style={styles.paymentRow}>
+                <MaterialCommunityIcons name="credit-card-outline" size={24} color="#333" />
+                <View style={{ flex: 1, marginLeft: 15 }}>
+                  <Text style={styles.paymentName}>{pay.cardType || pay.type || 'Card'} ● ● ● ● {pay.last4 || '4242'}</Text>
+                  {pay.expiry && <Text style={styles.paymentMeta}>Expires {pay.expiry}</Text>}
+                </View>
+                <TouchableOpacity 
+                  style={{ padding: 6 }}
+                  onPress={() => {
+                    Alert.alert('Delete Card', 'Are you sure you want to delete this payment method?', [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Delete', 
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await deleteCustomerPaymentMethod(pay._id);
+                            fetchProfile();
+                          } catch(e) {
+                            Alert.alert('Error', 'Failed to delete payment method.');
+                          }
+                        } 
+                      }
+                    ]);
+                  }}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF5252" />
+                </TouchableOpacity>
+              </View>
+            </React.Fragment>
+          ))}
         </View>
 
         {/* Notification Preferences */}
@@ -160,11 +226,11 @@ const CustomerProfileScreen = ({ navigation }) => {
             <View style={styles.prefRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.prefTitle}>Order updates</Text>
-                <Text style={styles.prefSubtitle}>Status, driver, delivery</Text>
+                <Text style={styles.prefSubtitle}>Real-time status changes</Text>
               </View>
               <Switch 
                 value={notifications.orders} 
-                onValueChange={(v) => setNotifications({...notifications, orders: v})}
+                onValueChange={(v) => handleNotificationToggle('orders', v)}
                 trackColor={{ true: '#4CD964', false: '#EEE' }}
                 thumbColor="#FFF"
               />
@@ -172,12 +238,12 @@ const CustomerProfileScreen = ({ navigation }) => {
             <View style={styles.divider} />
             <View style={styles.prefRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.prefTitle}>Promotion & offers</Text>
-                <Text style={styles.prefSubtitle}>Discount and codes</Text>
+                <Text style={styles.prefTitle}>Promotions</Text>
+                <Text style={styles.prefSubtitle}>Discounts and deals</Text>
               </View>
               <Switch 
                 value={notifications.promotions} 
-                onValueChange={(v) => setNotifications({...notifications, promotions: v})}
+                onValueChange={(v) => handleNotificationToggle('promotions', v)}
                 trackColor={{ true: '#4CD964', false: '#EEE' }}
                 thumbColor="#FFF"
               />
@@ -190,7 +256,7 @@ const CustomerProfileScreen = ({ navigation }) => {
               </View>
               <Switch 
                 value={notifications.recommendations} 
-                onValueChange={(v) => setNotifications({...notifications, recommendations: v})}
+                onValueChange={(v) => handleNotificationToggle('recommendations', v)}
                 trackColor={{ true: '#4CD964', false: '#EEE' }}
                 thumbColor="#FFF"
               />
@@ -200,7 +266,7 @@ const CustomerProfileScreen = ({ navigation }) => {
 
         {/* Other Options */}
         <View style={styles.card}>
-          <TouchableOpacity style={styles.optionRow}>
+          <TouchableOpacity style={styles.optionRow} onPress={() => setReferralModalVisible(true)}>
             <MaterialCommunityIcons name="gift-outline" size={22} color="#FF8C00" />
             <View style={{ flex: 1, marginLeft: 15 }}>
               <Text style={styles.optionTitle}>Refer and earn</Text>
@@ -208,7 +274,7 @@ const CustomerProfileScreen = ({ navigation }) => {
             </View>
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.optionRow}>
+          <TouchableOpacity style={styles.optionRow} onPress={() => navigation.navigate('SystemContent', { key: 'terms_of_service', title: 'Terms of Service' })}>
             <MaterialCommunityIcons name="file-document-outline" size={22} color="#FF8C00" />
             <View style={{ flex: 1, marginLeft: 15 }}>
               <Text style={styles.optionTitle}>Terms of service</Text>
@@ -216,7 +282,7 @@ const CustomerProfileScreen = ({ navigation }) => {
             </View>
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.optionRow}>
+          <TouchableOpacity style={styles.optionRow} onPress={() => navigation.navigate('SystemContent', { key: 'privacy_policy', title: 'Privacy Policy' })}>
             <MaterialCommunityIcons name="shield-outline" size={22} color="#FF8C00" />
             <View style={{ flex: 1, marginLeft: 15 }}>
               <Text style={styles.optionTitle}>Privacy policy</Text>
@@ -224,7 +290,7 @@ const CustomerProfileScreen = ({ navigation }) => {
             </View>
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.optionRow}>
+          <TouchableOpacity style={styles.optionRow} onPress={() => navigation.navigate('SystemContent', { key: 'help_and_support', title: 'Help & Support' })}>
             <MaterialCommunityIcons name="help-circle-outline" size={22} color="#FF8C00" />
             <View style={{ flex: 1, marginLeft: 15 }}>
               <Text style={styles.optionTitle}>Help & support</Text>
@@ -238,6 +304,236 @@ const CustomerProfileScreen = ({ navigation }) => {
         </TouchableOpacity>
 
       </ScrollView>
+
+      {/* Add Address Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={addressModalVisible}
+        onRequestClose={() => setAddressModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <TouchableOpacity 
+              style={styles.closeBtn} 
+              onPress={() => setAddressModalVisible(false)}
+            >
+              <Ionicons name="close" size={22} color="#666" />
+            </TouchableOpacity>
+
+            <Text style={styles.modalHeaderTitle}>Add address</Text>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalInputLabel}>Label</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Home, Office..."
+                placeholderTextColor="#AAA"
+                value={addressLabel}
+                onChangeText={setAddressLabel}
+              />
+            </View>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalInputLabel}>Address</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Street, area, city"
+                placeholderTextColor="#AAA"
+                value={addressStreet}
+                onChangeText={setAddressStreet}
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={styles.saveModalBtn}
+              disabled={savingAddress}
+              onPress={async () => {
+                if (!addressStreet) {
+                  Alert.alert('Error', 'Please enter your street address.');
+                  return;
+                }
+                setSavingAddress(true);
+                try {
+                  await saveAddress({
+                    label: addressLabel || 'Home',
+                    addr: addressStreet,
+                    address: addressStreet,
+                    isDefault: true
+                  });
+                  setAddressLabel('');
+                  setAddressStreet('');
+                  setAddressModalVisible(false);
+                  fetchProfile();
+                } catch (e) {
+                  Alert.alert('Error', 'Failed to save address');
+                } finally {
+                  setSavingAddress(false);
+                }
+              }}
+            >
+              {savingAddress ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.saveModalBtnText}>Save</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.cancelModalBtn}
+              onPress={() => setAddressModalVisible(false)}
+            >
+              <Text style={styles.cancelModalBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Refer Friends Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={referralModalVisible}
+        onRequestClose={() => setReferralModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <TouchableOpacity 
+              style={styles.closeBtn} 
+              onPress={() => setReferralModalVisible(false)}
+            >
+              <Ionicons name="close" size={22} color="#666" />
+            </TouchableOpacity>
+
+            <Text style={styles.modalHeaderTitle}>Refer friends, earn rewards</Text>
+
+            <View style={{ alignItems: 'center', marginVertical: 18 }}>
+              <MaterialCommunityIcons name="gift-outline" size={54} color="#FF7A00" />
+            </View>
+
+            <Text style={styles.referralSubtitle}>
+              You’ll need to sign back in to receive orders.
+            </Text>
+
+            <View style={styles.codeBox}>
+              <Text style={styles.codeText}>EMEKA340</Text>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.copyBtn}
+              onPress={() => {
+                Clipboard.setString('EMEKA340');
+                Alert.alert('Copied!', 'Referral code copied to clipboard.');
+              }}
+            >
+              <Text style={styles.copyBtnText}>Copy code</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Payment Method Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={paymentModalVisible}
+        onRequestClose={() => setPaymentModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <TouchableOpacity 
+              style={styles.closeBtn} 
+              onPress={() => setPaymentModalVisible(false)}
+            >
+              <Ionicons name="close" size={22} color="#666" />
+            </TouchableOpacity>
+
+            <Text style={styles.modalHeaderTitle}>Add payment card</Text>
+
+            <View style={styles.modalInputGroup}>
+              <Text style={styles.modalInputLabel}>Card Number</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="4242 •••• •••• 8812"
+                placeholderTextColor="#AAA"
+                keyboardType="number-pad"
+                maxLength={19}
+                value={cardNumber}
+                onChangeText={setCardNumber}
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={[styles.modalInputGroup, { flex: 1 }]}>
+                <Text style={styles.modalInputLabel}>Expiry Date</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="MM/YY (e.g. 12/28)"
+                  placeholderTextColor="#AAA"
+                  maxLength={5}
+                  value={cardExpiry}
+                  onChangeText={setCardExpiry}
+                />
+              </View>
+              <View style={[styles.modalInputGroup, { flex: 1 }]}>
+                <Text style={styles.modalInputLabel}>Card Type</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Visa / Mastercard"
+                  placeholderTextColor="#AAA"
+                  value={cardType}
+                  onChangeText={setCardType}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.saveModalBtn}
+              disabled={savingPayment}
+              onPress={async () => {
+                const cleanNum = cardNumber.replace(/\s/g, '');
+                if (cleanNum.length < 4) {
+                  Alert.alert('Error', 'Please enter a valid card number.');
+                  return;
+                }
+                const last4Digits = cleanNum.slice(-4);
+                setSavingPayment(true);
+                try {
+                  await savePaymentMethod({
+                    title: `${cardType || 'Card'} ● ● ● ● ${last4Digits}`,
+                    last4: last4Digits,
+                    cardType: cardType || 'Visa',
+                    expiry: cardExpiry || '12/28',
+                    type: 'card'
+                  });
+                  setCardNumber('');
+                  setCardExpiry('');
+                  setPaymentModalVisible(false);
+                  fetchProfile();
+                } catch (e) {
+                  Alert.alert('Error', 'Failed to save payment method.');
+                } finally {
+                  setSavingPayment(false);
+                }
+              }}
+            >
+              {savingPayment ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.saveModalBtnText}>Save card</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.cancelModalBtn}
+              onPress={() => setPaymentModalVisible(false)}
+            >
+              <Text style={styles.cancelModalBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <CustomerBottomTab activeTab="Profile" navigation={navigation} />
     </SafeAreaView>
   );
@@ -346,6 +642,112 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   logoutText: { color: '#FF5252', fontSize: 16, fontWeight: 'bold' },
+
+  // Modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 24,
+    position: 'relative'
+  },
+  closeBtn: {
+    position: 'absolute',
+    right: 20,
+    top: 20,
+    zIndex: 10
+  },
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 20
+  },
+  modalInputGroup: {
+    marginBottom: 16
+  },
+  modalInputLabel: {
+    fontSize: 14,
+    color: '#4A4A4A',
+    marginBottom: 8,
+    fontWeight: '500'
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#1A1A1A',
+    backgroundColor: '#FFF'
+  },
+  saveModalBtn: {
+    backgroundColor: '#FF7A00',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8
+  },
+  saveModalBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700'
+  },
+  cancelModalBtn: {
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 12
+  },
+  cancelModalBtnText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  referralSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20
+  },
+  codeBox: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 14,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#EAEAEA'
+  },
+  codeText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    letterSpacing: 1.5
+  },
+  copyBtn: {
+    backgroundColor: '#FF7A00',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center'
+  },
+  copyBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700'
+  }
 });
 
 export default CustomerProfileScreen;

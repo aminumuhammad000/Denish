@@ -59,6 +59,10 @@ import { OnboardingProvider } from './src/context/OnboardingContext';
 
 import OnboardingScreen from './src/screens/OnboardingScreen';
 
+import SplashScreen from './src/screens/SplashScreen';
+import SystemContentScreen from './src/screens/SystemContentScreen';
+import IncomingCallScreen from './src/screens/IncomingCallScreen';
+
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -68,7 +72,8 @@ export default function App() {
         <CartProvider>
           <NavigationContainer>
             <StatusBar style="auto" />
-            <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Onboarding">
+            <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
+              <Stack.Screen name="Splash" component={SplashScreen} />
               <Stack.Screen name="Onboarding" component={OnboardingScreen} />
               <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
               
@@ -108,6 +113,7 @@ export default function App() {
               <Stack.Screen name="TrackOrder" component={TrackOrderScreen} />
               <Stack.Screen name="Search" component={SearchScreen} />
               <Stack.Screen name="Category" component={CategoryScreen} />
+              <Stack.Screen name="SystemContent" component={SystemContentScreen} />
 
               <Stack.Screen name="DriverWelcome" component={DriverWelcomeScreen} />
               <Stack.Screen name="DriverSignup" component={DriverSignupScreen} />
@@ -122,7 +128,8 @@ export default function App() {
               <Stack.Screen name="DriverProfile"      component={DriverProfileScreen} />
               <Stack.Screen name="DriverEditProfile"  component={DriverEditProfileScreen} />
               <Stack.Screen name="Calling"            component={CallingScreen} options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-               <Stack.Screen name="Notifications"      component={NotificationsScreen} />
+              <Stack.Screen name="IncomingCall"        component={IncomingCallScreen} options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+              <Stack.Screen name="Notifications"      component={NotificationsScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </CartProvider>

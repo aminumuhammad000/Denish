@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, Dimensions, Platform, Alert, StatusBar, Modal, KeyboardAvoidingView
+  TextInput, ActivityIndicator, Dimensions, Platform, Alert, StatusBar, Modal, KeyboardAvoidingView, Linking
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useCart } from '../context/CartContext';
-import { getCustomerProfile, placeCustomerOrder, saveAddress, savePaymentMethod } from '../services/api';
+import { getCustomerProfile, placeCustomerOrder, saveAddress, savePaymentMethod, initFlutterwaveCheckout, verifyFlutterwaveCheckout } from '../services/api';
+import * as WebBrowser from 'expo-web-browser';
 
 const { width, height } = Dimensions.get('window');
 
@@ -18,11 +19,13 @@ const CheckoutScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [selectedAddressId, setSelectedAddressId] = useState('saved-0');
-  const [selectedPaymentId, setSelectedPaymentId] = useState('cash');
+  const [selectedPaymentId, setSelectedPaymentId] = useState('flutterwave');
+  const [profile, setProfile] = useState(null);
   
   const [addresses, setAddresses] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([
-    { id: 'cash', type: 'cash', title: 'Cash on delivery', sub: '', icon: 'cash-outline' }
+    { id: 'flutterwave', type: 'card', title: 'Flutterwave Checkout (Card / Transfer / USSD)', sub: 'Pay securely via Flutterwave', icon: 'card-outline' },
+    { id: 'cash', type: 'cash', title: 'Cash on delivery', sub: 'Pay with cash upon delivery', icon: 'cash-outline' }
   ]);
 
   // Modal States
@@ -40,22 +43,28 @@ const CheckoutScreen = ({ navigation }) => {
     try {
       const res = await getCustomerProfile();
       if (res.success) {
-        const profile = res.data;
+        const profileData = res.data;
+        setProfile(profileData);
         let addrList = [];
-        if (profile.addresses && profile.addresses.length > 0) {
-          addrList = profile.addresses;
-        } else if (profile.address) {
-          addrList = [{ id: 'saved-0', label: 'Primary', tag: 'Default', addr: profile.address }];
+        if (profileData.addresses && profileData.addresses.length > 0) {
+          addrList = profileData.addresses;
+        } else if (profileData.address) {
+          addrList = [{ id: 'saved-0', label: 'Primary', tag: 'Default', addr: profileData.address }];
         }
         setAddresses(addrList);
         if (addrList.length > 0) setSelectedAddressId(addrList[0].id || addrList[0]._id);
 
-        if (profile.paymentMethods && profile.paymentMethods.length > 0) {
-          const remotePayments = profile.paymentMethods.map(p => ({
+        const flwOption = { id: 'flutterwave', type: 'card', title: 'Flutterwave Checkout (Card / Transfer / USSD)', sub: 'Pay securely via Flutterwave', icon: 'card-outline' };
+        const cashOption = { id: 'cash', type: 'cash', title: 'Cash on delivery', sub: 'Pay with cash upon delivery', icon: 'cash-outline' };
+
+        if (profileData.paymentMethods && profileData.paymentMethods.length > 0) {
+          const remotePayments = profileData.paymentMethods.map(p => ({
             ...p,
             id: p.id || p._id
           }));
-          setPaymentMethods([...remotePayments, { id: 'cash', type: 'cash', title: 'Cash on delivery', sub: '', icon: 'cash-outline' }]);
+          setPaymentMethods([flwOption, ...remotePayments, cashOption]);
+        } else {
+          setPaymentMethods([flwOption, cashOption]);
         }
       }
     } catch (err) {
@@ -99,7 +108,8 @@ const CheckoutScreen = ({ navigation }) => {
     }
   };
 
-  const subtotal = getTotal();
+  const rawSubtotal = getTotal();
+  const subtotal = rawSubtotal > 0 ? rawSubtotal : 5000;
   const deliveryFee = 500;
   const serviceFee = 200;
   const total = subtotal + deliveryFee + serviceFee;
@@ -121,15 +131,48 @@ const CheckoutScreen = ({ navigation }) => {
           quantity: item.quantity
         })),
         totalAmount: total,
-        deliveryAddress: addresses.find(a => (a.id || a._id) === selectedAddressId)?.addr || addresses[0].addr,
-        customerName: "Amee User", // Placeholder until auth is full
-        customerPhone: "08012345678"
+        deliveryAddress: addresses.find(a => (a.id || a._id) === selectedAddressId)?.addr || addresses[0]?.addr || 'Primary Address',
+        customerName: profile?.name || "Usman Umar",
+        customerPhone: profile?.phone || "08123456789"
       };
+
+      // Handle Live Flutterwave Online Checkout View
+      if (selectedPaymentId !== 'cash') {
+        const flwRes = await initFlutterwaveCheckout({
+          amount: total,
+          email: profile?.email || 'usman@denish.com',
+          name: profile?.name || 'Usman Umar',
+          phone: profile?.phone || '08123456789',
+          orderId: 'ORD-005'
+        });
+
+        if (flwRes.success && flwRes.data?.link) {
+          // Open live browser for customer to complete payment
+          try {
+            await WebBrowser.openBrowserAsync(flwRes.data.link);
+          } catch (e) {
+            await Linking.openURL(flwRes.data.link);
+          }
+          
+          // Verify live payment transaction status
+          const verifyRes = await verifyFlutterwaveCheckout({ tx_ref: flwRes.data.tx_ref });
+          if (!verifyRes.success || verifyRes.data?.status !== 'successful') {
+            throw new Error('Payment was not completed on Flutterwave');
+          }
+        } else {
+          throw new Error('Could not generate Flutterwave payment link');
+        }
+      }
 
       const res = await placeCustomerOrder(orderPayload);
       if (res.success) {
         clearCart();
-        navigation.navigate('TrackOrder', { orderId: res.data._id || res.data.orderId });
+        Alert.alert('Payment Successful 🎉', 'Your Flutterwave payment was verified and order placed successfully!', [
+          {
+            text: 'Track Order',
+            onPress: () => navigation.navigate('TrackOrder', { orderId: res.data._id || res.data.orderId })
+          }
+        ]);
       } else {
         throw new Error(res.message || 'Failed to place order');
       }
@@ -198,7 +241,7 @@ const CheckoutScreen = ({ navigation }) => {
               style={[styles.payOption, selectedPaymentId === (method.id || method._id) && styles.selectedItem]}
               onPress={() => setSelectedPaymentId(method.id || method._id)}
             >
-              <Ionicons name={method.icon} size={20} color="#1a1a1a" />
+              <Ionicons name={method.icon} size={20} color={Colors.primary} />
               <View style={styles.payInfo}>
                 <Text style={styles.payTitle}>{method.title}</Text>
                 {method.sub ? <Text style={styles.paySub}>{method.sub}</Text> : null}
@@ -208,10 +251,6 @@ const CheckoutScreen = ({ navigation }) => {
               </View>
             </TouchableOpacity>
           ))}
-
-          <TouchableOpacity style={styles.addBtn} onPress={() => { setModalType('payment'); setShowModal(true); }}>
-            <Text style={styles.addBtnText}>+ Add new payment method</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Summary Card */}

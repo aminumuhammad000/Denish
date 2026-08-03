@@ -30,7 +30,9 @@ const {
   updateAdminProfile,
   getNotifications,
   markNotificationAsRead,
-  markAllNotificationsAsRead
+  markAllNotificationsAsRead,
+  getSystemContent,
+  updateSystemContent
 } = require('../controllers/adminController');
 const { upload } = require('../config/cloudinary');
 const { getVendorMenuById } = require('../controllers/menuController');
@@ -78,6 +80,9 @@ router.put('/profile', updateAdminProfile);
 router.get('/notifications', getNotifications);
 router.patch('/notifications/:id/read', markNotificationAsRead);
 router.patch('/notifications/read-all', markAllNotificationsAsRead);
+
+router.get('/content/:key', getSystemContent);
+router.put('/content/:key', updateSystemContent);
 
 // Image upload route
 router.post('/upload', upload.single('image'), (req, res) => {

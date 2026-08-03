@@ -6,24 +6,30 @@ const { sendWelcomeEmail, sendOTPEmail } = require('../utils/emailService');
 const vendorLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    let vendor = await Vendor.findOne({ email });
+    const cleanEmail = email ? email.trim() : '';
+    const cleanPassword = password ? password.trim() : '';
+
+    let vendor = await Vendor.findOne({
+      $or: [
+        { email: { $regex: new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+        { phone: cleanEmail }
+      ]
+    });
 
     // For demo/development purposes, if the vendor isn't found, we'll create the demo vendor login
-    if (!vendor && email === 'emeka@mamaskitchen.ng') {
+    if (!vendor && cleanEmail === 'emeka@mamaskitchen.ng') {
        vendor = await Vendor.create({
           name: 'Emeka',
           email: 'emeka@mamaskitchen.ng',
-          password: 'demo', // Mocking unhashed password
+          password: 'demo',
           businessName: "Mama's Kitchen",
        });
     }
 
-    if (!vendor) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    if (!vendor || (vendor.password && vendor.password !== cleanPassword)) {
+      return res.status(401).json({ success: false, error: 'Invalid email/phone or password' });
     }
 
-    // In a real app we would check hashed password. 
-    // We are mocking a successful response here.
     res.status(200).json({ success: true, token: 'fake-jwt-token-for-' + vendor._id, vendor });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -59,10 +65,18 @@ const vendorSignup = async (req, res) => {
 const customerLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const customer = await Customer.findOne({ email });
+    const cleanEmail = email ? email.trim() : '';
+    const cleanPassword = password ? password.trim() : '';
 
-    if (!customer || customer.password !== password) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    const customer = await Customer.findOne({
+      $or: [
+        { email: { $regex: new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+        { phone: cleanEmail }
+      ]
+    });
+
+    if (!customer || customer.password !== cleanPassword) {
+      return res.status(401).json({ success: false, error: 'Invalid email/phone or password' });
     }
 
     res.status(200).json({ success: true, token: 'cust-token-' + customer._id, user: customer });
@@ -94,10 +108,18 @@ const customerSignup = async (req, res) => {
 const driverLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const driver = await Driver.findOne({ email });
+    const cleanEmail = email ? email.trim() : '';
+    const cleanPassword = password ? password.trim() : '';
 
-    if (!driver || driver.password !== password) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    const driver = await Driver.findOne({
+      $or: [
+        { email: { $regex: new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+        { phone: cleanEmail }
+      ]
+    });
+
+    if (!driver || driver.password !== cleanPassword) {
+      return res.status(401).json({ success: false, error: 'Invalid email/phone or password' });
     }
 
     res.status(200).json({ success: true, token: 'driver-token-' + driver._id, user: driver });

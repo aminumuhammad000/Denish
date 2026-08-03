@@ -97,7 +97,7 @@ const CustomerOrdersScreen = ({ navigation }) => {
           <Text style={styles.orderDate}>
             {new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}, {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
-          <Text style={styles.orderAmount}>₦{item.totalAmount?.toLocaleString()}</Text>
+          <Text style={styles.orderAmount}>₦{(item.totalAmount || item.total || 0).toLocaleString()}</Text>
         </View>
       </View>
       <Ionicons name="chevron-forward" size={20} color="#CCC" style={{ marginLeft: 5 }} />
@@ -199,12 +199,12 @@ const CustomerOrdersScreen = ({ navigation }) => {
               ))}
               <View style={styles.modalTotalRow}>
                 <Text style={styles.modalTotalLabel}>Total</Text>
-                <Text style={styles.modalTotalPrice}>₦{selectedOrder?.totalAmount?.toLocaleString()}</Text>
+                <Text style={styles.modalTotalPrice}>₦{(selectedOrder?.totalAmount || selectedOrder?.total || 0).toLocaleString()}</Text>
               </View>
             </View>
 
             <View style={styles.modalInfoBox}>
-              <Text style={styles.modalInfoLabel}>Delivering to: <Text style={styles.modalInfoValue}>{selectedOrder?.deliveryAddress || '12 Marina Road, Lagos Island'}</Text></Text>
+              <Text style={styles.modalInfoLabel}>Delivering to: <Text style={styles.modalInfoValue}>{selectedOrder?.deliveryAddress || selectedOrder?.address || 'No address'}</Text></Text>
               <Text style={styles.modalInfoLabel}>Payment: <Text style={styles.modalInfoValue}>Visa ---- 4242</Text></Text>
             </View>
 
