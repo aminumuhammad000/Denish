@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
@@ -111,10 +112,21 @@ const DriverOrderTracking = ({ navigation }) => {
               <Text style={styles.locationAddr}>12 Marina Road, Lagos Island</Text>
             </View>
             <View style={styles.contactActions}>
-              <TouchableOpacity style={styles.actionBtn}>
+              <TouchableOpacity 
+                style={styles.actionBtn}
+                onPress={() => navigation.navigate('Calling', {
+                  name: 'Kola Adeleke',
+                  phone: '09123882672',
+                  orderId: 'ORD-005',
+                  subtitle: '12 Marina Road, Lagos Island'
+                })}
+              >
                 <Ionicons name="call-outline" size={20} color="#666" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn}>
+              <TouchableOpacity 
+                style={styles.actionBtn}
+                onPress={() => navigation.navigate('ChatDetail', { name: 'Kola Adeleke', type: 'Customer' })}
+              >
                 <Ionicons name="chatbubble-ellipses-outline" size={20} color="#666" />
               </TouchableOpacity>
             </View>
@@ -130,7 +142,14 @@ const DriverOrderTracking = ({ navigation }) => {
            </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.submitBtn}>
+        <TouchableOpacity 
+          style={styles.submitBtn}
+          onPress={() => {
+            Alert.alert('Delivery Completed 🎉', 'Order marked as delivered successfully!', [
+              { text: 'OK', onPress: () => navigation.navigate('DriverDashboard') }
+            ]);
+          }}
+        >
           <Text style={styles.submitBtnText}>Mark as delivered</Text>
         </TouchableOpacity>
       </ScrollView>

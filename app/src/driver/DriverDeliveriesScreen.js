@@ -6,14 +6,16 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getDriverDeliveries } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
-const DeliveryRequestCard = ({ restaurant, price, distance, dropoff, timer, progress }) => (
+const DeliveryRequestCard = ({ restaurant, price, distance, dropoff, timer, progress, onAccept }) => (
   <View style={styles.card}>
     <View style={styles.cardHeader}>
       <View style={styles.statusRow}>
@@ -47,7 +49,7 @@ const DeliveryRequestCard = ({ restaurant, price, distance, dropoff, timer, prog
         <Ionicons name="close" size={18} color="#64748B" />
         <Text style={styles.declineText}>Decline</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.acceptBtn}>
+      <TouchableOpacity style={styles.acceptBtn} onPress={onAccept}>
         <Ionicons name="checkmark" size={18} color="#FFF" />
         <Text style={styles.acceptText}>Accept</Text>
       </TouchableOpacity>
@@ -57,11 +59,30 @@ const DeliveryRequestCard = ({ restaurant, price, distance, dropoff, timer, prog
 
 const DriverDeliveriesScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Available');
+  const [deliveries, setDeliveries] = useState({ available: [], active: [], completed: [] });
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    fetchDeliveries();
+  }, []);
+
+  const fetchDeliveries = async () => {
+    try {
+      const res = await getDriverDeliveries();
+      if (res.success) {
+        setDeliveries(res.data);
+      }
+    } catch (e) {
+      console.error('Fetch driver deliveries error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const tabs = [
-    { label: 'Available', count: 2 },
-    { label: 'Active', count: 1 },
-    { label: 'Completed', count: 0 },
+    { label: 'Available', count: deliveries.available?.length || 0 },
+    { label: 'Active', count: deliveries.active?.length || 0 },
+    { label: 'Completed', count: deliveries.completed?.length || 0 },
   ];
 
   return (
@@ -99,25 +120,82 @@ const DriverDeliveriesScreen = ({ navigation }) => {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {activeTab === 'Available' && (
-          <>
-            <DeliveryRequestCard 
-              restaurant="Spice Avenue"
-              price="₦850"
-              distance="4.2 km"
-              dropoff="12 Marina Road, Lagos Island"
-              timer="19s"
-              progress={70}
-            />
-            <DeliveryRequestCard 
-              restaurant="Grill House"
-              price="₦600"
-              distance="4.2 km"
-              dropoff="12 Marina Road, Lagos Island"
-              timer="19s"
-              progress={55}
-            />
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {activeTab === 'Available' && (
+            deliveries.available?.length > 0 ? (
+              deliveries.available.map((item) => (
+                <DeliveryRequestCard 
+                  key={item._id || item.id}
+                  restaurant={item.restaurant}
+                  price={`₦${item.amount?.toLocaleString()}`}
+                  distance={item.distance || '3.5 km'}
+                  dropoff={item.dropoffAddress}
+                  timer="25s"
+                  progress={80}
+                  onAccept={() => navigation.navigate('DriverOrderTracking', { orderId: item._id || item.id })}
+                />
+              ))
+            ) : (
+              <View style={{ padding: 30, alignItems: 'center' }}>
+                <Ionicons name="bicycle-outline" size={48} color="#CCC" />
+                <Text style={{ marginTop: 10, color: '#666' }}>No new delivery requests right now.</Text>
+              </View>
+            )
+          )}
+
+          {activeTab === 'Active' && (
+            deliveries.active?.length > 0 ? (
+              deliveries.active.map((item) => (
+                <TouchableOpacity 
+                  key={item._id || item.id} 
+                  style={styles.card}
+                  onPress={() => navigation.navigate('DriverOrderTracking', { orderId: item._id || item.id })}
+                >
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.restaurantName}>{item.restaurant}</Text>
+                    <Text style={styles.priceText}>₦{item.amount?.toLocaleString()}</Text>
+                  </View>
+                  <Text style={styles.dropoffText}>Drop off: {item.dropoffAddress}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 6 }}>
+                    <Ionicons name="location" size={16} color={Colors.primary} />
+                    <Text style={{ color: Colors.primary, fontWeight: '600' }}>{item.status}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={{ padding: 30, alignItems: 'center' }}>
+                <Ionicons name="checkmark-circle-outline" size={48} color="#CCC" />
+                <Text style={{ marginTop: 10, color: '#666' }}>No active deliveries right now.</Text>
+              </View>
+            )
+          )}
+
+          {activeTab === 'Completed' && (
+            deliveries.completed?.length > 0 ? (
+              deliveries.completed.map((item) => (
+                <View key={item._id || item.id} style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.restaurantName}>{item.restaurant}</Text>
+                    <Text style={styles.priceText}>₦{item.amount?.toLocaleString()}</Text>
+                  </View>
+                  <Text style={{ color: '#666', marginTop: 4 }}>Customer: {item.customer}</Text>
+                  <Text style={{ color: '#999', fontSize: 12, marginTop: 4 }}>{item.date}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={{ padding: 30, alignItems: 'center' }}>
+                <Ionicons name="time-outline" size={48} color="#CCC" />
+                <Text style={{ marginTop: 10, color: '#666' }}>No completed deliveries yet.</Text>
+              </View>
+            )
+          )}
+        </ScrollView>
+      )}
           </>
         )}
 

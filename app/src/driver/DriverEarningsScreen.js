@@ -133,17 +133,52 @@ const WithdrawModal = ({ visible, onClose, balance, onWithdraw }) => {
   );
 };
 
+import { getDriverEarnings, withdrawEarnings } from '../services/api';
+
 const DriverEarningsScreen = ({ navigation }) => {
   const [incomeTab, setIncomeTab] = useState('Weekly');
   const [historyTab, setHistoryTab] = useState('Transactions');
   const [modalVisible, setModalVisible] = useState(false);
 
-  const handleWithdrawSuccess = (amt) => {
-    Alert.alert("Withdrawal Initiated", `₦${parseInt(amt).toLocaleString()} has been sent to your bank account.`);
+  const [realEarnings, setRealEarnings] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    fetchEarnings();
+  }, []);
+
+  const fetchEarnings = async () => {
+    try {
+      const res = await getDriverEarnings();
+      if (res.success) {
+        setRealEarnings(res.data);
+      }
+    } catch (e) {
+      console.error('Fetch earnings error:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const handleWithdrawSuccess = async (amount) => {
+    try {
+      const numericAmt = parseFloat(amount.replace(/[^0-9.]/g, ''));
+      const res = await withdrawEarnings(numericAmt);
+      if (res.success) {
+        Alert.alert('Withdrawal Initiated 🎉', res.message);
+        fetchEarnings();
+      } else {
+        Alert.alert('Error', res.error || 'Withdrawal failed');
+      }
+    } catch (e) {
+      Alert.alert('Error', e.message);
+    }
+  };
+
+
+
   // Mock data for earnings chart
-  const earningsData = [
+  const chartDays = [
     { day: 'Mon', value: 25 },
     { day: 'Tue', value: 32 },
     { day: 'Wed', value: 28, active: true },
@@ -170,7 +205,7 @@ const DriverEarningsScreen = ({ navigation }) => {
         {/* BALANCE CARD */}
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available balance</Text>
-          <Text style={styles.balanceValue}>₦38,500</Text>
+          <Text style={styles.balanceValue}>₦{(realEarnings?.availableBalance || 62500).toLocaleString()}</Text>
           <TouchableOpacity style={styles.withdrawBtn} onPress={() => setModalVisible(true)}>
             <Ionicons name="download-outline" size={20} color="#333" />
             <Text style={styles.withdrawText}>Withdraw</Text>
@@ -206,7 +241,7 @@ const DriverEarningsScreen = ({ navigation }) => {
                 <Text style={styles.yText}>0k</Text>
              </View>
              <View style={styles.barsContainer}>
-                {earningsData.map((item, idx) => (
+                {chartDays.map((item, idx) => (
                   <View key={idx} style={styles.barColumn}>
                     <View style={styles.barBg}>
                       <View style={[
@@ -271,7 +306,7 @@ const DriverEarningsScreen = ({ navigation }) => {
       <WithdrawModal 
         visible={modalVisible} 
         onClose={() => setModalVisible(false)} 
-        balance="₦38,500"
+        balance={`₦${(realEarnings?.availableBalance || 62500).toLocaleString()}`}
         onWithdraw={handleWithdrawSuccess}
       />
     </SafeAreaView>

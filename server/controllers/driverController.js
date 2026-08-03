@@ -133,21 +133,41 @@ const withdrawEarnings = async (req, res) => {
 // ─── GET Driver Deliveries ────────────────────────────────────────────────────
 const getDriverDeliveries = async (req, res) => {
   try {
-    // Demo data – in production pull from Orders collection where driverId matches
+    const Order = require('../models/Order');
+    
+    // Fetch live orders from MongoDB
+    const allOrders = await Order.find().populate('vendorId').sort({ createdAt: -1 });
+
+    const activeOrders = allOrders.filter(o => ['pending', 'preparing', 'ready', 'assigned', 'on the way'].includes(o.status));
+    const completedOrders = allOrders.filter(o => o.status === 'delivered');
+
+    const formattedActive = activeOrders.map(o => ({
+      id: o.orderId || o._id,
+      _id: o._id,
+      restaurant: o.vendorId?.businessName || o.vendorName || 'Mama\'s Kitchen',
+      customer: o.customerName || 'Customer',
+      pickupAddress: o.vendorId?.address || '15 Admiralty Way, Lekki',
+      dropoffAddress: o.deliveryAddress || o.address || 'Customer Address',
+      status: o.status === 'on the way' ? 'En route to customer' : o.status === 'preparing' ? 'Preparing at restaurant' : 'Ready for pickup',
+      amount: o.totalAmount || o.total || 750,
+      distance: '3.5 km'
+    }));
+
+    const formattedCompleted = completedOrders.map(o => ({
+      id: o.orderId || o._id,
+      _id: o._id,
+      restaurant: o.vendorId?.businessName || o.vendorName || 'Mama\'s Kitchen',
+      customer: o.customerName || 'Customer',
+      amount: o.totalAmount || o.total || 750,
+      date: new Date(o.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ', ' + new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }));
+
     const deliveries = {
-      available: [
-        { id: 'ORD-2458', restaurant: 'Spice Avenue', customer: 'Aisha Mohammed', pickupAddress: '9 Street name, Ikoyi', dropoffAddress: '22 Ozumba Mbadiwe, VI', distance: '4.2 km', amount: 850, items: 3 },
-        { id: 'ORD-2461', restaurant: 'Mama\'s Kitchen', customer: 'Chidi Okeke', pickupAddress: '5 Marina Road, Lagos Island', dropoffAddress: '12 Akin Adesola, VI', distance: '6.1 km', amount: 1100, items: 2 },
-      ],
-      active: [
-        { id: 'ORD-2451', restaurant: 'Spice Avenue', customer: 'Kola Adeleke', pickupAddress: '9 Street name, Ikoyi', dropoffAddress: '22 Ozumba Mbadiwe, VI', status: 'En route to customer', amount: 750 },
-      ],
-      completed: [
-        { id: 'ORD-2450', restaurant: 'Spice Avenue', customer: 'Bunmi Okafor', amount: 750, date: 'Today, 2:34 PM' },
-        { id: 'ORD-2449', restaurant: 'Mbadiwe Axis', customer: 'Tunde Bello', amount: 550, date: 'Today, 11:15 AM' },
-        { id: 'ORD-2448', restaurant: 'Ojokwu Avenue', customer: 'Ngozi Eze', amount: 1250, date: 'Yesterday, 4:00 PM' },
-      ],
+      available: formattedActive.filter(o => o.status === 'Ready for pickup'),
+      active: formattedActive,
+      completed: formattedCompleted
     };
+
     res.status(200).json({ success: true, data: deliveries });
   } catch (error) {
     console.error('getDriverDeliveries error:', error);
