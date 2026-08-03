@@ -469,54 +469,16 @@ export const uploadVendorImages = async (logoUri, coverUri) => {
   }
 };
 
-const DEFAULT_BANKS = [
-  { id: 1, code: '044', name: 'Access Bank' },
-  { id: 2, code: '011', name: 'First Bank of Nigeria' },
-  { id: 3, code: '058', name: 'Guaranty Trust Bank (GTBank)' },
-  { id: 4, code: '033', name: 'United Bank for Africa (UBA)' },
-  { id: 5, code: '057', name: 'Zenith Bank' },
-  { id: 6, code: '214', name: 'First City Monument Bank (FCMB)' },
-  { id: 7, code: '035', name: 'Wema Bank' },
-  { id: 8, code: '050', name: 'Ecobank Nigeria' },
-  { id: 9, code: '070', name: 'Fidelity Bank' },
-  { id: 10, code: '221', name: 'Stanbic IBTC Bank' },
-  { id: 11, code: '215', name: 'Unity Bank' },
-  { id: 12, code: '999992', name: 'OPay Digital Services' },
-  { id: 13, code: '999991', name: 'PalmPay' },
-  { id: 14, code: '50515', name: 'Moniepoint Microfinance Bank' },
-  { id: 15, code: '50211', name: 'Kuda Bank' }
-];
-
 export const getBanks = async () => {
-  try {
-    const response = await api.get('/payment/banks');
-    if (response.data && response.data.success && response.data.data) {
-      return response.data;
-    }
-  } catch (error) {
-    console.error('API getBanks error:', error);
-  }
-  return { success: true, data: DEFAULT_BANKS };
+  const response = await api.get('/payment/banks');
+  return response.data;
 };
 
 export const verifyAccount = async (bankCode, accountNumber) => {
-  try {
-    const response = await api.get('/payment/verify-account', {
-      params: { bankCode, accountNumber, country: 'NG' }
-    });
-    if (response.data && response.data.success) {
-      return response.data;
-    }
-  } catch (error) {
-    console.error('API verifyAccount error:', error);
-  }
-  return {
-    success: true,
-    data: {
-      account_number: accountNumber,
-      accountName: 'Usman Umar (Verified)'
-    }
-  };
+  const response = await api.get('/payment/verify-account', {
+    params: { bankCode, accountNumber, country: 'NG' }
+  });
+  return response.data;
 };
 
 export default api;
