@@ -68,19 +68,22 @@ const WithdrawModal = ({ visible, onClose, balance, onWithdraw }) => {
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleWithdraw = () => {
+  const handleWithdraw = async () => {
     if (!amount || parseFloat(amount) <= 0) return;
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      onWithdraw(amount);
+    try {
+      await onWithdraw(amount);
       onClose();
       setAmount('');
-    }, 2000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectQuick = (val) => {
-    if (val === 'All') setAmount(balance.replace('₦', '').replace(',', ''));
+    if (val === 'All') setAmount(String(balance || '').replace(/[^0-9.]/g, ''));
     else setAmount(val);
   };
 
@@ -162,16 +165,20 @@ const DriverEarningsScreen = ({ navigation }) => {
 
   const handleWithdrawSuccess = async (amount) => {
     try {
-      const numericAmt = parseFloat(amount.replace(/[^0-9.]/g, ''));
+      const numericAmt = parseFloat(String(amount).replace(/[^0-9.]/g, ''));
+      if (isNaN(numericAmt) || numericAmt <= 0) {
+        Alert.alert('Error', 'Invalid withdrawal amount.');
+        return;
+      }
       const res = await withdrawEarnings(numericAmt);
-      if (res.success) {
+      if (res && res.success) {
         Alert.alert('Withdrawal Initiated 🎉', res.message);
-        fetchEarnings();
+        await fetchEarnings();
       } else {
-        Alert.alert('Error', res.error || 'Withdrawal failed');
+        Alert.alert('Error', res?.error || res?.message || 'Withdrawal failed');
       }
     } catch (e) {
-      Alert.alert('Error', e.message);
+      Alert.alert('Error', e.message || 'Could not process withdrawal');
     }
   };
 

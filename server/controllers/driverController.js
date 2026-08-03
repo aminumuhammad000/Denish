@@ -163,17 +163,18 @@ const withdrawEarnings = async (req, res) => {
   try {
     const axios = require('axios');
     const Transaction = require('../models/Transaction');
-    const { amount } = req.body;
+    const rawAmount = req.body.amount;
+    const amount = typeof rawAmount === 'number' ? rawAmount : parseFloat(String(rawAmount || '').replace(/[^0-9.]/g, ''));
 
     const driver = await Driver.findOne();
     if (!driver) return res.status(404).json({ success: false, error: 'Driver not found' });
 
-    const balance = driver.earnings?.availableBalance || 0;
-    if (!amount || amount <= 0) {
+    const balance = driver.earnings?.availableBalance ?? 0;
+    if (!amount || isNaN(amount) || amount <= 0) {
       return res.status(400).json({ success: false, error: 'Please enter a valid withdrawal amount' });
     }
     if (amount > balance) {
-      return res.status(400).json({ success: false, error: 'Insufficient balance' });
+      return res.status(400).json({ success: false, error: `Insufficient balance. Available: ₦${balance.toLocaleString()}` });
     }
 
     const bankCode = driver.bank?.bankCode || driver.bank?.code || '044';
