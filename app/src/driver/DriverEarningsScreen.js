@@ -205,7 +205,7 @@ const DriverEarningsScreen = ({ navigation }) => {
         {/* BALANCE CARD */}
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available balance</Text>
-          <Text style={styles.balanceValue}>₦{(realEarnings?.availableBalance || 62500).toLocaleString()}</Text>
+          <Text style={styles.balanceValue}>₦{(realEarnings?.availableBalance || 0).toLocaleString()}</Text>
           <TouchableOpacity style={styles.withdrawBtn} onPress={() => setModalVisible(true)}>
             <Ionicons name="download-outline" size={20} color="#333" />
             <Text style={styles.withdrawText}>Withdraw</Text>
@@ -241,12 +241,12 @@ const DriverEarningsScreen = ({ navigation }) => {
                 <Text style={styles.yText}>0k</Text>
              </View>
              <View style={styles.barsContainer}>
-                {chartDays.map((item, idx) => (
+                {(realEarnings?.weeklyData || chartDays).map((item, idx) => (
                   <View key={idx} style={styles.barColumn}>
                     <View style={styles.barBg}>
                       <View style={[
                         styles.barFill, 
-                        { height: `${(item.value / 40) * 100}%` },
+                        { height: `${Math.min(100, ((item.amount || item.value || 0) / 40000) * 100)}%` },
                         item.active && styles.barFillActive
                       ]} />
                     </View>
@@ -259,15 +259,15 @@ const DriverEarningsScreen = ({ navigation }) => {
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>THIS WEEK</Text>
-              <Text style={styles.summaryValue}>₦{(realEarnings?.weekEarned || 42000).toLocaleString()}</Text>
+              <Text style={styles.summaryValue}>₦{(realEarnings?.weekEarned || 0).toLocaleString()}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>THIS MONTH</Text>
-              <Text style={styles.summaryValue}>₦{(realEarnings?.monthEarned || 152000).toLocaleString()}</Text>
+              <Text style={styles.summaryValue}>₦{(realEarnings?.monthEarned || 0).toLocaleString()}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>TODAY</Text>
-              <Text style={styles.summaryValue}>₦{(realEarnings?.todayEarned || 8500).toLocaleString()}</Text>
+              <Text style={styles.summaryValue}>₦{(realEarnings?.todayEarned || 0).toLocaleString()}</Text>
             </View>
           </View>
         </View>

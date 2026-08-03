@@ -98,23 +98,23 @@ const getDriverEarnings = async (req, res) => {
 
     const todayEarned = deliveredOrders
       .filter(o => new Date(o.createdAt) >= startOfToday)
-      .reduce((sum, o) => sum + (o.deliveryFee || 850), 0) || 8500;
+      .reduce((sum, o) => sum + (o.deliveryFee || 850), 0);
 
     const weekEarned = deliveredOrders
       .filter(o => new Date(o.createdAt) >= startOfWeek)
-      .reduce((sum, o) => sum + (o.deliveryFee || 850), 0) || 42000;
+      .reduce((sum, o) => sum + (o.deliveryFee || 850), 0);
 
     const monthEarned = deliveredOrders
       .filter(o => new Date(o.createdAt) >= startOfMonth)
-      .reduce((sum, o) => sum + (o.deliveryFee || 850), 0) || 152000;
+      .reduce((sum, o) => sum + (o.deliveryFee || 850), 0);
 
     // Weekly day-by-day chart breakdown (Mon - Sun)
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const dayTotals = { Mon: 8500, Tue: 12000, Wed: 9800, Thu: 15000, Fri: 7200, Sat: 6500, Sun: 3500 };
-    
     const weeklyData = days.map(d => ({
       day: d,
-      amount: dayTotals[d] || 5000
+      amount: deliveredOrders
+        .filter(o => new Date(o.createdAt).toLocaleDateString('en-US', { weekday: 'short' }) === d)
+        .reduce((sum, o) => sum + (o.deliveryFee || 850), 0)
     }));
 
     // Formatted Recent Transactions
@@ -141,19 +141,14 @@ const getDriverEarnings = async (req, res) => {
     const allTxns = [...orderTxns, ...wTxns].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const earningsData = {
-      availableBalance,
+      availableBalance: driver.earnings?.availableBalance || 0,
       totalEarned,
       totalTrips,
       todayEarned,
       weekEarned,
       monthEarned,
       weeklyData,
-      recentTransactions: allTxns.length > 0 ? allTxns : [
-        { id: 'ORD-2451', type: 'Delivery', amount: '+₦850', description: "Delivery – Mama's Kitchen", date: 'Today, 2:34 PM', status: 'completed', isWithdrawal: false },
-        { id: 'ORD-2449', type: 'Delivery', amount: '+₦750', description: 'Delivery – Spicy Chops', date: 'Today, 11:15 AM', status: 'completed', isWithdrawal: false },
-        { id: 'WTH-8821', type: 'Withdrawal', amount: '-₦25,000', description: 'Withdrawal – GTBank', date: 'Yesterday', status: 'completed', isWithdrawal: true },
-        { id: 'ORD-2445', type: 'Delivery', amount: '+₦1,250', description: 'Delivery – Burger King', date: 'Jun 3, 4:00 PM', status: 'completed', isWithdrawal: false },
-      ],
+      recentTransactions: allTxns
     };
 
     res.status(200).json({ success: true, data: earningsData });
