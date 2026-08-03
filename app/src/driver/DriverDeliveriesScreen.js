@@ -196,23 +196,6 @@ const DriverDeliveriesScreen = ({ navigation }) => {
           )}
         </ScrollView>
       )}
-          </>
-        )}
-
-        {activeTab === 'Active' && (
-           <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>1 Active trip found</Text>
-              {/* Could list active trip here */}
-           </View>
-        )}
-
-        {activeTab === 'Completed' && (
-           <View style={styles.emptyState}>
-              <Ionicons name="checkmark-circle-outline" size={48} color="#DDD" />
-              <Text style={styles.emptyText}>No completed trips yet</Text>
-           </View>
-        )}
-      </ScrollView>
     </SafeAreaView>
   );
 };
