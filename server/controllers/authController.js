@@ -16,16 +16,6 @@ const vendorLogin = async (req, res) => {
       ]
     });
 
-    // For demo/development purposes, if the vendor isn't found, we'll create the demo vendor login
-    if (!vendor && cleanEmail === 'emeka@mamaskitchen.ng') {
-       vendor = await Vendor.create({
-          name: 'Emeka',
-          email: 'emeka@mamaskitchen.ng',
-          password: 'demo',
-          businessName: "Mama's Kitchen",
-       });
-    }
-
     if (!vendor || (vendor.password && vendor.password !== cleanPassword)) {
       return res.status(401).json({ success: false, error: 'Invalid email/phone or password' });
     }

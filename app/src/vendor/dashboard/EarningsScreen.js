@@ -4,34 +4,39 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getVendorDashboardData } from '../../services/api';
-
-
-const PAYOUT_HISTORY = [
-  { id: 'PO-1024', date: '2026-04-15', ref: 'PYT-9982', amount: 145000, status: 'Completed' },
-  { id: 'PO-1023', date: '2026-04-08', ref: 'PYT-9971', amount: 145000, status: 'Completed' },
-  { id: 'PO-1022', date: '2026-04-01', ref: 'PYT-9960', amount: 145000, status: 'Completed' },
-  { id: 'PO-1021', date: '2026-03-25', ref: 'PYT-9949', amount: 145000, status: 'Completed' },
-  { id: 'PO-1020', date: '2026-03-18', ref: 'PYT-9938', amount: 145000, status: 'Completed' },
-];
+import { getVendorDashboardData, getVendorTransactions } from '../../services/api';
 
 const EarningsScreen = ({ navigation }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [transactions, setTransactions] = useState([]);
   const [activeTab, setActiveTab] = useState('weekly');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const result = await getVendorDashboardData();
-        if (result.success) setData(result.data);
+        const dashboard = await getVendorDashboardData();
+        if (dashboard.success) setData(dashboard.data);
       } catch (error) {
         console.error('Failed to load earnings data', error);
       } finally {
         setLoading(false);
       }
     };
+
+    const fetchTransactions = async () => {
+      try {
+        const result = await getVendorTransactions();
+        if (result.success) {
+          setTransactions(result.data || []);
+        }
+      } catch (error) {
+        console.error('Failed to load payout history', error);
+      }
+    };
+
     fetchData();
+    fetchTransactions();
   }, []);
 
   if (loading) {
@@ -59,20 +64,6 @@ const EarningsScreen = ({ navigation }) => {
   const totalOrders = data.earnings?.totalOrders || 97;
   const avgOrders = data.earnings?.avgOrders || 2979;
 
-  const handleConfirmPayout = async () => {
-    if (!payoutAmount || parseFloat(payoutAmount) < 5000) {
-      alert('Minimum payout is ₦5,000');
-      return;
-    }
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      setPayoutModalVisible(false);
-      setPayoutAmount('');
-      alert('Payout request submitted! Funds will arrive within 24h.');
-    }, 1500);
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
@@ -95,12 +86,9 @@ const EarningsScreen = ({ navigation }) => {
           <Text style={styles.balanceMeta}>Min payout ₦5,000 | Settles in 24h</Text>
           <TouchableOpacity
             style={styles.payoutBtn}
-            onPress={() => navigation.navigate('RequestPayout', { 
-              availableBalance, 
-              payoutAccount: data.payoutAccount 
-            })}
-          >
-            <Ionicons name="download-outline" size={15} color="#FF8C00" />
+                onPress={() => navigation.navigate('RequestPayout', {
+                  availableBalance,
+                  payoutAccount: data.payoutAccount,
             <Text style={styles.payoutBtnText}>Request payout</Text>
           </TouchableOpacity>
         </View>
@@ -174,9 +162,9 @@ const EarningsScreen = ({ navigation }) => {
               {/* Period Totals */}
               <View style={styles.periodRow}>
                 {[
-                  { label: 'THIS WEEK', value: '₦42,000' },
-                  { label: 'THIS MONTH', value: '₦152,000' },
-                  { label: 'TODAY', value: '₦8,500' },
+                  { label: 'THIS WEEK', value: `₦${(data.earnings?.weeklyRevenue || 0).toLocaleString()}` },
+                  { label: 'THIS MONTH', value: `₦${(data.earnings?.monthlyRevenue || 0).toLocaleString()}` },
+                  { label: 'TODAY', value: `₦${(data.earnings?.todayRevenue || 0).toLocaleString()}` },
                 ].map((p, i) => (
                   <View key={p.label} style={[styles.periodItem, i === 1 && styles.periodItemMid]}>
                     <Text style={styles.periodLabel}>{p.label}</Text>

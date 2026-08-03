@@ -166,11 +166,8 @@ const VendorHomeScreen = ({ navigation }) => {
             <TouchableOpacity><Text style={styles.viewAllText}>View all</Text></TouchableOpacity>
           </View>
 
-          {(data.liveOrders && data.liveOrders.length > 0 ? data.liveOrders : [
-            { id: 'ORD-2451', status: 'new', customer: 'Aisha Mohammed', items: '2 items', amount: '₦10,000' },
-            { id: 'ORD-2452', status: 'new', customer: 'Chidi Okeke', items: '3 items', amount: '₦10,000' },
-          ]).map((o, i) => (
-            <TouchableOpacity key={i} style={[styles.orderRow, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => { setSelectedOrder(o); setModalVisible(true); }}>
+          {(data.liveOrders && data.liveOrders.length > 0 ? data.liveOrders : []).map((o, i) => (
+            <TouchableOpacity key={o._id || i} style={[styles.orderRow, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => { setSelectedOrder(o); setModalVisible(true); }}>
               <View style={styles.orderMainInfo}>
                 <View style={styles.orderIdRow}>
                   <Text style={[styles.orderIdText, { color: theme.text }]}>{o.id}</Text>

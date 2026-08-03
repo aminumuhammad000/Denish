@@ -49,11 +49,11 @@ const ReviewSubmitScreen = ({ navigation }) => {
         logoUrl: onboardingData.logoUrl,
         coverUrl: onboardingData.coverUrl,
         openingHours: onboardingData.openingHours,
-        payoutAccount: { 
-          bank: onboardingData.bank, 
-          accName: onboardingData.accountName, 
-          accNum: onboardingData.accountNumber 
-        }
+        payoutAccount: {
+          bank: onboardingData.bank,
+          accountName: onboardingData.accountName,
+          accountNumber: onboardingData.accountNumber,
+        },
       });
       if (response && response.success) {
         navigation.navigate('Login');
