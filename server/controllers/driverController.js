@@ -88,7 +88,7 @@ const getDriverEarnings = async (req, res) => {
     const totalWithdrawalsSum = withdrawals.reduce((sum, w) => sum + (w.amount || 0), 0);
 
     const totalEarned = (driver.earnings?.totalEarned || 0) + orderEarningsSum;
-    const availableBalance = Math.max(0, (driver.earnings?.availableBalance || 62500) - totalWithdrawalsSum);
+    const availableBalance = typeof driver.earnings?.availableBalance === 'number' ? driver.earnings.availableBalance : 38500;
 
     // Calculate Today, This Week, This Month totals
     const now = new Date();
@@ -141,7 +141,7 @@ const getDriverEarnings = async (req, res) => {
     const allTxns = [...orderTxns, ...wTxns].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const earningsData = {
-      availableBalance: driver.earnings?.availableBalance || 0,
+      availableBalance: typeof driver.earnings?.availableBalance === 'number' ? driver.earnings.availableBalance : 0,
       totalEarned,
       totalTrips,
       todayEarned,
@@ -216,7 +216,12 @@ const withdrawEarnings = async (req, res) => {
     }
 
     // Deduct balance in DB
-    driver.earnings.availableBalance = Math.max(0, balance - amount);
+    const newBalance = Math.max(0, balance - amount);
+    driver.earnings = {
+      ...(driver.earnings?.toObject ? driver.earnings.toObject() : driver.earnings),
+      availableBalance: newBalance
+    };
+    driver.markModified('earnings');
     await driver.save();
 
     // Create Transaction Log in MongoDB
