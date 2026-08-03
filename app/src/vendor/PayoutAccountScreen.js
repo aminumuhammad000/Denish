@@ -314,8 +314,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
+    height: '75%',
     padding: 24,
+    flex: 1,
   },
   modalHeader: {
     flexDirection: 'row',
