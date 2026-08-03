@@ -502,7 +502,7 @@ export const getBanks = async () => {
 export const verifyAccount = async (bankCode, accountNumber) => {
   try {
     const response = await api.get('/payment/verify-account', {
-      params: { bankCode, accountNumber }
+      params: { bankCode, accountNumber, country: 'NG' }
     });
     if (response.data && response.data.success) {
       return response.data;
