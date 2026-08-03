@@ -121,7 +121,7 @@ const getDriverEarnings = async (req, res) => {
     const orderTxns = deliveredOrders.map(o => ({
       id: o.orderId || o._id.toString(),
       type: 'Delivery',
-      amount: `+₦${(o.deliveryFee || 850).toLocaleString()}`,
+      amount: `₦${(o.deliveryFee || 850).toLocaleString()}`,
       description: `Delivery – ${o.vendorName || 'Restaurant'}`,
       date: new Date(o.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' | ' + new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'completed',
@@ -131,7 +131,7 @@ const getDriverEarnings = async (req, res) => {
     const wTxns = withdrawals.map(w => ({
       id: w.reference || w._id.toString(),
       type: 'Withdrawal',
-      amount: `-₦${(w.amount || 0).toLocaleString()}`,
+      amount: `₦${(w.amount || 0).toLocaleString()}`,
       description: `Withdrawal – ${driver.bank?.name || 'Bank'}`,
       date: new Date(w.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' | ' + new Date(w.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: (w.status || 'completed').toLowerCase(),

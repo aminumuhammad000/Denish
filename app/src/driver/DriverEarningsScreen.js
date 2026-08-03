@@ -317,7 +317,7 @@ const DriverEarningsScreen = ({ navigation }) => {
       <WithdrawModal 
         visible={modalVisible} 
         onClose={() => setModalVisible(false)} 
-        balance={`₦${(realEarnings?.availableBalance || 62500).toLocaleString()}`}
+        balance={`₦${(realEarnings?.availableBalance || 0).toLocaleString()}`}
         onWithdraw={handleWithdrawSuccess}
       />
     </SafeAreaView>
