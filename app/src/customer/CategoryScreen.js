@@ -107,7 +107,7 @@ const CategoryScreen = ({ navigation, route }) => {
   const renderItem = ({ item }) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.id })}
+      onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId || item.id })}
       activeOpacity={0.85}
     >
       <Image source={{ uri: item.image }} style={styles.cardImage} />

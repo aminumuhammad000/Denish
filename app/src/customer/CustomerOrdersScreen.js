@@ -208,7 +208,13 @@ const CustomerOrdersScreen = ({ navigation }) => {
               <Text style={styles.modalInfoLabel}>Payment: <Text style={styles.modalInfoValue}>Visa ---- 4242</Text></Text>
             </View>
 
-            <TouchableOpacity style={styles.trackBtn} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity 
+              style={styles.trackBtn} 
+              onPress={() => {
+                setModalVisible(false);
+                navigation.navigate('TrackOrder', { orderId: selectedOrder?._id || selectedOrder?.orderId });
+              }}
+            >
               <Text style={styles.trackBtnText}>Track order</Text>
             </TouchableOpacity>
           </View>
