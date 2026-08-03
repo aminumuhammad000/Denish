@@ -12,7 +12,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Audio } from 'expo-av';
-import { initiateCallSession, respondCallSession } from '../services/api';
+import { initiateCallSession, respondCallSession, fetchCallStatus } from '../services/api';
 
 const CallingScreen = ({ route, navigation }) => {
   const { name = 'Temmy Store', phone = '09123882672', orderId = 'Order ORD-005', subtitle = '3.5 km | ₦750' } = route?.params || {};
@@ -58,8 +58,7 @@ const CallingScreen = ({ route, navigation }) => {
     // Keep ringing until receiver explicitly accepts call session in backend
     const pollInterval = setInterval(async () => {
       try {
-        const res = await fetch(`http://192.168.1.85:3000/api/customer/call/status/${callId}`);
-        const data = await res.json();
+        const data = await fetchCallStatus(callId);
         if (data.success && data.status === 'accepted') {
           clearInterval(pollInterval);
           stopRingtoneSound();

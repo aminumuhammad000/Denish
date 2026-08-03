@@ -387,6 +387,16 @@ export const respondCallSession = async (payload) => {
   }
 };
 
+export const fetchCallStatus = async (callId) => {
+  try {
+    const response = await api.get(`/customer/call/status/${callId}`);
+    return response.data;
+  } catch (error) {
+    console.error('API fetchCallStatus error:', error);
+    throw error;
+  }
+};
+
 export const initFlutterwaveCheckout = async (payload) => {
   try {
     const response = await api.post('/customer/flw/initialize', payload);

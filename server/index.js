@@ -5,6 +5,7 @@ const connectDB = require('./config/db');
 const { seedAdmin } = require('./seedAdmin');
 const { seedDrivers } = require('./seedDrivers');
 const { seedDriverNotifications } = require('./seedDriverNotifications');
+const { seedDriverChats } = require('./seedDriverChats');
 const vendorRoutes = require('./routes/vendorRoutes');
 const authRoutes = require('./routes/authRoutes');
 const customerRoutes = require('./routes/customerRoutes');
@@ -133,6 +134,13 @@ connectDB()
       console.log('Driver notification seed check complete.');
     } catch (error) {
       console.error('Driver notification seed check failed:', error);
+    }
+
+    try {
+      await seedDriverChats();
+      console.log('Driver chat seed check complete.');
+    } catch (error) {
+      console.error('Driver chat seed check failed:', error);
     }
 
     app.listen(PORT, '0.0.0.0', () => {

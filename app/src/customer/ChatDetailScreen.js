@@ -5,10 +5,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { uploadItemImage, fetchMessages, sendChatMessage } from '../services/api';
+import { uploadItemImage, fetchMessages, sendChatMessage, fetchDriverMessages, sendDriverChatMessage } from '../services/api';
 
 const ChatDetailScreen = ({ route, navigation }) => {
-  const { name = 'Temmy Store', type = 'Vendor' } = route?.params || {};
+  const { name = 'Temmy Store', type = 'Vendor', role = 'Customer' } = route?.params || {};
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
@@ -19,14 +19,13 @@ const ChatDetailScreen = ({ route, navigation }) => {
 
   const loadMessages = async () => {
     try {
-      const res = await fetchMessages(name);
+      const res = role === 'Driver' ? await fetchDriverMessages(name) : await fetchMessages(name);
       if (res.success && res.messages?.length > 0) {
         setMessages(res.messages);
       } else {
         setMessages([
-          { id: '1', text: "I'm delivering the items at your reception desk.", time: "14:01", sender: 'me' },
-          { id: '2', text: "Thanks, the food was hot 🔥", time: "14:02", sender: 'them' },
-          { id: '3', text: "You're welcome, sir.", time: "14:03", sender: 'me' },
+          { id: '1', text: "I'm standing by the white gate.", time: "12:30 PM", sender: 'them' },
+          { id: '2', text: "Okay, I'm almost there in 2 minutes.", time: "12:31 PM", sender: 'me' },
         ]);
       }
     } catch (e) {
@@ -51,13 +50,23 @@ const ChatDetailScreen = ({ route, navigation }) => {
     setMessage('');
 
     try {
-      await sendChatMessage({
-        recipientName: name,
-        text,
-        imageUrl,
-        type: msgType,
-        subText
-      });
+      if (role === 'Driver') {
+        await sendDriverChatMessage({
+          recipientName: name,
+          text,
+          imageUrl,
+          type: msgType,
+          subText
+        });
+      } else {
+        await sendChatMessage({
+          recipientName: name,
+          text,
+          imageUrl,
+          type: msgType,
+          subText
+        });
+      }
     } catch (e) {
       console.error('Failed to send message to backend:', e);
     }
