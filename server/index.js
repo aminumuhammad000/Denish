@@ -49,6 +49,68 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running normally' });
 });
 
+// One-time protected endpoint to seed driver accounts into production DB
+app.get('/api/seed-drivers', async (req, res) => {
+  if (req.query.token !== 'DenishSeed2024') {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
+  try {
+    const Driver = require('./models/Driver');
+    const DRIVER_ACCOUNTS = [
+      {
+        name: 'Bayo Adeyemi',
+        email: 'driver@denish.ng',
+        phone: '08012345678',
+        password: 'driver123',
+        vehicleType: 'Motorcycle',
+        vehicle: { type: 'Motorcycle', make: 'Honda CB500', plate: 'LAG-234-BA', color: 'Red' },
+        bank: { name: 'GTBank', accountName: 'Bayo Adeyemi', accountNumber: '0123456789' },
+        status: 'Active',
+        earnings: { totalEarned: 248000, availableBalance: 62500, totalTrips: 97 },
+      },
+      {
+        name: 'Chukwuemeka Eze',
+        email: 'driver2@denish.ng',
+        phone: '08098765432',
+        password: 'driver123',
+        vehicleType: 'Bike',
+        vehicle: { type: 'Bike', make: 'TVS Apache 200', plate: 'ABJ-110-CK', color: 'Black' },
+        bank: { name: 'Access Bank', accountName: 'Chukwuemeka Eze', accountNumber: '0987654321' },
+        status: 'Active',
+        earnings: { totalEarned: 185000, availableBalance: 41000, totalTrips: 73 },
+      },
+    ];
+    const results = [];
+    for (const d of DRIVER_ACCOUNTS) {
+      const existing = await Driver.findOne({ email: d.email });
+      if (!existing) {
+        await Driver.create(d);
+        results.push({ email: d.email, action: 'created' });
+      } else {
+        // Update password and status in case they changed
+        existing.password = d.password;
+        existing.status = d.status;
+        await existing.save();
+        results.push({ email: d.email, action: 'updated' });
+      }
+    }
+    return res.status(200).json({
+      success: true,
+      message: 'Drivers seeded successfully',
+      results,
+      loginDetails: DRIVER_ACCOUNTS.map(d => ({
+        name: d.name,
+        email: d.email,
+        phone: d.phone,
+        password: d.password,
+        status: d.status,
+      })),
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 connectDB()
   .then(async () => {
     try {
