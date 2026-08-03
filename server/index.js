@@ -4,6 +4,7 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const { seedAdmin } = require('./seedAdmin');
 const { seedDrivers } = require('./seedDrivers');
+const { seedDriverNotifications } = require('./seedDriverNotifications');
 const vendorRoutes = require('./routes/vendorRoutes');
 const authRoutes = require('./routes/authRoutes');
 const customerRoutes = require('./routes/customerRoutes');
@@ -125,6 +126,13 @@ connectDB()
       console.log('Driver seed check complete.');
     } catch (error) {
       console.error('Driver seed check failed:', error);
+    }
+
+    try {
+      await seedDriverNotifications();
+      console.log('Driver notification seed check complete.');
+    } catch (error) {
+      console.error('Driver notification seed check failed:', error);
     }
 
     app.listen(PORT, '0.0.0.0', () => {
