@@ -50,15 +50,17 @@ const verifyAccount = async (req, res) => {
 
   if (secretKey) {
     try {
-      const params = {
+      const requestBody = {
         account_number: accountNumber,
         account_bank: bankCode,
         country: country || 'NG',
       };
 
-      const response = await axios.get(`${FLW_BASE_URL}/accounts/resolve`, {
-        params,
-        headers: { Authorization: `Bearer ${secretKey}` }
+      const response = await axios.post(`${FLW_BASE_URL}/accounts/resolve`, requestBody, {
+        headers: {
+          Authorization: `Bearer ${secretKey}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       if (response.data && response.data.status === 'success' && response.data.data) {
