@@ -2,42 +2,33 @@ const axios = require('axios');
 
 const FLW_BASE_URL = 'https://api.flutterwave.com/v3';
 
-const FALLBACK_BANKS = [
-  { id: 1, code: '044', name: 'Access Bank' },
-  { id: 2, code: '011', name: 'First Bank of Nigeria' },
-  { id: 3, code: '058', name: 'Guaranty Trust Bank (GTBank)' },
-  { id: 4, code: '033', name: 'United Bank for Africa (UBA)' },
-  { id: 5, code: '057', name: 'Zenith Bank' },
-  { id: 6, code: '214', name: 'First City Monument Bank (FCMB)' },
-  { id: 7, code: '035', name: 'Wema Bank' },
-  { id: 8, code: '050', name: 'Ecobank Nigeria' },
-  { id: 9, code: '070', name: 'Fidelity Bank' },
-  { id: 10, code: '221', name: 'Stanbic IBTC Bank' },
-  { id: 11, code: '215', name: 'Unity Bank' },
-  { id: 12, code: '100004', name: 'OPay Digital Services' },
-  { id: 13, code: '100033', name: 'PalmPay' },
-  { id: 14, code: '50515', name: 'Moniepoint Microfinance Bank' },
-  { id: 15, code: '50211', name: 'Kuda Bank' }
-];
-
 const getBanks = async (req, res) => {
   const secretKey = process.env.FLW_SECRET_KEY;
 
-  if (secretKey) {
-    try {
-      const response = await axios.get(`${FLW_BASE_URL}/banks/NG`, {
-        headers: { Authorization: `Bearer ${secretKey}` }
-      });
-
-      if (response.data && response.data.data) {
-        return res.status(200).json({ success: true, data: response.data.data });
-      }
-    } catch (error) {
-      console.error('Flutterwave getBanks error:', error.response?.data || error.message);
-    }
+  if (!secretKey) {
+    return res.status(500).json({ success: false, message: 'Flutterwave secret key not configured' });
   }
 
-  return res.status(200).json({ success: true, data: FALLBACK_BANKS });
+  try {
+    const response = await axios.get(`${FLW_BASE_URL}/banks/NG`, {
+      headers: { Authorization: `Bearer ${secretKey}` }
+    });
+
+    if (response.data && response.data.data) {
+      const banks = response.data.data.map((bank) => ({
+        ...bank,
+        code: bank.code,
+      }));
+      return res.status(200).json({ success: true, data: banks });
+    }
+
+    return res.status(500).json({ success: false, message: 'Flutterwave bank list response missing data' });
+  } catch (error) {
+    console.error('Flutterwave getBanks error:', error.response?.data || error.message);
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.message || 'Could not retrieve bank list';
+    return res.status(status).json({ success: false, message });
+  }
 };
 
 const verifyAccount = async (req, res) => {
