@@ -6,6 +6,9 @@ const {
   getDriverEarnings,
   withdrawEarnings,
   getDriverDeliveries,
+  getDriverNotifications,
+  markDriverNotificationRead,
+  markAllDriverNotificationsRead,
 } = require('../controllers/driverController');
 const { upload } = require('../config/cloudinary');
 
@@ -14,6 +17,11 @@ router.put('/profile', updateDriverProfile);
 router.get('/earnings', getDriverEarnings);
 router.post('/withdraw', withdrawEarnings);
 router.get('/deliveries', getDriverDeliveries);
+
+// Notification routes
+router.get('/notifications', getDriverNotifications);
+router.patch('/notifications/read-all', markAllDriverNotificationsRead);
+router.patch('/notifications/:id/read', markDriverNotificationRead);
 
 // Profile pic upload
 router.post('/upload-profile-pic', upload.single('image'), (req, res) => {

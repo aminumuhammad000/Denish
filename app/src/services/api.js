@@ -523,4 +523,36 @@ export const verifyAccount = async (bankCode, accountNumber) => {
   return response.data;
 };
 
+// ─── Driver Notifications ────────────────────────────────────────────────────
+
+export const getDriverNotifications = async () => {
+  try {
+    const response = await api.get('/driver/notifications');
+    return response.data;
+  } catch (error) {
+    console.error('API getDriverNotifications error:', error);
+    throw error;
+  }
+};
+
+export const markDriverNotificationRead = async (id) => {
+  try {
+    const response = await api.patch(`/driver/notifications/${id}/read`);
+    return response.data;
+  } catch (error) {
+    console.error('API markDriverNotificationRead error:', error);
+    throw error;
+  }
+};
+
+export const markAllDriverNotificationsRead = async () => {
+  try {
+    const response = await api.patch('/driver/notifications/read-all');
+    return response.data;
+  } catch (error) {
+    console.error('API markAllDriverNotificationsRead error:', error);
+    throw error;
+  }
+};
+
 export default api;

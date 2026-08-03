@@ -1,272 +1,435 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   TouchableOpacity,
-  Image,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
   StatusBar,
+  Alert,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/Colors';
+import {
+  getDriverNotifications,
+  markDriverNotificationRead,
+  markAllDriverNotificationsRead,
+} from '../services/api';
 
-const NotificationItem = ({ icon, color, title, message, time, isUnread }) => (
-  <TouchableOpacity style={[styles.notificationCard, isUnread && styles.unreadCard]}>
-    <View style={[styles.iconBg, { backgroundColor: color }]}>
-       <Ionicons name={icon} size={20} color="#FFF" />
-    </View>
-    <View style={styles.content}>
-       <View style={styles.topRow}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.time}>{time}</Text>
-       </View>
-       <Text style={styles.message} numberOfLines={2}>{message}</Text>
-    </View>
-    {isUnread && <View style={styles.unreadDot} />}
-  </TouchableOpacity>
-);
+// ─── Helper: relative time ────────────────────────────────────────────────────
+const timeAgo = (dateStr) => {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diff = Math.floor((now - date) / 1000); // seconds
+
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+  if (diff < 172800) return 'Yesterday';
+  const days = Math.floor(diff / 86400);
+  if (days < 7) return `${days} days ago`;
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+};
+
+// ─── Icon/color map per notification type ────────────────────────────────────
+const TYPE_CONFIG = {
+  order:   { icon: 'cart-outline',        color: '#FF8C00', label: 'Orders' },
+  payment: { icon: 'wallet-outline',      color: '#10B981', label: 'Payment' },
+  promo:   { icon: 'gift-outline',        color: '#EF4444', label: 'Promo' },
+  system:  { icon: 'settings-outline',    color: '#3B82F6', label: 'System' },
+  driver:  { icon: 'car-outline',         color: '#8B5CF6', label: 'Driver' },
+  dispute: { icon: 'alert-circle-outline',color: '#F59E0B', label: 'Dispute' },
+};
+
+// ─── Single Notification Card ────────────────────────────────────────────────
+const NotificationCard = ({ item, onPress }) => {
+  const cfg = TYPE_CONFIG[item.type] || TYPE_CONFIG.system;
+  return (
+    <TouchableOpacity
+      style={[styles.card, !item.read && styles.unreadCard]}
+      activeOpacity={0.75}
+      onPress={() => onPress(item)}
+    >
+      <View style={[styles.iconBg, { backgroundColor: cfg.color }]}>
+        <Ionicons name={cfg.icon} size={20} color="#FFF" />
+      </View>
+
+      <View style={styles.cardContent}>
+        <View style={styles.cardTopRow}>
+          <Text style={[styles.cardTitle, !item.read && styles.unreadTitle]} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.cardTime}>{timeAgo(item.createdAt)}</Text>
+        </View>
+        <Text style={styles.cardMessage} numberOfLines={2}>
+          {item.message}
+        </Text>
+      </View>
+
+      {!item.read && <View style={styles.unreadDot} />}
+    </TouchableOpacity>
+  );
+};
+
+// ─── Main Screen ─────────────────────────────────────────────────────────────
+const TABS = ['All', 'Orders', 'Payment', 'System'];
+
+const TAB_FILTERS = {
+  All:     null,
+  Orders:  'order',
+  Payment: 'payment',
+  System:  'system',
+};
 
 const NotificationsScreen = ({ navigation }) => {
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab]       = useState('All');
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
+  const [error, setError]               = useState('');
 
-  const notifications = [
-    {
-      id: '1',
-      title: 'New Order Received',
-      message: 'You have a new order #ORD-2451 from Aisha Mohammed.',
-      time: '2 min ago',
-      icon: 'cart-outline',
-      color: '#FF8C00',
-      type: 'Order',
-      isUnread: true
-    },
-    {
-      id: '2',
-      title: 'Payment Successful',
-      message: 'Withdrawal of ₦25,000 to GTBank was successful.',
-      time: '1 hour ago',
-      icon: 'wallet-outline',
-      color: '#10B981',
-      type: 'System',
-      isUnread: true
-    },
-    {
-      id: '3',
-      title: 'Promo Discovered',
-      message: 'Get 20% off on your next subscription. Limited time offer!',
-      time: '5 hours ago',
-      icon: 'gift-outline',
-      color: '#EF4444',
-      type: 'Promo',
-      isUnread: false
-    },
-    {
-      id: '4',
-      title: 'System Update',
-      message: 'We have updated our terms of service. Please review them.',
-      time: 'Yesterday',
-      icon: 'settings-outline',
-      color: '#3B82F6',
-      type: 'System',
-      isUnread: false
+  const fetchNotifications = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError('');
+    try {
+      const res = await getDriverNotifications();
+      if (res?.success && Array.isArray(res.data)) {
+        setNotifications(res.data);
+      } else {
+        setError('Could not load notifications.');
+      }
+    } catch (err) {
+      setError('Network error. Pull down to retry.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  ];
+  }, []);
 
-  const filteredNotifications = activeTab === 'All' 
-    ? notifications 
-    : notifications.filter(n => n.type === activeTab);
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  const handleMarkRead = async (item) => {
+    if (item.read) return;
+    // Optimistically mark as read in UI
+    setNotifications(prev =>
+      prev.map(n => n._id === item._id ? { ...n, read: true } : n)
+    );
+    try {
+      await markDriverNotificationRead(item._id);
+    } catch (e) {
+      // Revert on failure
+      setNotifications(prev =>
+        prev.map(n => n._id === item._id ? { ...n, read: false } : n)
+      );
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    const hasUnread = notifications.some(n => !n.read);
+    if (!hasUnread) return;
+    // Optimistically update UI
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    try {
+      await markAllDriverNotificationsRead();
+    } catch (e) {
+      Alert.alert('Error', 'Could not mark all as read. Please try again.');
+      fetchNotifications(); // Revert to server state
+    }
+  };
+
+  const filteredNotifications = activeTab === 'All'
+    ? notifications
+    : notifications.filter(n => n.type === TAB_FILTERS[activeTab]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const renderEmpty = () => (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyIconBg}>
+        <Ionicons name="notifications-off-outline" size={54} color="#CBD5E1" />
+      </View>
+      <Text style={styles.emptyTitle}>No notifications</Text>
+      <Text style={styles.emptySub}>
+        {activeTab === 'All'
+          ? "You're all caught up! We'll notify you when something happens."
+          : `No ${activeTab.toLowerCase()} notifications yet.`}
+      </Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      
-      {/* Header */}
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+
+      {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity style={styles.markReadBtn}>
-           <Text style={styles.markReadText}>Mark all as read</Text>
+
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount}</Text>
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={[styles.markAllBtn, unreadCount === 0 && { opacity: 0.4 }]}
+          onPress={handleMarkAllRead}
+          disabled={unreadCount === 0}
+        >
+          <Text style={styles.markAllText}>Mark all read</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Tabs */}
+      {/* ── Tabs ── */}
       <View style={styles.tabBar}>
-        {['All', 'Order', 'System'].map(tab => (
-          <TouchableOpacity 
-            key={tab} 
+        {TABS.map(tab => (
+          <TouchableOpacity
+            key={tab}
             style={[styles.tab, activeTab === tab && styles.activeTab]}
             onPress={() => setActiveTab(tab)}
           >
             <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab === 'Order' ? 'Orders' : tab}
+              {tab}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {filteredNotifications.length > 0 ? (
-          filteredNotifications.map(item => (
-            <NotificationItem key={item.id} {...item} />
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-             <View style={styles.emptyIconBg}>
-                <Ionicons name="notifications-off-outline" size={60} color="#CBD5E1" />
-             </View>
-             <Text style={styles.emptyTitle}>No notifications yet</Text>
-             <Text style={styles.emptySub}>We will notify you when something important happens.</Text>
-          </View>
-        )}
-      </ScrollView>
+      {/* ── Content ── */}
+      {loading ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading notifications…</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorState}>
+          <Ionicons name="cloud-offline-outline" size={48} color="#CBD5E1" />
+          <Text style={styles.errorTitle}>Connection Error</Text>
+          <Text style={styles.errorSub}>{error}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => fetchNotifications()}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredNotifications}
+          keyExtractor={item => item._id}
+          renderItem={({ item }) => (
+            <NotificationCard item={item} onPress={handleMarkRead} />
+          )}
+          ListEmptyComponent={renderEmpty}
+          contentContainerStyle={[
+            styles.listContent,
+            filteredNotifications.length === 0 && { flex: 1 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchNotifications(true)}
+              colors={[Colors.primary]}
+              tintColor={Colors.primary}
+            />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 };
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8FAFC',
   },
+
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 14,
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
-  backBtn: {
-    padding: 5,
+  backBtn: { padding: 4 },
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#0F172A',
   },
-  markReadBtn: {
-    paddingVertical: 5,
+  badge: {
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
   },
-  markReadText: {
+  badgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  markAllBtn: { paddingVertical: 6, paddingHorizontal: 4 },
+  markAllText: {
     fontSize: 12,
     color: Colors.primary,
     fontWeight: '600',
   },
+
+  // Tabs
   tabBar: {
     flexDirection: 'row',
     backgroundColor: '#FFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    gap: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingTop: 6,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   tab: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: '#F1F5F9',
   },
-  activeTab: {
-    backgroundColor: Colors.primary,
+  activeTab: { backgroundColor: Colors.primary },
+  tabText: { fontSize: 13, color: '#64748B', fontWeight: '600' },
+  activeTabText: { color: '#FFF' },
+
+  // List
+  listContent: {
+    padding: 16,
+    paddingBottom: 32,
   },
-  tabText: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '600',
-  },
-  activeTabText: {
-    color: '#FFF',
-  },
-  scrollContent: {
-    padding: 20,
-    flexGrow: 1,
-  },
-  notificationCard: {
+
+  // Notification Card
+  card: {
     backgroundColor: '#FFF',
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 1,
     position: 'relative',
   },
   unreadCard: {
-    borderColor: 'rgba(255, 140, 0, 0.2)',
-    backgroundColor: '#FFFBF5',
+    borderColor: 'rgba(255, 140, 0, 0.25)',
+    backgroundColor: '#FFFCF7',
   },
   iconBg: {
-    width: 44,
-    height: 44,
+    width: 46,
+    height: 46,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 14,
+    flexShrink: 0,
   },
-  content: {
-    flex: 1,
-  },
-  topRow: {
+  cardContent: { flex: 1 },
+  cardTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
   },
-  title: {
-    fontSize: 15,
-    fontWeight: 'bold',
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#1E293B',
+    flex: 1,
+    marginRight: 8,
   },
-  time: {
-    fontSize: 11,
-    color: '#94A3B8',
-  },
-  message: {
-    fontSize: 13,
-    color: '#64748B',
-    lineHeight: 18,
-  },
+  unreadTitle: { fontWeight: '700', color: '#0F172A' },
+  cardTime: { fontSize: 11, color: '#94A3B8', flexShrink: 0 },
+  cardMessage: { fontSize: 13, color: '#64748B', lineHeight: 18 },
   unreadDot: {
     position: 'absolute',
-    top: 15,
-    right: 15,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: 14,
+    right: 14,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
     backgroundColor: Colors.primary,
   },
+
+  // States
+  loadingState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 14,
+  },
+  loadingText: { fontSize: 14, color: '#94A3B8' },
+
+  errorState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    gap: 10,
+  },
+  errorTitle: { fontSize: 17, fontWeight: '700', color: '#1E293B', marginTop: 4 },
+  errorSub: { fontSize: 13, color: '#94A3B8', textAlign: 'center', lineHeight: 20 },
+  retryBtn: {
+    marginTop: 12,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  retryText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 100,
+    paddingHorizontal: 40,
+    gap: 10,
   },
   emptyIconBg: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 25,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1E293B',
     marginBottom: 8,
   },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#1E293B' },
   emptySub: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#94A3B8',
     textAlign: 'center',
-    paddingHorizontal: 40,
     lineHeight: 20,
   },
 });

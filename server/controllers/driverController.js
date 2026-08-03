@@ -175,10 +175,56 @@ const getDriverDeliveries = async (req, res) => {
   }
 };
 
+// ─── GET Driver Notifications ────────────────────────────────────────────────
+const getDriverNotifications = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const notifications = await Notification.find({
+      recipient: { $in: ['driver', 'all'] }
+    }).sort({ createdAt: -1 }).limit(50);
+
+    res.status(200).json({ success: true, data: notifications });
+  } catch (error) {
+    console.error('getDriverNotifications error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── MARK Single Driver Notification as Read ─────────────────────────────────
+const markDriverNotificationRead = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const { id } = req.params;
+    await Notification.findByIdAndUpdate(id, { read: true });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('markDriverNotificationRead error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── MARK ALL Driver Notifications as Read ───────────────────────────────────
+const markAllDriverNotificationsRead = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    await Notification.updateMany(
+      { recipient: { $in: ['driver', 'all'] }, read: false },
+      { read: true }
+    );
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('markAllDriverNotificationsRead error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getDriverProfile,
   updateDriverProfile,
   getDriverEarnings,
   withdrawEarnings,
   getDriverDeliveries,
+  getDriverNotifications,
+  markDriverNotificationRead,
+  markAllDriverNotificationsRead,
 };

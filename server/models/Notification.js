@@ -11,8 +11,13 @@ const NotificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['dispute', 'driver', 'order', 'payment', 'system'],
+    enum: ['dispute', 'driver', 'order', 'payment', 'system', 'promo'],
     default: 'system'
+  },
+  recipient: {
+    type: String,
+    enum: ['admin', 'driver', 'vendor', 'customer', 'all'],
+    default: 'admin'
   },
   read: {
     type: Boolean,
