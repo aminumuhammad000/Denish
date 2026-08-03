@@ -205,20 +205,22 @@ const PayoutAccountScreen = ({ navigation }) => {
               {loadingBanks ? (
                 <ActivityIndicator size="large" color={Colors.primary} style={{ margin: 20 }} />
               ) : (
-                <FlatList
-                  data={filteredBanks}
-                  keyExtractor={(item) => item.code}
-                  keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => (
-                    <TouchableOpacity 
-                      style={styles.bankItem}
-                      onPress={() => handleBankSelect(item)}
-                    >
-                      <Text style={styles.bankItemText}>{item.name}</Text>
-                      {formData.bankCode === item.code && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
-                    </TouchableOpacity>
-                  )}
-                />
+                <View style={{ flex: 1, minHeight: 300 }}>
+                  <FlatList
+                    data={filteredBanks}
+                    keyExtractor={(item, index) => item?.code || index.toString()}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => (
+                      <TouchableOpacity 
+                        style={styles.bankItem}
+                        onPress={() => handleBankSelect(item)}
+                      >
+                        <Text style={styles.bankItemText}>{item.name}</Text>
+                        {formData.bankCode === item.code && <Ionicons name="checkmark" size={20} color={Colors.primary} />}
+                      </TouchableOpacity>
+                    )}
+                  />
+                </View>
               )}
             </View>
           </View>
