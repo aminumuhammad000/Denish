@@ -253,35 +253,51 @@ const getDriverDeliveries = async (req, res) => {
   try {
     const Order = require('../models/Order');
     
-    // Fetch live orders from MongoDB
+    // Fetch live orders from MongoDB with populated Vendor data
     const allOrders = await Order.find().populate('vendorId').sort({ createdAt: -1 });
 
-    const activeOrders = allOrders.filter(o => ['pending', 'preparing', 'ready', 'assigned', 'on the way'].includes(o.status));
+    const availableOrders = allOrders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status));
+    const activeOrders = allOrders.filter(o => ['assigned', 'on the way'].includes(o.status));
     const completedOrders = allOrders.filter(o => o.status === 'delivered');
 
-    const formattedActive = activeOrders.map(o => ({
-      id: o.orderId || o._id,
-      _id: o._id,
-      restaurant: o.vendorId?.businessName || o.vendorName || 'Mama\'s Kitchen',
+    const formattedAvailable = availableOrders.map(o => ({
+      id: o.orderId || o._id.toString(),
+      _id: o._id.toString(),
+      restaurant: o.vendorId?.businessName || o.vendorName || 'Spice Avenue',
       customer: o.customerName || 'Customer',
       pickupAddress: o.vendorId?.address || '15 Admiralty Way, Lekki',
-      dropoffAddress: o.deliveryAddress || o.address || 'Customer Address',
-      status: o.status === 'on the way' ? 'En route to customer' : o.status === 'preparing' ? 'Preparing at restaurant' : 'Ready for pickup',
-      amount: o.totalAmount || o.total || 750,
+      dropoffAddress: o.deliveryAddress || o.address || '12 Marina Road, Lagos Island',
+      status: o.status === 'preparing' ? 'Preparing at restaurant' : 'New delivery request',
+      amount: o.deliveryFee || 850,
+      totalAmount: o.totalAmount || o.total || 5700,
       distance: '3.5 km'
     }));
 
-    const formattedCompleted = completedOrders.map(o => ({
-      id: o.orderId || o._id,
-      _id: o._id,
-      restaurant: o.vendorId?.businessName || o.vendorName || 'Mama\'s Kitchen',
+    const formattedActive = activeOrders.map(o => ({
+      id: o.orderId || o._id.toString(),
+      _id: o._id.toString(),
+      restaurant: o.vendorId?.businessName || o.vendorName || 'Spice Avenue',
       customer: o.customerName || 'Customer',
-      amount: o.totalAmount || o.total || 750,
+      pickupAddress: o.vendorId?.address || '15 Admiralty Way, Lekki',
+      dropoffAddress: o.deliveryAddress || o.address || '12 Marina Road, Lagos Island',
+      status: o.status === 'on the way' ? 'En route to customer' : 'Order picked up',
+      amount: o.deliveryFee || 850,
+      totalAmount: o.totalAmount || o.total || 5700,
+      distance: '2.1 km'
+    }));
+
+    const formattedCompleted = completedOrders.map(o => ({
+      id: o.orderId || o._id.toString(),
+      _id: o._id.toString(),
+      restaurant: o.vendorId?.businessName || o.vendorName || 'Spice Avenue',
+      customer: o.customerName || 'Customer',
+      amount: o.deliveryFee || 850,
+      totalAmount: o.totalAmount || o.total || 5700,
       date: new Date(o.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ', ' + new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }));
 
     const deliveries = {
-      available: formattedActive.filter(o => o.status === 'Ready for pickup'),
+      available: formattedAvailable,
       active: formattedActive,
       completed: formattedCompleted
     };
