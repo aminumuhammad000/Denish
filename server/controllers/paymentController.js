@@ -42,7 +42,7 @@ const getBanks = async (req, res) => {
 
 const verifyAccount = async (req, res) => {
   const secretKey = process.env.FLW_SECRET_KEY;
-  const { bankCode, accountNumber } = req.query;
+  const { bankCode, accountNumber, country } = req.query;
 
   if (!bankCode || !accountNumber) {
     return res.status(400).json({ success: false, message: 'bankCode and accountNumber are required' });
@@ -50,37 +50,50 @@ const verifyAccount = async (req, res) => {
 
   if (secretKey) {
     try {
-      const response = await axios.post(
-        `${FLW_BASE_URL}/accounts/resolve`,
-        {
-          account_number: accountNumber,
-          account_bank: bankCode
-        },
-        {
-          headers: { Authorization: `Bearer ${secretKey}` }
-        }
-      );
+      const params = {
+        account_number: accountNumber,
+        account_bank: bankCode,
+        country: country || 'NG',
+      };
 
-      if (response.data && response.data.data) {
+      const response = await axios.get(`${FLW_BASE_URL}/accounts/resolve`, {
+        params,
+        headers: { Authorization: `Bearer ${secretKey}` }
+      });
+
+      if (response.data && response.data.status === 'success' && response.data.data) {
+        const accountData = response.data.data;
         return res.status(200).json({
           success: true,
           data: {
-            account_number: response.data.data.account_number,
-            account_name: response.data.data.account_name
+            ...accountData,
+            accountName: accountData.account_name || accountData.customer_name || '',
+            accountNumber: accountData.account_number || accountNumber,
           }
         });
       }
+
+      return res.status(400).json({
+        success: false,
+        message: response.data?.message || 'Verification failed',
+        data: null,
+      });
     } catch (error) {
       console.error('Flutterwave verifyAccount error:', error.response?.data || error.message);
+      const status = error.response?.status || 500;
+      const data = error.response?.data || { success: false, message: 'Verification failed' };
+      return res.status(status).json(data);
     }
   }
 
-  // Demo account resolution response for test account numbers
+  // Demo account resolution response when secret key is not configured
   res.status(200).json({
     success: true,
     data: {
-      account_number: req.query.accountNumber || '0123456789',
-      account_name: 'Usman Umar (Verified)'
+      account_number: accountNumber,
+      account_name: 'Usman Umar (Verified)',
+      accountName: 'Usman Umar (Verified)',
+      accountNumber: accountNumber,
     }
   });
 };
