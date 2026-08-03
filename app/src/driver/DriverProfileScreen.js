@@ -84,7 +84,7 @@ const DriverProfileScreen = ({ navigation }) => {
       setLoading(true);
       const response = await getDriverProfile();
       if (response && response.success) {
-        setDriver(response.driver);
+        setDriver(response.data || response.driver);
       }
     } catch (error) {
       console.error('Error fetching driver profile:', error);
