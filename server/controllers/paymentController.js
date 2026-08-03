@@ -25,11 +25,16 @@ const getBanks = async (req, res) => {
 
   if (secretKey) {
     try {
-      const response = await axios.get(`${FLW_BASE_URL}/banks/NG`, {
+      const response = await axios.get(`${FLW_BASE_URL}/banks`, {
+        params: { country: 'NG' },
         headers: { Authorization: `Bearer ${secretKey}` }
       });
       if (response.data && response.data.data) {
-        return res.status(200).json({ success: true, data: response.data.data });
+        const banks = response.data.data.map((bank) => ({
+          ...bank,
+          code: bank.code || bank.id,
+        }));
+        return res.status(200).json({ success: true, data: banks });
       }
     } catch (error) {
       console.error('Flutterwave getBanks error:', error.response?.data || error.message);
