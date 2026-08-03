@@ -344,19 +344,47 @@ const CustomerHomeScreen = ({ navigation }) => {
           {/* Drinks */}
           <SectionHeader title="Drinks" showViewAll onPress={() => navigation.navigate('Category', { category: 'Drinks' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
-             <SquareCard name="Fresh Chapman" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Juice" sub="Smokey party jollof rice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Red Wine" sub="Smokey party jollof rice" price="12,000" image="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Cold Beer" sub="Smokey party jollof rice" price="1,200" image="https://images.unsplash.com/photo-1532635241-17e820acc59f?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             {items.filter(i => i.category === 'Drinks').length > 0 ? (
+               items.filter(i => i.category === 'Drinks').map(item => (
+                 <SquareCard 
+                   key={item._id}
+                   name={item.name} 
+                   sub={item.description} 
+                   price={item.price?.toLocaleString()} 
+                   image={item.image || "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80"} 
+                   onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
+                 />
+               ))
+             ) : (
+               <>
+                 <SquareCard name="Fresh Chapman" sub="Classic refreshing Chapman" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+                 <SquareCard name="Fruit Juice" sub="Fresh squeezed orange juice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+                 <SquareCard name="Red Wine" sub="Premium aged red wine" price="12,000" image="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+               </>
+             )}
           </ScrollView>
 
           {/* Fruits */}
           <SectionHeader title="Fruits" showViewAll onPress={() => navigation.navigate('Category', { category: 'Fruits' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
-             <SquareCard name="Fresh Mango" sub="Smokey party jollof rice" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Fresh Pepper" sub="Smokey party jollof rice" price="2,500" image="https://images.unsplash.com/photo-1590644365607-1c5a519a7a37?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Pineapple" sub="Smokey party jollof rice" price="1,500" image="https://images.unsplash.com/photo-1550258114-68bd25f3dfc8?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-             <SquareCard name="Watermelon" sub="Smokey party jollof rice" price="2,000" image="https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+             {items.filter(i => i.category === 'Fruits').length > 0 ? (
+               items.filter(i => i.category === 'Fruits').map(item => (
+                 <SquareCard 
+                   key={item._id}
+                   name={item.name} 
+                   sub={item.description} 
+                   price={item.price?.toLocaleString()} 
+                   image={item.image || "https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80"} 
+                   onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
+                 />
+               ))
+             ) : (
+               <>
+                 <SquareCard name="Fresh Mango" sub="Juicy seasonal mango" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+                 <SquareCard name="Pineapple" sub="Sweet tropical pineapple" price="1,500" image="https://images.unsplash.com/photo-1550258114-68bd25f3dfc8?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+                 <SquareCard name="Watermelon" sub="Refreshing sliced watermelon" price="2,000" image="https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+               </>
+             )}
           </ScrollView>
 
         </View>
