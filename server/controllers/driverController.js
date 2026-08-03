@@ -440,6 +440,51 @@ const sendDriverMessage = async (req, res) => {
   }
 };
 
+// ─── UPDATE Driver Order Status ───────────────────────────────────────────────
+const updateOrderStatus = async (req, res) => {
+  try {
+    const Order = require('../models/Order');
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ['pending', 'preparing', 'ready', 'on the way', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ success: false, error: 'Invalid order status' });
+    }
+
+    const order = await Order.findOne({
+      $or: [{ _id: mongoose.Types.ObjectId.isValid(orderId) ? orderId : null }, { orderId: orderId }]
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    order.status = status;
+    await order.save();
+
+    // If order status is marked as 'delivered', update driver earnings in DB
+    if (status === 'delivered') {
+      const driver = await Driver.findOne();
+      if (driver) {
+        const fee = order.deliveryFee || 850;
+        driver.earnings = {
+          totalEarned: (driver.earnings?.totalEarned || 0) + fee,
+          availableBalance: (driver.earnings?.availableBalance || 0) + fee,
+          totalTrips: (driver.earnings?.totalTrips || 0) + 1,
+        };
+        driver.markModified('earnings');
+        await driver.save();
+      }
+    }
+
+    res.status(200).json({ success: true, message: `Order status updated to ${status}`, data: order });
+  } catch (error) {
+    console.error('updateOrderStatus error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getDriverProfile,
   updateDriverProfile,
@@ -452,4 +497,5 @@ module.exports = {
   getDriverChats,
   getDriverMessages,
   sendDriverMessage,
+  updateOrderStatus,
 };

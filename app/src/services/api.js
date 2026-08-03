@@ -599,4 +599,14 @@ export const sendDriverChatMessage = async (data) => {
   }
 };
 
+export const updateOrderStatus = async (orderId, status) => {
+  try {
+    const response = await api.patch(`/driver/order/${orderId}/status`, { status });
+    return response.data;
+  } catch (error) {
+    console.error('API updateOrderStatus error:', error);
+    throw error;
+  }
+};
+
 export default api;

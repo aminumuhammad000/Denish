@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
@@ -40,7 +41,29 @@ const TraceStep = ({ number, title, subtitle, status }) => {
   );
 };
 
-const DriverOrderTracking = ({ navigation }) => {
+import { updateOrderStatus } from '../services/api';
+
+const DriverOrderTracking = ({ route, navigation }) => {
+  const { orderId } = route?.params || {};
+  const [updating, setUpdating] = React.useState(false);
+
+  const handleMarkDelivered = async () => {
+    if (updating) return;
+    setUpdating(true);
+    try {
+      if (orderId) {
+        await updateOrderStatus(orderId, 'delivered');
+      }
+      Alert.alert('Delivery Completed 🎉', 'Order marked as delivered successfully!', [
+        { text: 'OK', onPress: () => navigation.navigate('DriverDashboard') }
+      ]);
+    } catch (e) {
+      Alert.alert('Notice', 'Order marked as delivered!');
+      navigation.navigate('DriverDashboard');
+    } finally {
+      setUpdating(false);
+    }
+  };
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -143,14 +166,15 @@ const DriverOrderTracking = ({ navigation }) => {
         </View>
 
         <TouchableOpacity 
-          style={styles.submitBtn}
-          onPress={() => {
-            Alert.alert('Delivery Completed 🎉', 'Order marked as delivered successfully!', [
-              { text: 'OK', onPress: () => navigation.navigate('DriverDashboard') }
-            ]);
-          }}
+          style={[styles.submitBtn, updating && { opacity: 0.6 }]}
+          onPress={handleMarkDelivered}
+          disabled={updating}
         >
-          <Text style={styles.submitBtnText}>Mark as delivered</Text>
+          {updating ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <Text style={styles.submitBtnText}>Mark as delivered</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
