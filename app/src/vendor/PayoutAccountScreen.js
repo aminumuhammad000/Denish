@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { ProgressBar } from '../components/OnboardingComponents';
+// Verify payout account details through backend Flutterwave account resolution
 import { getBanks, verifyAccount } from '../services/api';
 import { useOnboarding } from '../context/OnboardingContext';
 import { 
@@ -53,10 +54,31 @@ const PayoutAccountScreen = ({ navigation }) => {
     }
   };
 
-  const handleBankSelect = (bank) => {
-    setFormData({ ...formData, bank: bank.name, bankCode: bank.code, accountName: '' });
+  const verifyAccountDetails = async (bankCode, accountNumber) => {
+    if (!bankCode || accountNumber.length !== 10) return;
+    setVerifying(true);
+    setErrorHeader('');
+    try {
+      const result = await verifyAccount(bankCode, accountNumber);
+      if (result.success) {
+        setFormData(prev => ({ ...prev, accountName: result.data.accountName }));
+      } else {
+        setErrorHeader(result.message || 'Verification failed');
+      }
+    } catch (err) {
+      setErrorHeader('Could not verify account. Please check details.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleBankSelect = async (bank) => {
+    setFormData(prev => ({ ...prev, bank: bank.name, bankCode: bank.code, accountName: '' }));
     setModalVisible(false);
     setSearchQuery('');
+    if (formData.accountNumber.length === 10) {
+      await verifyAccountDetails(bank.code, formData.accountNumber);
+    }
   };
 
   const filteredBanks = (banks || []).filter(b => {
@@ -67,7 +89,7 @@ const PayoutAccountScreen = ({ navigation }) => {
   const handleAccountChange = async (val) => {
     setFormData({ ...formData, accountNumber: val, accountName: '' });
     
-    // Auto-verify when 10 digits are reached and bank is selected
+    // Auto-verify account details via Flutterwave backend validation when 10 digits are entered
     if (val.length === 10 && formData.bankCode) {
       setVerifying(true);
       setErrorHeader('');
@@ -92,7 +114,7 @@ const PayoutAccountScreen = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Payout account</Text>
-          <Text style={styles.subtitle}>Where should we send your earnings?</Text>
+          <Text style={styles.subtitle}>Where should we send your earnings? Account details are verified through Flutterwave.</Text>
         </View>
 
         <View style={styles.form}>
