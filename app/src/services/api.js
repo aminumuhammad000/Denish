@@ -5,10 +5,7 @@ import { Platform } from 'react-native';
 // Replace with your local machine's IP if testing on a physical device.
 // For physical devices on local network, use local IP 192.168.1.85. For Simulator, localhost works as well.
 const getBaseUrl = () => {
-  if (Platform.OS === 'ios' && !__DEV__) {
-    return 'http://192.168.1.85:3000/api';
-  }
-  return 'http://192.168.1.85:3000/api';
+  return 'https://api.denishng.com/api';
 };
 
 const api = axios.create({

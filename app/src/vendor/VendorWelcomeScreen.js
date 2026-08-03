@@ -29,15 +29,6 @@ const VendorWelcomeScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Illustration */}
-        <View style={[styles.illustrationContainer, { height: height * 0.25 }]}>
-          <Image 
-            source={require('../../assets/onboarding/payment.png')} 
-            style={styles.image}
-            resizeMode="contain"
-          />
-        </View>
-
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Sell with Denish</Text>
