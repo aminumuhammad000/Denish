@@ -6,12 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { getDriverProfile } from '../services/api';
-import { ActivityIndicator, Image } from 'react-native';
 
 const ProfileCard = ({ title, children, onEdit, showEdit = true }) => (
   <View style={styles.profileCard}>
@@ -75,9 +77,11 @@ const DriverProfileScreen = ({ navigation }) => {
     promos: false,
   });
 
-  React.useEffect(() => {
-    fetchProfile();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchProfile();
+    }, [])
+  );
 
   const fetchProfile = async () => {
     try {
