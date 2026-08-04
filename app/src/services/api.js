@@ -529,26 +529,6 @@ export const verifyAccount = async (bankCode, accountNumber) => {
 
 // ─── Driver Core APIs ─────────────────────────────────────────────────────────
 
-export const getDriverProfile = async () => {
-  try {
-    const response = await api.get('/driver/profile');
-    return response.data;
-  } catch (error) {
-    console.error('API getDriverProfile error:', error);
-    throw error;
-  }
-};
-
-export const updateDriverProfile = async (payload) => {
-  try {
-    const response = await api.put('/driver/profile', payload);
-    return response.data;
-  } catch (error) {
-    console.error('API updateDriverProfile error:', error);
-    throw error;
-  }
-};
-
 export const getDriverEarnings = async () => {
   try {
     const response = await api.get('/driver/earnings');
