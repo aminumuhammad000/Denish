@@ -5,14 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
-const PAYOUT_HISTORY = [
-  { id: 'PO-1024', date: '2026-04-15', ref: 'PYT-9982', amount: 145000, status: 'Completed' },
-  { id: 'PO-1024', date: '2026-04-15', ref: 'PYT-9982', amount: 145000, status: 'Completed' },
-  { id: 'PO-1024', date: '2026-04-15', ref: 'PYT-9982', amount: 145000, status: 'Completed' },
-  { id: 'PO-1024', date: '2026-04-15', ref: 'PYT-9982', amount: 145000, status: 'Completed' },
-  { id: 'PO-1024', date: '2026-04-15', ref: 'PYT-9982', amount: 145000, status: 'Completed' },
-];
+import { requestVendorPayout } from '../../services/api';
 
 const RequestPayoutScreen = ({ navigation, route }) => {
   const { availableBalance = 248500, payoutAccount } = route?.params || {};
@@ -23,7 +16,7 @@ const RequestPayoutScreen = ({ navigation, route }) => {
   const acctNum = payoutAccount?.accountNumber || '0123456789';
   const acctName = payoutAccount?.accountName || "Mama's kitchen ltd";
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const value = parseFloat(amount);
     if (!amount || isNaN(value) || value < 5000) {
       Alert.alert('Invalid Amount', 'Minimum payout is ₦5,000.');
@@ -33,15 +26,24 @@ const RequestPayoutScreen = ({ navigation, route }) => {
       Alert.alert('Insufficient Balance', `Your available balance is ₦${availableBalance.toLocaleString()}.`);
       return;
     }
+
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      const result = await requestVendorPayout(value);
+      if (result.success) {
+        Alert.alert(
+          'Request Submitted',
+          'Your payout request is being processed. Funds will arrive within 24h.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        Alert.alert('Request Failed', result.error || 'Unable to submit payout request.');
+      }
+    } catch (error) {
+      Alert.alert('Request Failed', error.response?.data?.error || 'Unable to submit payout request.');
+    } finally {
       setSubmitting(false);
-      Alert.alert(
-        'Request Submitted',
-        'Your payout is being processed. Funds will arrive within 24h.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-    }, 1500);
+    }
   };
 
   return (
@@ -103,58 +105,6 @@ const RequestPayoutScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </View>
 
-          {/* ── Income / Payouts History Card ── */}
-          <View style={styles.incomeCard}>
-            {/* Income Header */}
-            <View style={styles.incomeHeader}>
-              <Text style={styles.incomeTitle}>Income</Text>
-              <View style={styles.toggle}>
-                <View style={styles.toggleInactiveBtn}>
-                  <Text style={styles.toggleInactiveText}>Weekly</Text>
-                </View>
-                <View style={styles.toggleActiveBtn}>
-                  <Text style={styles.toggleActiveText}>payouts</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Payout History List */}
-            {PAYOUT_HISTORY.map((payout, idx) => (
-              <View
-                key={idx}
-                style={[
-                  styles.payoutRow,
-                  idx === PAYOUT_HISTORY.length - 1 && { borderBottomWidth: 0 },
-                ]}
-              >
-                <View style={styles.payoutIconWrap}>
-                  <Ionicons name="download-outline" size={14} color="#27AE60" />
-                </View>
-                <View style={styles.payoutInfo}>
-                  <Text style={styles.payoutId}>{payout.id}</Text>
-                  <Text style={styles.payoutMeta}>{payout.date} | {payout.ref}</Text>
-                </View>
-                <View style={styles.payoutRight}>
-                  <Text style={styles.payoutAmount}>N{payout.amount.toLocaleString()}</Text>
-                  <Text style={styles.payoutStatus}>{payout.status}</Text>
-                </View>
-              </View>
-            ))}
-
-            {/* Period Summary */}
-            <View style={styles.periodRow}>
-              {[
-                { label: 'THIS WEEK', value: 'N42,000' },
-                { label: 'THIS MONTH', value: 'N152,000' },
-                { label: 'TODAY', value: 'N8,500' },
-              ].map((p, i) => (
-                <View key={p.label} style={[styles.periodItem, i === 1 && styles.periodItemMid]}>
-                  <Text style={styles.periodLabel}>{p.label}</Text>
-                  <Text style={styles.periodValue}>{p.value}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
 
         </ScrollView>
       </KeyboardAvoidingView>

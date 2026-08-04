@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
+import { forgotPassword } from '../services/api';
 
 const ForgotPasswordScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -47,7 +49,23 @@ const ForgotPasswordScreen = ({ navigation }) => {
               />
             </View>
 
-            <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={async () => {
+                try {
+                  const result = await forgotPassword(email, 'vendor');
+                  if (result.success) {
+                    Alert.alert('Success', result.message || 'Password reset email sent.', [
+                      { text: 'OK', onPress: () => navigation.goBack() }
+                    ]);
+                  } else {
+                    Alert.alert('Error', result.error || 'Unable to send reset link.');
+                  }
+                } catch (err) {
+                  Alert.alert('Error', err.response?.data?.error || 'Network error. Please try again.');
+                }
+              }}
+            >
               <Text style={styles.buttonText}>Send link</Text>
             </TouchableOpacity>
           </View>

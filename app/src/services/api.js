@@ -209,6 +209,26 @@ export const updateVendorProfile = async (profileData) => {
   }
 };
 
+export const forgotPassword = async (email, role = 'vendor') => {
+  try {
+    const response = await api.post('/auth/forgot-password', { email, role });
+    return response.data;
+  } catch (error) {
+    console.error('API forgotPassword error:', error);
+    throw error;
+  }
+};
+
+export const requestVendorPayout = async (amount) => {
+  try {
+    const response = await api.post('/vendor/payout', { amount });
+    return response.data;
+  } catch (error) {
+    console.error('API requestVendorPayout error:', error);
+    throw error;
+  }
+};
+
 export const getRestaurants = async () => {
   try {
     const response = await api.get('/customer/restaurants');
@@ -479,50 +499,14 @@ export const uploadVendorImages = async (logoUri, coverUri) => {
   }
 };
 
-// Nigerian banks fallback list — used if server cannot fetch from Flutterwave
-const NIGERIAN_BANKS_FALLBACK = [
-  { id: 1, code: '044', name: 'Access Bank' },
-  { id: 2, code: '023', name: 'Citibank Nigeria' },
-  { id: 3, code: '050', name: 'Ecobank Nigeria' },
-  { id: 4, code: '070', name: 'Fidelity Bank' },
-  { id: 5, code: '011', name: 'First Bank of Nigeria' },
-  { id: 6, code: '214', name: 'First City Monument Bank (FCMB)' },
-  { id: 7, code: '058', name: 'Guaranty Trust Bank (GTBank)' },
-  { id: 8, code: '030', name: 'Heritage Bank' },
-  { id: 9, code: '301', name: 'Jaiz Bank' },
-  { id: 10, code: '082', name: 'Keystone Bank' },
-  { id: 11, code: '526', name: 'Parallex Bank' },
-  { id: 12, code: '076', name: 'Polaris Bank' },
-  { id: 13, code: '221', name: 'Stanbic IBTC Bank' },
-  { id: 14, code: '068', name: 'Standard Chartered Bank' },
-  { id: 15, code: '232', name: 'Sterling Bank' },
-  { id: 16, code: '100', name: 'SunTrust Bank' },
-  { id: 17, code: '032', name: 'Union Bank' },
-  { id: 18, code: '033', name: 'United Bank for Africa (UBA)' },
-  { id: 19, code: '215', name: 'Unity Bank' },
-  { id: 20, code: '035', name: 'Wema Bank' },
-  { id: 21, code: '057', name: 'Zenith Bank' },
-  { id: 22, code: '100004', name: 'OPay Digital Services' },
-  { id: 23, code: '100033', name: 'PalmPay' },
-  { id: 24, code: '50515', name: 'Moniepoint Microfinance Bank' },
-  { id: 25, code: '50211', name: 'Kuda Bank' },
-  { id: 26, code: '50304', name: 'Sparkle Bank' },
-  { id: 27, code: '100005', name: 'Carbon (OneFi)' },
-];
 
 export const getBanks = async () => {
   try {
     const response = await api.get('/payment/banks');
-    const data = response.data;
-    // If server returned a valid list, use it
-    if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
-      return data;
-    }
-    // Otherwise fall back to client-side list
-    return { success: true, data: NIGERIAN_BANKS_FALLBACK };
+    return response.data;
   } catch (error) {
-    console.warn('getBanks server error, using fallback:', error.message);
-    return { success: true, data: NIGERIAN_BANKS_FALLBACK };
+    console.error('API getBanks error:', error);
+    throw error;
   }
 };
 

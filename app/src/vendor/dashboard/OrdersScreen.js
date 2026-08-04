@@ -7,58 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getVendorOrders } from '../../services/api';
 
-// Demo orders shown when no real orders exist
-const DEMO_ORDERS = [
-  {
-    _id: 'd1', orderId: 'ORD-2451', status: 'new',
-    customerName: 'Aisha Mohammed', itemsCount: 2,
-    items: '2x Jollof Rice & Chicken, 2x Chapman',
-    amount: 10000, createdAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
-  },
-  {
-    _id: 'd2', orderId: 'ORD-2451', status: 'new',
-    customerName: 'Aisha Mohammed', itemsCount: 2,
-    items: '2x Jollof Rice & Chicken, 2x Chapman',
-    amount: 10000, createdAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
-  },
-  {
-    _id: 'd3', orderId: 'ORD-2448', status: 'preparing',
-    customerName: 'Emeka Obi', itemsCount: 3,
-    items: '1x Suya Platter, 2x Puff Puff',
-    amount: 5500, createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-  },
-  {
-    _id: 'd4', orderId: 'ORD-2447', status: 'preparing',
-    customerName: 'Fatima Bello', itemsCount: 1,
-    items: '1x Pepper Soup',
-    amount: 3500, createdAt: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
-  },
-  {
-    _id: 'd5', orderId: 'ORD-2446', status: 'preparing',
-    customerName: 'Chidi Okeke', itemsCount: 2,
-    items: '2x Fried Rice',
-    amount: 8000, createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-  },
-  {
-    _id: 'd6', orderId: 'ORD-2444', status: 'delivered',
-    customerName: 'Ngozi Adeyemi', itemsCount: 4,
-    items: '4x Jollof Rice',
-    amount: 18000, createdAt: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
-  },
-  {
-    _id: 'd7', orderId: 'ORD-2443', status: 'delivered',
-    customerName: 'Taiwo Hassan', itemsCount: 2,
-    items: '2x Suya Platter',
-    amount: 7000, createdAt: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
-  },
-  {
-    _id: 'd8', orderId: 'ORD-2440', status: 'cancelled',
-    customerName: 'Kemi Adio', itemsCount: 1,
-    items: '1x Pepper Soup',
-    amount: 3500, createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
 const TABS = ['New', 'Active', 'Completed', 'Cancelled'];
 
 const TAB_STATUS_MAP = {
@@ -87,9 +35,10 @@ const OrdersScreen = () => {
       try {
         const response = await getVendorOrders();
         const data = response?.data || [];
-        setOrders(data.length > 0 ? data : DEMO_ORDERS);
-      } catch {
-        setOrders(DEMO_ORDERS);
+        setOrders(data);
+      } catch (err) {
+        console.error('Failed to load orders', err);
+        setOrders([]);
       } finally {
         setLoading(false);
       }
@@ -166,6 +115,7 @@ const OrdersScreen = () => {
           <View style={styles.empty}>
             <Ionicons name="receipt-outline" size={40} color="#DDD" />
             <Text style={styles.emptyText}>No {activeTab.toLowerCase()} orders</Text>
+            <Text style={styles.emptySubText}>Your dashboard is connected to the server. Orders will show once they arrive.</Text>
           </View>
         ) : (
           filteredOrders.map((order, idx) => (
