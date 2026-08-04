@@ -199,18 +199,8 @@ const EarningsScreen = ({ navigation }) => {
                       <Text style={styles.payoutHistoryStatus}>{payout.status || 'Pending'}</Text>
                     </View>
                   </View>
-                ))}
-                {[
-                  { label: 'THIS WEEK', value: '₦42,000' },
-                  { label: 'THIS MONTH', value: '₦152,000' },
-                  { label: 'TODAY', value: '₦8,500' },
-                ].map((p, i) => (
-                  <View key={p.label} style={[styles.periodItem, i === 1 && styles.periodItemMid]}>
-                    <Text style={styles.periodLabel}>{p.label}</Text>
-                    <Text style={styles.periodValue}>{p.value}</Text>
-                  </View>
-                ))}
-              </View>
+                ))
+              )}
             </>
           )}
         </View>
