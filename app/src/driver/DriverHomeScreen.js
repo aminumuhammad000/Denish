@@ -97,6 +97,18 @@ const DriverHomeScreen = ({ navigation }) => {
     }, [fetchDashboardData])
   );
 
+  const handleDeclineOrder = async (orderId) => {
+    try {
+      if (orderId) {
+        await updateOrderStatus(orderId, 'cancelled');
+      }
+      Alert.alert('Request Declined', 'The delivery request has been declined.');
+      fetchDashboardData();
+    } catch (e) {
+      fetchDashboardData();
+    }
+  };
+
   const handleAcceptOrder = async (orderId) => {
     setAcceptingId(orderId);
     try {
@@ -325,7 +337,7 @@ const DriverHomeScreen = ({ navigation }) => {
               <View style={styles.requestActions}>
                 <TouchableOpacity
                   style={styles.declineBtn}
-                  onPress={() => fetchDashboardData()}
+                  onPress={() => handleDeclineOrder(newRequest._id || newRequest.id)}
                 >
                   <Ionicons name="close" size={20} color="#64748B" />
                   <Text style={styles.declineText}>Decline</Text>

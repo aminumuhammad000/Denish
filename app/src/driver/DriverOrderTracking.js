@@ -41,11 +41,34 @@ const TraceStep = ({ number, title, subtitle, status }) => {
   );
 };
 
-import { updateOrderStatus } from '../services/api';
+import { updateOrderStatus, getDriverDeliveries } from '../services/api';
 
 const DriverOrderTracking = ({ route, navigation }) => {
   const { orderId } = route?.params || {};
   const [updating, setUpdating] = React.useState(false);
+  const [orderDetails, setOrderDetails] = React.useState(null);
+
+  React.useEffect(() => {
+    const fetchOrder = async () => {
+      try {
+        const res = await getDriverDeliveries();
+        if (res.success && res.data) {
+          const all = [
+            ...(res.data.active || []),
+            ...(res.data.available || []),
+            ...(res.data.completed || []),
+          ];
+          const found = all.find(
+            (o) => String(o._id) === String(orderId) || String(o.id) === String(orderId)
+          );
+          if (found) setOrderDetails(found);
+        }
+      } catch (err) {
+        console.error('Fetch order tracking details error:', err);
+      }
+    };
+    fetchOrder();
+  }, [orderId]);
 
   const handleMarkDelivered = async () => {
     if (updating) return;
@@ -64,6 +87,16 @@ const DriverOrderTracking = ({ route, navigation }) => {
       setUpdating(false);
     }
   };
+
+  const displayOrder = orderDetails || {
+    id: orderId || 'ORD-005',
+    restaurant: 'Spice Avenue',
+    pickupAddress: '15 Admiralty Way, Lekki',
+    customer: 'Kola Adeleke',
+    dropoffAddress: '12 Marina Road, Lagos Island',
+    amount: 850,
+    distance: '3.5 km',
+  };
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -71,8 +104,8 @@ const DriverOrderTracking = ({ route, navigation }) => {
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Order ORD-005</Text>
-          <Text style={styles.headerSubtitle}>3.5 km | ₦750</Text>
+          <Text style={styles.headerTitle}>Order {displayOrder.id}</Text>
+          <Text style={styles.headerSubtitle}>{displayOrder.distance || '3.5 km'} | ₦{(displayOrder.amount || 850).toLocaleString()}</Text>
         </View>
       </View>
 
@@ -120,8 +153,8 @@ const DriverOrderTracking = ({ route, navigation }) => {
             </View>
             <View style={styles.miniCardContent}>
               <Text style={styles.locationLabel}>PICKUP</Text>
-              <Text style={styles.locationName}>Spice Avenue</Text>
-              <Text style={styles.locationAddr}>9 Street name, Ikoyi</Text>
+              <Text style={styles.locationName}>{displayOrder.restaurant}</Text>
+              <Text style={styles.locationAddr}>{displayOrder.pickupAddress || '15 Admiralty Way, Lekki'}</Text>
             </View>
           </View>
 
@@ -131,24 +164,24 @@ const DriverOrderTracking = ({ route, navigation }) => {
             </View>
             <View style={styles.miniCardContent}>
               <Text style={styles.locationLabel}>DROP OFF</Text>
-              <Text style={styles.locationName}>Kola Adeleke</Text>
-              <Text style={styles.locationAddr}>12 Marina Road, Lagos Island</Text>
+              <Text style={styles.locationName}>{displayOrder.customer || 'Customer'}</Text>
+              <Text style={styles.locationAddr}>{displayOrder.dropoffAddress || '12 Marina Road, Lagos Island'}</Text>
             </View>
             <View style={styles.contactActions}>
               <TouchableOpacity 
                 style={styles.actionBtn}
                 onPress={() => navigation.navigate('Calling', {
-                  name: 'Kola Adeleke',
+                  name: displayOrder.customer || 'Customer',
                   phone: '09123882672',
-                  orderId: 'ORD-005',
-                  subtitle: '12 Marina Road, Lagos Island'
+                  orderId: displayOrder.id,
+                  subtitle: displayOrder.dropoffAddress
                 })}
               >
                 <Ionicons name="call-outline" size={20} color="#666" />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.actionBtn}
-                onPress={() => navigation.navigate('ChatDetail', { name: 'Kola Adeleke', type: 'Customer' })}
+                onPress={() => navigation.navigate('ChatDetail', { name: displayOrder.customer || 'Customer', role: 'Driver' })}
               >
                 <Ionicons name="chatbubble-ellipses-outline" size={20} color="#666" />
               </TouchableOpacity>
