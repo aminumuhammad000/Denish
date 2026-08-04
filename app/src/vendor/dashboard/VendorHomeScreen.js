@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
-import { getVendorDashboardData } from '../../services/api';
+import { getVendorDashboardData, updateVendorProfile } from '../../services/api';
 
 
 const statusColor = { new: '#FF8C00', preparing: '#27AE60' };
@@ -36,10 +36,16 @@ const VendorHomeScreen = ({ navigation }) => {
     fetchDashboard();
   }, []);
 
-  const toggleStoreStatus = () => {
+  const toggleStoreStatus = async () => {
     if (isPending) return;
+    const newStatus = isOpen ? 'Suspended' : 'Approved';
     setIsOpen(!isOpen);
-    // In a real app, call API here: await updateVendorProfile({ storeOpen: !isOpen });
+    try {
+      await updateVendorProfile({ status: newStatus });
+    } catch (err) {
+      console.error('Failed to update store status', err);
+      setIsOpen(isOpen);
+    }
   };
 
 

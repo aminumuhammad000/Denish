@@ -35,6 +35,16 @@ export const getVendorOrders = async () => {
   }
 };
 
+export const getVendorTransactions = async () => {
+  try {
+    const response = await api.get('/vendor/transactions');
+    return response.data;
+  } catch (error) {
+    console.error('API getVendorTransactions error:', error);
+    throw error;
+  }
+};
+
 export const getVendorMenu = async () => {
   try {
     const response = await api.get('/vendor/menu');

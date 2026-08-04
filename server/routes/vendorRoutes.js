@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getVendorDashboard, updateVendorProfile, requestVendorPayout } = require('../controllers/vendorController');
+const { getVendorDashboard, updateVendorProfile, requestVendorPayout, getVendorTransactions } = require('../controllers/vendorController');
 const { getVendorOrders } = require('../controllers/orderController');
 const { getVendorMenu, toggleMenuItem, addMenuItem, updateMenuItem } = require('../controllers/menuController');
 const { upload } = require('../config/cloudinary');
@@ -13,6 +13,7 @@ router.get('/menu', getVendorMenu);
 router.post('/menu', addMenuItem);
 router.put('/menu/:id', updateMenuItem);
 router.put('/menu/:id/toggle', toggleMenuItem);
+router.get('/transactions', getVendorTransactions);
 
 router.post('/upload-item-image', upload.single('image'), (req, res) => {
   try {
