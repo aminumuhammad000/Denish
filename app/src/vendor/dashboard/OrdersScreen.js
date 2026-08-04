@@ -5,12 +5,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getVendorOrders } from '../../services/api';
+import { getVendorOrders, updateVendorOrderStatus } from '../../services/api';
 
 const TABS = ['New', 'Active', 'Completed', 'Cancelled'];
 
 const TAB_STATUS_MAP = {
-  New:       ['new'],
+  New:       ['new', 'pending'],
   Active:    ['preparing', 'ready'],
   Completed: ['delivered'],
   Cancelled: ['cancelled'],
@@ -30,19 +30,20 @@ const OrdersScreen = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('New');
 
+  const fetchOrders = async () => {
+    try {
+      const response = await getVendorOrders();
+      const data = response?.data || [];
+      setOrders(data);
+    } catch (err) {
+      console.error('Failed to load orders', err);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const response = await getVendorOrders();
-        const data = response?.data || [];
-        setOrders(data);
-      } catch (err) {
-        console.error('Failed to load orders', err);
-        setOrders([]);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchOrders();
   }, []);
 
@@ -53,14 +54,39 @@ const OrdersScreen = () => {
     TAB_STATUS_MAP[activeTab]?.includes(o.status)
   );
 
-  const handleAccept = (order) => {
-    Alert.alert('Order Accepted', `Order ${order.orderId} has been accepted.`);
+  const handleAccept = async (order) => {
+    try {
+      await updateVendorOrderStatus(order._id || order.id || order.orderId, 'preparing');
+      Alert.alert('Order Accepted 🍳', `Order ${order.orderId} is now marked as Preparing!`);
+      fetchOrders();
+    } catch (e) {
+      Alert.alert('Error', 'Could not update order status.');
+    }
+  };
+
+  const handleMarkReady = async (order) => {
+    try {
+      await updateVendorOrderStatus(order._id || order.id || order.orderId, 'ready');
+      Alert.alert('Order Ready! 🚴‍♂️', `Order ${order.orderId} marked as Ready for Pickup.`);
+      fetchOrders();
+    } catch (e) {
+      Alert.alert('Error', 'Could not update order status.');
+    }
   };
 
   const handleReject = (order) => {
     Alert.alert('Reject Order', `Cancel order ${order.orderId}?`, [
       { text: 'No' },
-      { text: 'Yes, cancel', style: 'destructive', onPress: () => {} },
+      { 
+        text: 'Yes, cancel', 
+        style: 'destructive', 
+        onPress: async () => {
+          try {
+            await updateVendorOrderStatus(order._id || order.id || order.orderId, 'cancelled');
+            fetchOrders();
+          } catch (e) {}
+        } 
+      },
     ]);
   };
 
@@ -152,7 +178,7 @@ const OrdersScreen = () => {
                   <TouchableOpacity style={styles.viewDetailsBtn}>
                     <Text style={styles.viewDetailsBtnText}>View details</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.acceptBtn, { flex: 1 }]}>
+                  <TouchableOpacity style={[styles.acceptBtn, { flex: 1 }]} onPress={() => handleMarkReady(order)}>
                     <Text style={styles.acceptBtnText}>Mark Ready</Text>
                   </TouchableOpacity>
                 </View>

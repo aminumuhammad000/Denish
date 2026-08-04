@@ -655,4 +655,14 @@ export const updateOrderStatus = async (orderId, status) => {
   }
 };
 
+export const updateVendorOrderStatus = async (orderId, status) => {
+  try {
+    const response = await api.patch(`/vendor/orders/${orderId}/status`, { status });
+    return response.data;
+  } catch (error) {
+    console.error('API updateVendorOrderStatus error:', error);
+    throw error;
+  }
+};
+
 export default api;

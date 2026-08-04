@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
-  Switch, Modal, ActivityIndicator, StatusBar, Image
+  Switch, Modal, ActivityIndicator, StatusBar, Image, RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
 import { getVendorDashboardData, updateVendorProfile } from '../../services/api';
 
@@ -15,26 +16,32 @@ const barDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const VendorHomeScreen = ({ navigation }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const response = await getVendorDashboardData();
-        if (response.success) {
-          setData(response.data);
-          setIsOpen(response.data.storeOpen);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  const fetchDashboard = useCallback(async (isRef = false) => {
+    if (isRef) setRefreshing(true);
+    try {
+      const response = await getVendorDashboardData();
+      if (response && response.success) {
+        setData(response.data);
+        setIsOpen(response.data.storeOpen);
       }
-    };
-    fetchDashboard();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDashboard();
+    }, [fetchDashboard])
+  );
 
   const toggleStoreStatus = async () => {
     if (isPending) return;
@@ -81,7 +88,17 @@ const VendorHomeScreen = ({ navigation }) => {
           <Text style={styles.pendingText}>Your account is pending approval.</Text>
         </View>
       )}
-      <ScrollView showsVerticalScrollIndicator={false} style={[styles.scroll, isPending && { opacity: 0.9 }]}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        style={[styles.scroll, isPending && { opacity: 0.9 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchDashboard(true)}
+            colors={[Colors.primary]}
+          />
+        }
+      >
         {/* Header Section */}
         <View style={styles.headerContainer}>
           <View style={styles.headerTop}>

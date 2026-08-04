@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { getVendorDashboardData, getVendorTransactions } from '../../services/api';
 
 const EarningsScreen = ({ navigation }) => {
@@ -12,32 +13,32 @@ const EarningsScreen = ({ navigation }) => {
   const [transactions, setTransactions] = useState([]);
   const [activeTab, setActiveTab] = useState('weekly');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const dashboard = await getVendorDashboardData();
-        if (dashboard.success) setData(dashboard.data);
-      } catch (error) {
-        console.error('Failed to load earnings data', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchData = useCallback(async () => {
+    try {
+      const [dashboard, result] = await Promise.allSettled([
+        getVendorDashboardData(),
+        getVendorTransactions(),
+      ]);
 
-    const fetchTransactions = async () => {
-      try {
-        const result = await getVendorTransactions();
-        if (result.success) {
-          setTransactions(result.data || []);
-        }
-      } catch (error) {
-        console.error('Failed to load payout history', error);
+      if (dashboard.status === 'fulfilled' && dashboard.value?.success) {
+        setData(dashboard.value.data);
       }
-    };
 
-    fetchData();
-    fetchTransactions();
+      if (result.status === 'fulfilled' && result.value?.success) {
+        setTransactions(result.value.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load earnings data', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   if (loading) {
     return (

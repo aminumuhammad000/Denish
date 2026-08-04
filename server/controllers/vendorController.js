@@ -14,14 +14,14 @@ const getVendorDashboard = async (req, res) => {
       });
     }
 
-    const allOrders = await Order.find({ vendorId: vendor._id });
+    const allOrders = await Order.find().sort({ createdAt: -1 });
     const stats = {
-      new: allOrders.filter(o => o.status === 'new').length,
+      new: allOrders.filter(o => o.status === 'pending' || o.status === 'new').length,
       cooking: allOrders.filter(o => o.status === 'preparing').length,
       ready: allOrders.filter(o => o.status === 'ready').length,
     };
 
-    const totalRevenue = allOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
+    const totalRevenue = allOrders.reduce((sum, order) => sum + (order.totalAmount || order.total || 0), 0);
     const deliveredCount = allOrders.filter(o => o.status === 'delivered').length;
     const avgOrderValue = allOrders.length > 0 ? totalRevenue / allOrders.length : 0;
 
@@ -33,7 +33,7 @@ const getVendorDashboard = async (req, res) => {
       const orderDate = new Date(order.createdAt || order.updatedAt || Date.now());
       const dayIndex = orderDate.getDay() === 0 ? 6 : orderDate.getDay() - 1;
       const dayName = DAYS[dayIndex];
-      dayTotals[dayName] = (dayTotals[dayName] || 0) + (order.amount || 0);
+      dayTotals[dayName] = (dayTotals[dayName] || 0) + (order.totalAmount || order.total || 0);
       dayOrders[dayName] = (dayOrders[dayName] || 0) + 1;
     });
 
@@ -48,7 +48,7 @@ const getVendorDashboard = async (req, res) => {
       ...vendor.toObject(),
       storeOpen: vendor.status === 'Approved',
       earnings: {
-        availableBalance: vendor.earnings?.availableBalance ?? 0,
+        availableBalance: vendor.earnings?.availableBalance ?? totalRevenue,
         weeklyRevenue: vendor.earnings?.weeklyRevenue ?? totalRevenue,
         totalOrders: vendor.earnings?.totalOrders ?? allOrders.length,
         avgOrders: vendor.earnings?.avgOrders ?? Math.round(avgOrderValue),
@@ -59,7 +59,17 @@ const getVendorDashboard = async (req, res) => {
       lowStock: 0,
       barData,
       dailyBreakdown,
-      liveOrders: allOrders.filter(o => o.status !== 'delivered'),
+      recentOrders: allOrders.slice(0, 5).map(o => ({
+        id: o.orderId || o._id.toString(),
+        _id: o._id.toString(),
+        orderId: o.orderId || o._id.toString(),
+        customerName: o.customerName || 'Customer',
+        itemsCount: o.items?.length || 1,
+        items: o.items?.map(i => `${i.quantity || 1}x ${i.name}`).join(', ') || '1x Order Items',
+        amount: o.totalAmount || o.total || 0,
+        status: o.status === 'pending' ? 'new' : o.status,
+        createdAt: o.createdAt
+      }))
     };
 
     res.status(200).json({ success: true, data: customData });
@@ -71,38 +81,35 @@ const getVendorDashboard = async (req, res) => {
 const updateVendorProfile = async (req, res) => {
   try {
     let vendor = await Vendor.findOne();
-    if (!vendor) return res.status(404).json({ success: false, error: 'Vendor not found' });
+    if (!vendor) {
+      return res.status(404).json({ success: false, error: 'Vendor not found' });
+    }
 
-    const {
-      businessName,
-      address,
-      phone,
-      category,
-      about,
-      openingHours,
-      payoutAccount,
-      deliveryLocations,
-      notifications,
-      logoUrl,
-      coverUrl,
-      status,
-    } = req.body;
-
-    if (businessName) vendor.businessName = businessName;
-    if (address) vendor.address = address;
-    if (phone) vendor.phone = phone;
-    if (category) vendor.category = category;
-    if (about) vendor.about = about;
-    if (openingHours) vendor.openingHours = openingHours;
-    if (payoutAccount) vendor.payoutAccount = payoutAccount;
-    if (deliveryLocations) vendor.deliveryLocations = deliveryLocations;
-    if (notifications) vendor.notifications = notifications;
-    if (logoUrl) vendor.logoUrl = logoUrl;
-    if (coverUrl) vendor.coverUrl = coverUrl;
-    if (status) vendor.status = status;
-
+    Object.assign(vendor, req.body);
     await vendor.save();
     res.status(200).json({ success: true, data: vendor });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const updateVendorOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    const order = await Order.findOne({
+      $or: [{ _id: mongoose.Types.ObjectId.isValid(orderId) ? orderId : null }, { orderId: orderId }]
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    order.status = status;
+    await order.save();
+
+    res.status(200).json({ success: true, message: `Order status updated to ${status}`, data: order });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -112,7 +119,6 @@ const requestVendorPayout = async (req, res) => {
   try {
     const { amount } = req.body;
     const payoutAmount = Number(amount);
-
     if (!payoutAmount || payoutAmount <= 0) {
       return res.status(400).json({ success: false, error: 'Invalid payout amount' });
     }
@@ -127,25 +133,22 @@ const requestVendorPayout = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Insufficient balance for payout' });
     }
 
-    if (!vendor.payoutAccount?.accountNumber || !vendor.payoutAccount?.bank) {
-      return res.status(400).json({ success: false, error: 'Payout account is not configured' });
-    }
-
     const Transaction = require('../models/Transaction');
     const transaction = await Transaction.create({
       type: 'Vendor Payout',
       from: vendor.businessName || vendor.name || 'Vendor',
-      to: `${vendor.payoutAccount.bank} (${vendor.payoutAccount.accountNumber})`,
+      to: `${vendor.payoutAccount?.bank || 'Bank'} (${vendor.payoutAccount?.accountNumber || '0000000000'})`,
       amount: payoutAmount,
       method: 'Bank Transfer',
-      status: 'Pending',
+      status: 'Completed',
       reference: `VND-PAYOUT-${Date.now()}`,
     });
 
     vendor.earnings = {
       ...vendor.earnings,
-      availableBalance: currentBalance - payoutAmount,
+      availableBalance: Math.max(0, currentBalance - payoutAmount),
     };
+    vendor.markModified('earnings');
     await vendor.save();
 
     res.status(200).json({ success: true, data: { transaction, availableBalance: vendor.earnings.availableBalance } });
@@ -162,12 +165,7 @@ const getVendorTransactions = async (req, res) => {
     }
 
     const Transaction = require('../models/Transaction');
-    const transactions = await Transaction.find({
-      $or: [
-        { from: vendor.businessName || vendor.name || '' },
-        { to: { $regex: vendor.payoutAccount?.accountNumber || '', $options: 'i' } }
-      ]
-    }).sort({ createdAt: -1 });
+    const transactions = await Transaction.find({ type: 'Vendor Payout' }).sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, data: transactions });
   } catch (error) {
@@ -178,6 +176,7 @@ const getVendorTransactions = async (req, res) => {
 module.exports = {
   getVendorDashboard,
   updateVendorProfile,
+  updateVendorOrderStatus,
   requestVendorPayout,
   getVendorTransactions,
 };
