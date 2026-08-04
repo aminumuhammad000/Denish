@@ -68,6 +68,7 @@ const VendorProfileScreen = ({ navigation }) => {
   };
 
   const [uploading, setUploading] = useState(false);
+  const isDarkMode = false;
 
   const handleImageUpload = async (type, uri) => {
     setUploading(true);

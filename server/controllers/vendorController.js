@@ -154,8 +154,30 @@ const requestVendorPayout = async (req, res) => {
   }
 };
 
+const getVendorTransactions = async (req, res) => {
+  try {
+    const vendor = await Vendor.findOne();
+    if (!vendor) {
+      return res.status(404).json({ success: false, error: 'Vendor not found' });
+    }
+
+    const Transaction = require('../models/Transaction');
+    const transactions = await Transaction.find({
+      $or: [
+        { from: vendor.businessName || vendor.name || '' },
+        { to: { $regex: vendor.payoutAccount?.accountNumber || '', $options: 'i' } }
+      ]
+    }).sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, data: transactions });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getVendorDashboard,
   updateVendorProfile,
-  requestVendorPayout
+  requestVendorPayout,
+  getVendorTransactions,
 };

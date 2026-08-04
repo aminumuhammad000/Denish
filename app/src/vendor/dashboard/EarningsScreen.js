@@ -86,9 +86,11 @@ const EarningsScreen = ({ navigation }) => {
           <Text style={styles.balanceMeta}>Min payout ₦5,000 | Settles in 24h</Text>
           <TouchableOpacity
             style={styles.payoutBtn}
-                onPress={() => navigation.navigate('RequestPayout', {
-                  availableBalance,
-                  payoutAccount: data.payoutAccount,
+            onPress={() => navigation.navigate('RequestPayout', {
+              availableBalance,
+              payoutAccount: data.payoutAccount,
+            })}
+          >
             <Text style={styles.payoutBtnText}>Request payout</Text>
           </TouchableOpacity>
         </View>
@@ -176,24 +178,27 @@ const EarningsScreen = ({ navigation }) => {
           ) : (
             <>
               {/* Payouts List */}
-              {PAYOUT_HISTORY.map((payout, idx) => (
-                <View key={payout.id} style={[styles.payoutHistoryRow, idx === PAYOUT_HISTORY.length - 1 && { borderBottomWidth: 0 }]}>
-                  <View style={styles.payoutHistoryIcon}>
-                    <Ionicons name="download-outline" size={16} color="#27AE60" />
-                  </View>
-                  <View style={styles.payoutHistoryInfo}>
-                    <Text style={styles.payoutHistoryId}>{payout.id}</Text>
-                    <Text style={styles.payoutHistoryMeta}>{payout.date} | {payout.ref}</Text>
-                  </View>
-                  <View style={styles.payoutHistoryRight}>
-                    <Text style={styles.payoutHistoryAmount}>₦{payout.amount.toLocaleString()}</Text>
-                    <Text style={styles.payoutHistoryStatus}>{payout.status}</Text>
-                  </View>
+              {transactions.length === 0 ? (
+                <View style={styles.emptyPayoutList}>
+                  <Text style={styles.emptyPayoutTitle}>No payout records yet</Text>
+                  <Text style={styles.emptyPayoutText}>Your payout history will appear once requests are processed.</Text>
                 </View>
-              ))}
-
-              {/* Period Totals */}
-              <View style={[styles.periodRow, { marginTop: 12 }]}>
+              ) : (
+                transactions.map((payout, idx) => (
+                  <View key={payout._id || idx} style={[styles.payoutHistoryRow, idx === transactions.length - 1 && { borderBottomWidth: 0 }]}>
+                    <View style={styles.payoutHistoryIcon}>
+                      <Ionicons name="download-outline" size={16} color="#27AE60" />
+                    </View>
+                    <View style={styles.payoutHistoryInfo}>
+                      <Text style={styles.payoutHistoryId}>{payout.reference || payout._id || `PAYOUT-${idx + 1}`}</Text>
+                      <Text style={styles.payoutHistoryMeta}>{new Date(payout.createdAt || payout.date || Date.now()).toLocaleDateString()} | {payout.method || 'Bank Transfer'}</Text>
+                    </View>
+                    <View style={styles.payoutHistoryRight}>
+                      <Text style={styles.payoutHistoryAmount}>₦{(payout.amount || 0).toLocaleString()}</Text>
+                      <Text style={styles.payoutHistoryStatus}>{payout.status || 'Pending'}</Text>
+                    </View>
+                  </View>
+                ))}
                 {[
                   { label: 'THIS WEEK', value: '₦42,000' },
                   { label: 'THIS MONTH', value: '₦152,000' },
