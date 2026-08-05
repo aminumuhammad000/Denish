@@ -136,20 +136,23 @@ const EarningsScreen = ({ navigation }) => {
           </View>
 
           {activeTab === 'weekly' ? (
-                  </View>
-                ))}
-
-                {[
-                  { label: 'THIS WEEK', value: '₦42,000' },
-                  { label: 'THIS MONTH', value: '₦152,000' },
-                  { label: 'TODAY', value: '₦8,500' },
-                ].map((p, i) => (
-                  <View key={p.label} style={[styles.periodItem, i === 1 && styles.periodItemMid]}>
-                    <Text style={styles.periodLabel}>{p.label}</Text>
-                    <Text style={styles.periodValue}>{p.value}</Text>
-                  </View>
-                ))}
-                </>
+            <>
+              {/* Bar Chart */}
+              <View style={styles.chartWrap}>
+                <View style={styles.yAxis}>
+                  {['40k', '30k', '20k', '10k', '0k'].map(l => (
+                    <Text key={l} style={styles.yLabel}>{l}</Text>
+                  ))}
+                </View>
+                <View style={styles.barsWrap}>
+                  {barHeights.map((h, i) => (
+                    <View key={i} style={styles.barCol}>
+                      <View
+                        style={[
+                          styles.bar,
+                          { height: Math.max(4, (h / maxBar) * 110) },
+                          i === 2 ? styles.barActive : styles.barNormal,
+                        ]}
                       />
                       <Text style={[styles.barLabel, i === 2 && styles.barLabelActive]}>
                         {barDays[i]}
@@ -184,42 +187,28 @@ const EarningsScreen = ({ navigation }) => {
               ) : (
                 <>
                   {transactions.map((payout, idx) => (
-                    <View key={payout._id || idx} style={[styles.payoutHistoryRow, idx === transactions.length - 1 && { borderBottomWidth: 0 }]}>
-                    <View style={styles.payoutHistoryIcon}>
-                      <Ionicons name="download-outline" size={16} color="#27AE60" />
+                    <View key={payout._id || idx} style={[styles.payoutHistoryRow, idx === transactions.length - 1 && { borderBottomWidth: 0 }]}> 
+                      <View style={styles.payoutHistoryIcon}>
+                        <Ionicons name="download-outline" size={16} color="#27AE60" />
+                      </View>
+                      <View style={styles.payoutHistoryInfo}>
+                        <Text style={styles.payoutHistoryId}>{payout.reference || payout._id || `PAYOUT-${idx + 1}`}</Text>
+                        <Text style={styles.payoutHistoryMeta}>{new Date(payout.createdAt || payout.date || Date.now()).toLocaleDateString()} | {payout.method || 'Bank Transfer'}</Text>
+                      </View>
+                      <View style={styles.payoutHistoryRight}>
+                        <Text style={styles.payoutHistoryAmount}>₦{(payout.amount || 0).toLocaleString()}</Text>
+                        <Text style={styles.payoutHistoryStatus}>{payout.status || 'Pending'}</Text>
+                      </View>
                     </View>
-                    <View style={styles.payoutHistoryInfo}>
-                      <Text style={styles.payoutHistoryId}>{payout.reference || payout._id || `PAYOUT-${idx + 1}`}</Text>
-                      <Text style={styles.payoutHistoryMeta}>{new Date(payout.createdAt || payout.date || Date.now()).toLocaleDateString()} | {payout.method || 'Bank Transfer'}</Text>
-                    </View>
-                    <View style={styles.payoutHistoryRight}>
-                      <Text style={styles.payoutHistoryAmount}>₦{(payout.amount || 0).toLocaleString()}</Text>
-                      <Text style={styles.payoutHistoryStatus}>{payout.status || 'Pending'}</Text>
-                    </View>
-                  </View>
-<<<<<<< HEAD
-                ))
-=======
-                ))}
-                {[
-                  { label: 'THIS WEEK', value: '₦42,000' },
-                  { label: 'THIS MONTH', value: '₦152,000' },
-                  { label: 'TODAY', value: '₦8,500' },
-                ].map((p, i) => (
-                  <View key={p.label} style={[styles.periodItem, i === 1 && styles.periodItemMid]}>
-                    <Text style={styles.periodLabel}>{p.label}</Text>
-                    <Text style={styles.periodValue}>{p.value}</Text>
-                  </View>
-                ))}
+                  ))}
                 </>
->>>>>>> 042b5ac (Fix EarningsScreen JSX; increase signup placeholder opacity; add CORS allowlist for localhost:8081; set web bundler to webpack)
               )}
             </>
           )}
         </View>
 
         {/* Daily Breakdown */}
-        <View style={[styles.card, { marginBottom: 30 }]}>
+        <View style={[styles.card, { marginBottom: 30 }]}> 
           <Text style={styles.cardTitle}>Daily breakdown</Text>
           {[
             { day: 'Monday',    orders: data.dailyBreakdown?.[0]?.orders ?? 8,  amount: data.dailyBreakdown?.[0]?.amount ?? 24000 },
