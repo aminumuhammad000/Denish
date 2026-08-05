@@ -132,7 +132,7 @@ const DriverProfileScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>Profile & Settings</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { flexGrow: 1 }]}> 
         
         {/* TOP PROFILE BOX */}
         <View style={styles.topCard}>

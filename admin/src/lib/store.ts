@@ -17,6 +17,7 @@ export interface Driver {
   id: string;
   name: string;
   location: string;
+  address?: string;
   phone: string;
   email?: string;
   vehicle: string;
@@ -33,6 +34,7 @@ export interface Vendor {
   id: string;
   name: string;
   category: string;
+  address?: string;
   status: "approved" | "suspended" | "pending";
   orders: number;
   revenue: string;
@@ -46,6 +48,7 @@ export interface User {
   name: string;
   email: string;
   phone: string;
+  address: string;
   role: "Customer" | "Vendor" | "Driver";
   status: "Active" | "Suspended";
   orders: number;
@@ -125,12 +128,12 @@ const initialVendors: Vendor[] = [
 ];
 
 const initialUsers: User[] = [
-  { id: "USR-001", name: "Aisha Mohammed", email: "aisha@email.com", phone: "+2348123345532", role: "Customer", status: "Active", orders: 34, spentEarned: "₦135,000", rating: 4.8, complaints: 0, lastActive: "Today" },
-  { id: "USR-002", name: "Chidi Okafor", email: "chidi@email.com", phone: "+2348123345532", role: "Customer", status: "Active", orders: 34, spentEarned: "₦135,000", rating: 4.8, complaints: 1, lastActive: "Apr 5" },
-  { id: "USR-003", name: "Fatima o", email: "fatima@email.com", phone: "+2348123345532", role: "Customer", status: "Suspended", orders: 34, spentEarned: "₦135,000", rating: 4.8, complaints: 0, lastActive: "Apr 4" },
-  { id: "USR-004", name: "Mama's Kitchen", email: "mamas@email.com", phone: "+2348123345532", role: "Vendor", status: "Active", orders: 34, spentEarned: "₦135,000", rating: 4.8, complaints: 4, lastActive: "Thur" },
-  { id: "USR-005", name: "Bayo Adeyemi", email: "bayo@email.com", phone: "+2348123345532", role: "Driver", status: "Active", orders: 34, spentEarned: "-", rating: 4.8, complaints: 0, lastActive: "Mon" },
-  { id: "USR-006", name: "Bayo Adeyemi", email: "bayo2@email.com", phone: "+2348123345532", role: "Driver", status: "Active", orders: 34, spentEarned: "-", rating: 4.8, complaints: 0, lastActive: "Mon" }
+  { id: "USR-001", name: "Aisha Mohammed", email: "aisha@email.com", phone: "+2348123345532", address: "N/A", role: "Customer", status: "Active", orders: 34, spentEarned: "₦135,000", rating: 4.8, complaints: 0, lastActive: "Today" },
+  { id: "USR-002", name: "Chidi Okafor", email: "chidi@email.com", phone: "+2348123345532", address: "N/A", role: "Customer", status: "Active", orders: 34, spentEarned: "₦135,000", rating: 4.8, complaints: 1, lastActive: "Apr 5" },
+  { id: "USR-003", name: "Fatima o", email: "fatima@email.com", phone: "+2348123345532", address: "N/A", role: "Customer", status: "Suspended", orders: 34, spentEarned: "₦135,000", rating: 4.8, complaints: 0, lastActive: "Apr 4" },
+  { id: "USR-004", name: "Mama's Kitchen", email: "mamas@email.com", phone: "+2348123345532", address: "N/A", role: "Vendor", status: "Active", orders: 34, spentEarned: "₦135,000", rating: 4.8, complaints: 4, lastActive: "Thur" },
+  { id: "USR-005", name: "Bayo Adeyemi", email: "bayo@email.com", phone: "+2348123345532", address: "N/A", role: "Driver", status: "Active", orders: 34, spentEarned: "-", rating: 4.8, complaints: 0, lastActive: "Mon" },
+  { id: "USR-006", name: "Bayo Adeyemi", email: "bayo2@email.com", phone: "+2348123345532", address: "N/A", role: "Driver", status: "Active", orders: 34, spentEarned: "-", rating: 4.8, complaints: 0, lastActive: "Mon" }
 ];
 
 const initialDisputes: Dispute[] = [
@@ -314,6 +317,7 @@ export const useAdminStore = create<AdminState>()(
               id: d._id,
               name: d.name,
               location: d.location || "Lagos",
+              address: d.address || d.location || "N/A",
               phone: d.phone,
               vehicle: d.vehicleType || "Motorcycle",
               deliveries: d.earnings?.totalTrips || d.deliveriesCount || 0,
@@ -337,6 +341,7 @@ export const useAdminStore = create<AdminState>()(
               id: v._id,
               name: v.businessName || v.name,
               category: v.category || "General",
+              address: v.address || v.location || "N/A",
               status: v.status || "pending",
               orders: v.earnings?.totalOrders || v.ordersCount || 0,
               revenue: "₦" + (extractNumber(v.earnings) || v.revenue || 0).toLocaleString(),
@@ -360,11 +365,12 @@ export const useAdminStore = create<AdminState>()(
               name: u.name,
               email: u.email,
               phone: u.phone,
+              address: u.address || (u.location as string) || "N/A",
               role: "Customer",
               status: u.status || "Active",
               orders: u.ordersCount || 0,
               spentEarned: "₦" + (u.totalSpent || 0).toLocaleString(),
-              rating: u.rating || 5,
+              rating: typeof u.rating === "number" ? u.rating : 0,
               complaints: 0,
               lastActive: "Today",
             }));
@@ -433,6 +439,7 @@ export const useAdminStore = create<AdminState>()(
               id: d._id,
               name: d.name,
               location: d.location || "Lagos",
+              address: d.address || d.location || "N/A",
               phone: d.phone,
               vehicle: d.vehicleType || "Motorcycle",
               deliveries: d.earnings?.totalTrips || d.deliveriesCount || 0,
@@ -447,6 +454,7 @@ export const useAdminStore = create<AdminState>()(
               id: v._id,
               name: v.businessName || v.name,
               category: v.category || "General",
+              address: v.address || v.location || "N/A",
               status: v.status || "pending",
               orders: v.earnings?.totalOrders || v.ordersCount || 0,
               revenue: "₦" + (extractNumber(v.earnings) || v.revenue || 0).toLocaleString(),
@@ -461,11 +469,12 @@ export const useAdminStore = create<AdminState>()(
               name: u.name,
               email: u.email,
               phone: u.phone,
+              address: u.address || (u.location as string) || "N/A",
               role: (u.role || "Customer") as User["role"],
               status: (u.status || "Active") as User["status"],
               orders: u.ordersCount || 0,
               spentEarned: "₦" + (u.totalSpent || 0).toLocaleString(),
-              rating: u.rating || 5,
+              rating: typeof u.rating === "number" ? u.rating : 0,
               complaints: 0,
               lastActive: "Today",
             }));

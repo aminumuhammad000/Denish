@@ -85,7 +85,7 @@ const CustomerProfileScreen = ({ navigation }) => {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { flexGrow: 1 }]}> 
         
         {/* User Info Card */}
         <View style={styles.userCard}>

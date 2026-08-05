@@ -165,7 +165,7 @@ export function UserDetailsModal({ user, onClose, onUpdateUser }: UserDetailsMod
           <div className="space-y-1">
             <p className="text-[12px] text-[#A0A0A0] font-normal">Address</p>
             <p className="text-[16px] text-[#212121] font-normal leading-snug">
-              12 Marina Road, Lagos
+              {user.address || "N/A"}
             </p>
           </div>
           <div className="space-y-1">
@@ -173,7 +173,7 @@ export function UserDetailsModal({ user, onClose, onUpdateUser }: UserDetailsMod
             <div className="flex items-center gap-1">
               <Star className="w-[14px] h-[14px] fill-[#F9A825] text-[#F9A825]" />
               <span className="text-[16px] text-[#212121] font-normal">
-                {user.rating}
+                {user.rating ?? "N/A"}
               </span>
             </div>
           </div>
