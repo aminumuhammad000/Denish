@@ -147,6 +147,8 @@ function BannerCard({
       </div>
     </div>
   );
+}
+
 function SystemContentEditor() {
   const [selectedKey, setSelectedKey] = useState("terms_of_service");
   const [title, setTitle] = useState("");
@@ -613,6 +615,7 @@ export default function ContentManagementPage() {
                   }}
                 />
                 Promotions & Coupons
+              </button>
               <button
                 onClick={() => setActiveTab("system_pages")}
                 className={`flex items-center gap-2 min-h-[40px] py-1.5 sm:py-0 px-4 sm:px-5 rounded-[10px] border border-[#EAEAEA] text-[14px] font-bold leading-[1.1] sm:leading-normal transition-all text-left sm:text-center ${

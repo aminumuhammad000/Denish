@@ -4,26 +4,12 @@ import { X, Star, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: "Customer" | "Vendor" | "Driver";
-  status: "Active" | "Suspended";
-  orders: number;
-  spentEarned: string;
-  rating: number;
-  complaints: number;
-  lastActive: string;
-  isWarned?: boolean;
-}
+import { type User } from "@/lib/store";
 
 interface UserDetailsModalProps {
   user: User;
   onClose: () => void;
-  onUpdateUser?: (updatedUser: User) => void;
+  onUpdateUser?: (updatedUser: User) => Promise<void> | void;
 }
 
 const roleStyles = {
