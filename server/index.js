@@ -19,6 +19,7 @@ const PORT = process.env.PORT || 3000;
 const corsOptions = {
   origin: [
     'https://admin.denishng.com',
+    'https://app.denishng.com',
     'https://www.denishng.com',
     'https://api.denishng.com',
     'http://localhost:3000',
