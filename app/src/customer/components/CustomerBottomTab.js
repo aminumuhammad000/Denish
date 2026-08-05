@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Platform, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,8 +29,14 @@ const CustomerBottomTab = ({ activeTab, navigation }) => {
     }
   };
 
+  const containerStyles = [
+    styles.bottomTab,
+    { paddingBottom: Math.max(insets.bottom, 10), height: 60 + insets.bottom },
+    Platform.OS === 'web' && styles.bottomTabWeb,
+  ];
+
   return (
-    <View style={[styles.bottomTab, { paddingBottom: Math.max(insets.bottom, 10), height: 60 + insets.bottom }]}>
+    <View style={containerStyles}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         const IconComponent = tab.type === 'ionicons' ? Ionicons : MaterialCommunityIcons;
@@ -88,6 +94,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  bottomTabWeb: {
+    position: 'fixed',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+    width: '100%',
   },
   tabItem: {
     alignItems: 'center',
