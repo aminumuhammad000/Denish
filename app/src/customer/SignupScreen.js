@@ -67,6 +67,7 @@ const SignupScreen = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 placeholder="John Doe"
+                placeholderTextColor="#666"
                 value={name}
                 onChangeText={setName}
               />
@@ -77,6 +78,7 @@ const SignupScreen = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 placeholder="example@mail.com"
+                placeholderTextColor="#666"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
@@ -89,6 +91,7 @@ const SignupScreen = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 placeholder="08012345678"
+                placeholderTextColor="#666"
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
@@ -101,6 +104,7 @@ const SignupScreen = ({ navigation }) => {
                 <TextInput
                   style={styles.passwordInput}
                   placeholder="At least 6 characters"
+                  placeholderTextColor="#666"
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}

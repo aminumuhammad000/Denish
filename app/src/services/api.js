@@ -526,9 +526,7 @@ export const verifyAccount = async (bankCode, accountNumber) => {
   });
   return response.data;
 };
-
 // ─── Driver Core APIs ─────────────────────────────────────────────────────────
-
 export const getDriverEarnings = async () => {
   try {
     const response = await api.get('/driver/earnings');

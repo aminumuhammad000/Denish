@@ -29,7 +29,8 @@
       "package": "com.connecta2026.Denish"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "webpack"
     },
     "plugins": [
       "@react-native-community/datetimepicker",

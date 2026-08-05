@@ -136,23 +136,20 @@ const EarningsScreen = ({ navigation }) => {
           </View>
 
           {activeTab === 'weekly' ? (
-            <>
-              {/* Bar Chart */}
-              <View style={styles.chartWrap}>
-                <View style={styles.yAxis}>
-                  {['40k', '30k', '20k', '10k', '0k'].map(l => (
-                    <Text key={l} style={styles.yLabel}>{l}</Text>
-                  ))}
-                </View>
-                <View style={styles.barsWrap}>
-                  {barHeights.map((h, i) => (
-                    <View key={i} style={styles.barCol}>
-                      <View
-                        style={[
-                          styles.bar,
-                          { height: Math.max(4, (h / maxBar) * 110) },
-                          i === 2 ? styles.barActive : styles.barNormal,
-                        ]}
+                  </View>
+                ))}
+
+                {[
+                  { label: 'THIS WEEK', value: '₦42,000' },
+                  { label: 'THIS MONTH', value: '₦152,000' },
+                  { label: 'TODAY', value: '₦8,500' },
+                ].map((p, i) => (
+                  <View key={p.label} style={[styles.periodItem, i === 1 && styles.periodItemMid]}>
+                    <Text style={styles.periodLabel}>{p.label}</Text>
+                    <Text style={styles.periodValue}>{p.value}</Text>
+                  </View>
+                ))}
+                </>
                       />
                       <Text style={[styles.barLabel, i === 2 && styles.barLabelActive]}>
                         {barDays[i]}
@@ -185,8 +182,9 @@ const EarningsScreen = ({ navigation }) => {
                   <Text style={styles.emptyPayoutText}>Your payout history will appear once requests are processed.</Text>
                 </View>
               ) : (
-                transactions.map((payout, idx) => (
-                  <View key={payout._id || idx} style={[styles.payoutHistoryRow, idx === transactions.length - 1 && { borderBottomWidth: 0 }]}>
+                <>
+                  {transactions.map((payout, idx) => (
+                    <View key={payout._id || idx} style={[styles.payoutHistoryRow, idx === transactions.length - 1 && { borderBottomWidth: 0 }]}>
                     <View style={styles.payoutHistoryIcon}>
                       <Ionicons name="download-outline" size={16} color="#27AE60" />
                     </View>
@@ -199,7 +197,22 @@ const EarningsScreen = ({ navigation }) => {
                       <Text style={styles.payoutHistoryStatus}>{payout.status || 'Pending'}</Text>
                     </View>
                   </View>
+<<<<<<< HEAD
                 ))
+=======
+                ))}
+                {[
+                  { label: 'THIS WEEK', value: '₦42,000' },
+                  { label: 'THIS MONTH', value: '₦152,000' },
+                  { label: 'TODAY', value: '₦8,500' },
+                ].map((p, i) => (
+                  <View key={p.label} style={[styles.periodItem, i === 1 && styles.periodItemMid]}>
+                    <Text style={styles.periodLabel}>{p.label}</Text>
+                    <Text style={styles.periodValue}>{p.value}</Text>
+                  </View>
+                ))}
+                </>
+>>>>>>> 042b5ac (Fix EarningsScreen JSX; increase signup placeholder opacity; add CORS allowlist for localhost:8081; set web bundler to webpack)
               )}
             </>
           )}
