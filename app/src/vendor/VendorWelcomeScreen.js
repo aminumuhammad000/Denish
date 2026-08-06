@@ -5,6 +5,7 @@ import {
   View,
   TouchableOpacity,
   Image,
+  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,46 +29,48 @@ const VendorWelcomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Sell with Denish</Text>
-          <Text style={styles.subtitle}>Grow your business on your terms</Text>
-        </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Sell with Denish</Text>
+            <Text style={styles.subtitle}>Grow your business on your terms</Text>
+          </View>
 
-        {/* Features */}
-        <View style={styles.featuresContainer}>
-          <FeatureCard
-            icon={<Ionicons name="wallet-outline" size={28} color={Colors.primary} />}
-            title="Fast Payouts"
-            subtitle="Receive your earnings weekly."
-            iconContainerColor="#FFF5E6"
-          />
-          <FeatureCard
-            icon={<Ionicons name="calendar-outline" size={28} color={Colors.primary} />}
-            title="Simple Management"
-            subtitle="Manage everything conveniently."
-            iconContainerColor="#FFF5E6"
-          />
-          <FeatureCard
-            icon={<Ionicons name="shield-checkmark-outline" size={28} color={Colors.primary} />}
-            title="Reliable Supports"
-            subtitle="We've got you every time."
-            iconContainerColor="#FFF5E6"
-          />
-        </View>
+          {/* Features */}
+          <View style={styles.featuresContainer}>
+            <FeatureCard
+              icon={<Ionicons name="wallet-outline" size={28} color={Colors.primary} />}
+              title="Fast Payouts"
+              subtitle="Receive your earnings weekly."
+              iconContainerColor="#FFF5E6"
+            />
+            <FeatureCard
+              icon={<Ionicons name="calendar-outline" size={28} color={Colors.primary} />}
+              title="Simple Management"
+              subtitle="Manage everything conveniently."
+              iconContainerColor="#FFF5E6"
+            />
+            <FeatureCard
+              icon={<Ionicons name="shield-checkmark-outline" size={28} color={Colors.primary} />}
+              title="Reliable Supports"
+              subtitle="We've got you every time."
+              iconContainerColor="#FFF5E6"
+            />
+          </View>
 
-        {/* Footer Actions */}
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            style={styles.button}
-            onPress={() => navigation.navigate('Signup')}
-          >
-            <Text style={styles.buttonText}>Get started</Text>
-          </TouchableOpacity>
-          <Text style={styles.approvalText}>Approval typically takes 24 hours.</Text>
+          {/* Footer Actions */}
+          <View style={styles.footer}>
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => navigation.navigate('Signup')}
+            >
+              <Text style={styles.buttonText}>Get started</Text>
+            </TouchableOpacity>
+            <Text style={styles.approvalText}>Approval typically takes 24 hours.</Text>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -76,6 +79,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.white,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   container: {
     flex: 1,

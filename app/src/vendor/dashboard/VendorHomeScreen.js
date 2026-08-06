@@ -242,49 +242,51 @@ const VendorHomeScreen = ({ navigation }) => {
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           {selectedOrder && (
-            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color={theme.text} />
-              </TouchableOpacity>
-
-              <Text style={[styles.modalOrderId, { color: theme.text }]}>{selectedOrder.id}</Text>
-              <Text style={styles.modalOrderTime}>3min ago</Text>
-
-              <View style={styles.customerInfoBlock}>
-                <Text style={[styles.modalCustomerName, { color: theme.text }]}>{selectedOrder.customer}</Text>
-                <Text style={styles.modalCustomerPhone}>+2340905838929</Text>
-                <Text style={[styles.modalCustomerAddress, { color: theme.subText }]}>12 Marina Road, Lagos</Text>
-              </View>
-
-              <Text style={styles.modalItemsTitle}>ORDER ITEMS</Text>
-              <View style={styles.modalItemsList}>
-                <View style={styles.modalItemRow}>
-                  <Text style={[styles.modalItemLabel, { color: theme.text }]}>Jollof Rice x 2</Text>
-                  <Text style={[styles.modalItemPrice, { color: theme.text }]}>₦6,000</Text>
-                </View>
-                <View style={styles.modalItemRow}>
-                  <Text style={[styles.modalItemLabel, { color: theme.text }]}>Egusi Soup x 1</Text>
-                  <Text style={[styles.modalItemPrice, { color: theme.text }]}>₦3,800</Text>
-                </View>
-                <View style={[styles.modalItemRow, { borderTopWidth: 1, borderColor: theme.border, paddingTop: 10, marginTop: 4 }]}>
-                  <Text style={[styles.modalTotalLabel, { color: theme.text }]}>Total</Text>
-                  <Text style={[styles.modalTotalPrice, { color: theme.text }]}>₦9,800</Text>
-                </View>
-              </View>
-
-              <View style={[styles.specialInstructionsBox, { backgroundColor: isDarkMode ? '#2A2610' : '#FFFBE6', borderColor: isDarkMode ? '#4D441D' : '#FFE58F' }]}>
-                <Text style={styles.specialInstructionsHeader}>SPECIAL INSTRUCTIONS</Text>
-                <Text style={[styles.specialInstructionsText, { color: theme.text }]}>Extra spicy please</Text>
-              </View>
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={styles.acceptOrderBtn} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.acceptOrderBtnText}>Accept order</Text>
+            <View style={[styles.modalContent, { backgroundColor: theme.card, maxHeight: '85%' }]}>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={theme.text} />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.rejectOrderBtn} onPress={() => setModalVisible(false)}>
-                  <Text style={[styles.rejectOrderBtnText, { color: theme.subText }]}>Reject</Text>
-                </TouchableOpacity>
-              </View>
+
+                <Text style={[styles.modalOrderId, { color: theme.text }]}>{selectedOrder.id}</Text>
+                <Text style={styles.modalOrderTime}>3min ago</Text>
+
+                <View style={styles.customerInfoBlock}>
+                  <Text style={[styles.modalCustomerName, { color: theme.text }]}>{selectedOrder.customer}</Text>
+                  <Text style={styles.modalCustomerPhone}>+2340905838929</Text>
+                  <Text style={[styles.modalCustomerAddress, { color: theme.subText }]}>12 Marina Road, Lagos</Text>
+                </View>
+
+                <Text style={styles.modalItemsTitle}>ORDER ITEMS</Text>
+                <View style={styles.modalItemsList}>
+                  <View style={styles.modalItemRow}>
+                    <Text style={[styles.modalItemLabel, { color: theme.text }]}>Jollof Rice x 2</Text>
+                    <Text style={[styles.modalItemPrice, { color: theme.text }]}>₦6,000</Text>
+                  </View>
+                  <View style={styles.modalItemRow}>
+                    <Text style={[styles.modalItemLabel, { color: theme.text }]}>Egusi Soup x 1</Text>
+                    <Text style={[styles.modalItemPrice, { color: theme.text }]}>₦3,800</Text>
+                  </View>
+                  <View style={[styles.modalItemRow, { borderTopWidth: 1, borderColor: theme.border, paddingTop: 10, marginTop: 4 }]}>
+                    <Text style={[styles.modalTotalLabel, { color: theme.text }]}>Total</Text>
+                    <Text style={[styles.modalTotalPrice, { color: theme.text }]}>₦9,800</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.specialInstructionsBox, { backgroundColor: '#FFFBE6', borderColor: '#FFE58F' }]}>
+                  <Text style={styles.specialInstructionsHeader}>SPECIAL INSTRUCTIONS</Text>
+                  <Text style={[styles.specialInstructionsText, { color: theme.text }]}>Extra spicy please</Text>
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={styles.acceptOrderBtn} onPress={() => setModalVisible(false)}>
+                    <Text style={styles.acceptOrderBtnText}>Accept order</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.rejectOrderBtn} onPress={() => setModalVisible(false)}>
+                    <Text style={[styles.rejectOrderBtnText, { color: theme.subText }]}>Reject</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </View>
           )}
         </View>

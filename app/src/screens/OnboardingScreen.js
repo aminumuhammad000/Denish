@@ -67,7 +67,7 @@ const OnboardingScreen = ({ navigation }) => {
         <View style={styles.imageContainer}>
           <Image
             source={item.image}
-            style={[styles.image, { width: width * 0.8, height: height * 0.35 }]}
+            style={[styles.image, { width: Math.min(width * 0.8, 320), height: Math.max(180, Math.min(height * 0.35, 300)) }]}
             resizeMode="contain"
           />
         </View>
@@ -85,7 +85,7 @@ const OnboardingScreen = ({ navigation }) => {
         ref={ref}
         onMomentumScrollEnd={updateCurrentSlideIndex}
         data={SLIDES}
-        contentContainerStyle={{ minHeight: height * 0.7 }}
+        contentContainerStyle={{ minHeight: Math.max(380, height * 0.65) }}
         horizontal
         showsHorizontalScrollIndicator={false}
         pagingEnabled
@@ -93,7 +93,7 @@ const OnboardingScreen = ({ navigation }) => {
         keyExtractor={(item) => item.id}
       />
 
-      <View style={[styles.footer, { height: height * 0.25 }]}>
+      <View style={[styles.footer, { minHeight: 140 }]}>
         {/* Pagination Indicator */}
         <View style={styles.indicatorContainer}>
           {SLIDES.map((_, index) => (

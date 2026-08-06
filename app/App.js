@@ -6,6 +6,27 @@ import { StatusBar } from 'expo-status-bar';
 
 import VendorWelcomeScreen    from './src/vendor/VendorWelcomeScreen';
 import RoleSelectionScreen    from './src/RoleSelectionScreen';
+import { Platform } from 'react-native';
+
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  const styleId = 'expo-web-scroll-fix';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      html, body, #root {
+        height: 100% !important;
+        width: 100% !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+      div[data-is-scrollable="true"], [role="region"] {
+        overflow-y: auto !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
 import VendorLoginScreen      from './src/vendor/VendorLoginScreen';
 import SignupScreen            from './src/vendor/SignupScreen';
 import BusinessInfoScreen      from './src/vendor/BusinessInfoScreen';

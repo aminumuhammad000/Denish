@@ -5,6 +5,7 @@ import {
   View,
   TouchableOpacity,
   Image,
+  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,54 +29,56 @@ const CustomerWelcomeScreen = ({ navigation }) => {
   
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Illustration */}
-        <View style={[styles.illustrationContainer, { height: height * 0.25 }]}>
-          <Image 
-            source={require('../../assets/onboarding/food.png')} 
-            style={styles.image}
-            resizeMode="contain"
-          />
-        </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.container}>
+          {/* Illustration */}
+          <View style={[styles.illustrationContainer, { height: Math.max(160, height * 0.25) }]}>
+            <Image 
+              source={require('../../assets/onboarding/food.png')} 
+              style={styles.image}
+              resizeMode="contain"
+            />
+          </View>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Buy with Denish</Text>
-          <Text style={styles.subtitle}>Get your favorite meals delivered fast</Text>
-        </View>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Buy with Denish</Text>
+            <Text style={styles.subtitle}>Get your favorite meals delivered fast</Text>
+          </View>
 
-        {/* Features */}
-        <View style={styles.featuresContainer}>
-          <FeatureCard
-            icon={<Ionicons name="restaurant-outline" size={24} color={Colors.primary} />}
-            title="Wide Variety"
-            subtitle="Access thousands of local restaurants."
-            iconContainerColor="#FFF5E6"
-          />
-          <FeatureCard
-            icon={<Ionicons name="flashlight-outline" size={24} color={Colors.primary} />}
-            title="Swift Delivery"
-            subtitle="Real-time tracking for every order."
-            iconContainerColor="#FFF5E6"
-          />
-          <FeatureCard
-            icon={<Ionicons name="card-outline" size={24} color={Colors.primary} />}
-            title="Secure Payments"
-            subtitle="Pay easily with multiple options."
-            iconContainerColor="#FFF5E6"
-          />
-        </View>
+          {/* Features */}
+          <View style={styles.featuresContainer}>
+            <FeatureCard
+              icon={<Ionicons name="restaurant-outline" size={24} color={Colors.primary} />}
+              title="Wide Variety"
+              subtitle="Access thousands of local restaurants."
+              iconContainerColor="#FFF5E6"
+            />
+            <FeatureCard
+              icon={<Ionicons name="flashlight-outline" size={24} color={Colors.primary} />}
+              title="Swift Delivery"
+              subtitle="Real-time tracking for every order."
+              iconContainerColor="#FFF5E6"
+            />
+            <FeatureCard
+              icon={<Ionicons name="card-outline" size={24} color={Colors.primary} />}
+              title="Secure Payments"
+              subtitle="Pay easily with multiple options."
+              iconContainerColor="#FFF5E6"
+            />
+          </View>
 
-        {/* Footer Actions */}
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            style={styles.button}
-            onPress={() => navigation.navigate('CustomerSignup')}
-          >
-            <Text style={styles.buttonText}>Get started</Text>
-          </TouchableOpacity>
+          {/* Footer Actions */}
+          <View style={styles.footer}>
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => navigation.navigate('CustomerSignup')}
+            >
+              <Text style={styles.buttonText}>Get started</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -84,6 +87,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.white,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   container: {
     flex: 1,

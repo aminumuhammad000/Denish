@@ -7,6 +7,7 @@ import {
   Animated,
   StatusBar,
   Linking,
+  ScrollView,
   Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -159,45 +160,47 @@ const CallingScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
-        <Animated.View style={[styles.avatarWrapper, { transform: [{ scale: pulseAnim }] }]}>
-          <View style={styles.avatarGradient}>
-            <View style={[styles.gradientLayer, { backgroundColor: '#FF8C00', opacity: 0.8 }]} />
-            <View style={[styles.gradientLayer, { backgroundColor: '#10B981', opacity: 0.6, top: '30%' }]} />
-          </View>
-        </Animated.View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          <Animated.View style={[styles.avatarWrapper, { transform: [{ scale: pulseAnim }] }]}>
+            <View style={styles.avatarGradient}>
+              <View style={[styles.gradientLayer, { backgroundColor: '#FF8C00', opacity: 0.8 }]} />
+              <View style={[styles.gradientLayer, { backgroundColor: '#10B981', opacity: 0.6, top: '30%' }]} />
+            </View>
+          </Animated.View>
 
-        <Text style={styles.userName}>{name}</Text>
-        <Text style={[styles.statusText, callState === 'Connected' && { color: '#10B981' }]}>
-          {callState === 'Connected' ? formatTimer(callDuration) : callState}
-        </Text>
-      </View>
+          <Text style={styles.userName}>{name}</Text>
+          <Text style={[styles.statusText, callState === 'Connected' && { color: '#10B981' }]}>
+            {callState === 'Connected' ? formatTimer(callDuration) : callState}
+          </Text>
+        </View>
 
-      {/* Call Controls: Mute, Speaker, End Call */}
-      <View style={styles.controlsRow}>
-        <TouchableOpacity 
-          style={[styles.controlBtn, isMuted && styles.controlBtnActive]} 
-          onPress={() => setIsMuted(!isMuted)}
-        >
-          <Ionicons name={isMuted ? "mic-off" : "mic"} size={26} color={isMuted ? "#FFF" : "#333"} />
-          <Text style={[styles.controlText, isMuted && { color: '#FFF' }]}>{isMuted ? 'Muted' : 'Mute'}</Text>
-        </TouchableOpacity>
+        {/* Call Controls: Mute, Speaker, End Call */}
+        <View style={styles.controlsRow}>
+          <TouchableOpacity 
+            style={[styles.controlBtn, isMuted && styles.controlBtnActive]} 
+            onPress={() => setIsMuted(!isMuted)}
+          >
+            <Ionicons name={isMuted ? "mic-off" : "mic"} size={26} color={isMuted ? "#FFF" : "#333"} />
+            <Text style={[styles.controlText, isMuted && { color: '#FFF' }]}>{isMuted ? 'Muted' : 'Mute'}</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.declineBtn}
-          onPress={handleEndCall}
-        >
-          <Ionicons name="call" size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
-        </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.declineBtn}
+            onPress={handleEndCall}
+          >
+            <Ionicons name="call" size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
+          </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.controlBtn, isSpeaker && styles.controlBtnActive]} 
-          onPress={() => setIsSpeaker(!isSpeaker)}
-        >
-          <Ionicons name={isSpeaker ? "volume-high" : "volume-medium-outline"} size={26} color={isSpeaker ? "#FFF" : "#333"} />
-          <Text style={[styles.controlText, isSpeaker && { color: '#FFF' }]}>{isSpeaker ? 'Speaker On' : 'Speaker'}</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity 
+            style={[styles.controlBtn, isSpeaker && styles.controlBtnActive]} 
+            onPress={() => setIsSpeaker(!isSpeaker)}
+          >
+            <Ionicons name={isSpeaker ? "volume-high" : "volume-medium-outline"} size={26} color={isSpeaker ? "#FFF" : "#333"} />
+            <Text style={[styles.controlText, isSpeaker && { color: '#FFF' }]}>{isSpeaker ? 'Speaker On' : 'Speaker'}</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -206,6 +209,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
   },
   header: {
     flexDirection: 'row',

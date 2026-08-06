@@ -5,6 +5,7 @@ import {
   View,
   TouchableOpacity,
   Image,
+  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,42 +30,44 @@ const RoleSelectionScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Image 
-            source={require('../assets/icon.png')} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.title}>Welcome to Denish</Text>
-          <Text style={styles.subtitle}>How would you like to use the app today?</Text>
-        </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Image 
+              source={require('../assets/icon.png')} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.title}>Welcome to Denish</Text>
+            <Text style={styles.subtitle}>How would you like to use the app today?</Text>
+          </View>
 
-        <View style={styles.rolesContainer}>
-          <RoleCard
-            icon={<Ionicons name="fast-food-outline" size={24} color={Colors.primary} />}
-            title="Customer"
-            subtitle="Order delicious meals to your door"
-            onPress={() => navigation.navigate('CustomerWelcome')}
-          />
-          <RoleCard
-            icon={<MaterialCommunityIcons name="store-outline" size={24} color={Colors.primary} />}
-            title="Vendor"
-            subtitle="Grow your food business with us"
-            onPress={() => navigation.navigate('Welcome')}
-          />
-          <RoleCard
-            icon={<FontAwesome5 name="bicycle" size={22} color={Colors.primary} />}
-            title="Driver"
-            subtitle="Earn money by delivering orders"
-            onPress={() => navigation.navigate('DriverWelcome')}
-          />
-        </View>
+          <View style={styles.rolesContainer}>
+            <RoleCard
+              icon={<Ionicons name="fast-food-outline" size={24} color={Colors.primary} />}
+              title="Customer"
+              subtitle="Order delicious meals to your door"
+              onPress={() => navigation.navigate('CustomerWelcome')}
+            />
+            <RoleCard
+              icon={<MaterialCommunityIcons name="store-outline" size={24} color={Colors.primary} />}
+              title="Vendor"
+              subtitle="Grow your food business with us"
+              onPress={() => navigation.navigate('Welcome')}
+            />
+            <RoleCard
+              icon={<FontAwesome5 name="bicycle" size={22} color={Colors.primary} />}
+              title="Driver"
+              subtitle="Earn money by delivering orders"
+              onPress={() => navigation.navigate('DriverWelcome')}
+            />
+          </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Version 1.0.0</Text>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Version 1.0.0</Text>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -73,6 +76,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.white,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   container: {
     flex: 1,

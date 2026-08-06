@@ -5,6 +5,7 @@ import {StyleSheet,
   View,
   TouchableOpacity,
   Image,
+  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -27,54 +28,56 @@ const DriverWelcomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Illustration */}
-        <View style={[styles.illustrationContainer, { height: height * 0.25 }]}>
-          <Image 
-            source={require('../../assets/onboarding/delivery.png')} 
-            style={styles.image}
-            resizeMode="contain"
-          />
-        </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.container}>
+          {/* Illustration */}
+          <View style={[styles.illustrationContainer, { height: Math.max(160, height * 0.25) }]}>
+            <Image 
+              source={require('../../assets/onboarding/delivery.png')} 
+              style={styles.image}
+              resizeMode="contain"
+            />
+          </View>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Deliver with Denish</Text>
-          <Text style={styles.subtitle}>Earn money on your own schedule</Text>
-        </View>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Deliver with Denish</Text>
+            <Text style={styles.subtitle}>Earn money on your own schedule</Text>
+          </View>
 
-        {/* Features */}
-        <View style={styles.featuresContainer}>
-          <FeatureCard
-            icon={<Ionicons name="time-outline" size={24} color={Colors.primary} />}
-            title="Flexible Hours"
-            subtitle="Work when it suits you best."
-            iconContainerColor="#FFF5E6"
-          />
-          <FeatureCard
-            icon={<Ionicons name="cash-outline" size={24} color={Colors.primary} />}
-            title="Weekly Payouts"
-            subtitle="Get your earnings every week."
-            iconContainerColor="#FFF5E6"
-          />
-          <FeatureCard
-            icon={<FontAwesome5 name="route" size={20} color={Colors.primary} />}
-            title="Easy Navigation"
-            subtitle="Built-in maps to guide you easily."
-            iconContainerColor="#FFF5E6"
-          />
-        </View>
+          {/* Features */}
+          <View style={styles.featuresContainer}>
+            <FeatureCard
+              icon={<Ionicons name="time-outline" size={24} color={Colors.primary} />}
+              title="Flexible Hours"
+              subtitle="Work when it suits you best."
+              iconContainerColor="#FFF5E6"
+            />
+            <FeatureCard
+              icon={<Ionicons name="cash-outline" size={24} color={Colors.primary} />}
+              title="Weekly Payouts"
+              subtitle="Get your earnings every week."
+              iconContainerColor="#FFF5E6"
+            />
+            <FeatureCard
+              icon={<FontAwesome5 name="route" size={20} color={Colors.primary} />}
+              title="Easy Navigation"
+              subtitle="Built-in maps to guide you easily."
+              iconContainerColor="#FFF5E6"
+            />
+          </View>
 
-        {/* Footer Actions */}
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            style={styles.button}
-            onPress={() => navigation.navigate('DriverSignup')}
-          >
-            <Text style={styles.buttonText}>Get started</Text>
-          </TouchableOpacity>
+          {/* Footer Actions */}
+          <View style={styles.footer}>
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => navigation.navigate('DriverSignup')}
+            >
+              <Text style={styles.buttonText}>Get started</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -83,6 +86,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.white,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   container: {
     flex: 1,

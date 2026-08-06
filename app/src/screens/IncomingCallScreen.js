@@ -7,6 +7,7 @@ import {
   Animated,
   StatusBar,
   Linking,
+  ScrollView,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -111,40 +112,42 @@ const IncomingCallScreen = ({ route, navigation }) => {
         </View>
       </View>
 
-      <View style={styles.content}>
-        <Animated.View style={[styles.avatarWrapper, { transform: [{ scale: pulseAnim }] }]}>
-          <View style={styles.avatarGradient}>
-            <View style={[styles.gradientLayer, { backgroundColor: '#3DD26A', opacity: 0.8 }]} />
-            <View style={[styles.gradientLayer, { backgroundColor: '#FF8C00', opacity: 0.6, top: '30%' }]} />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          <Animated.View style={[styles.avatarWrapper, { transform: [{ scale: pulseAnim }] }]}>
+            <View style={styles.avatarGradient}>
+              <View style={[styles.gradientLayer, { backgroundColor: '#3DD26A', opacity: 0.8 }]} />
+              <View style={[styles.gradientLayer, { backgroundColor: '#FF8C00', opacity: 0.6, top: '30%' }]} />
+            </View>
+          </Animated.View>
+
+          <Text style={styles.incomingLabel}>INCOMING CALL...</Text>
+          <Text style={styles.userName}>{callerName}</Text>
+        </View>
+
+        {/* Accept & Decline Buttons */}
+        <View style={styles.controlsRow}>
+          <View style={{ alignItems: 'center' }}>
+            <TouchableOpacity 
+              style={styles.declineBtn}
+              onPress={handleDeclineCall}
+            >
+              <Ionicons name="call" size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
+            </TouchableOpacity>
+            <Text style={styles.btnLabel}>Decline</Text>
           </View>
-        </Animated.View>
 
-        <Text style={styles.incomingLabel}>INCOMING CALL...</Text>
-        <Text style={styles.userName}>{callerName}</Text>
-      </View>
-
-      {/* Accept & Decline Buttons */}
-      <View style={styles.controlsRow}>
-        <View style={{ alignItems: 'center' }}>
-          <TouchableOpacity 
-            style={styles.declineBtn}
-            onPress={handleDeclineCall}
-          >
-            <Ionicons name="call" size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
-          </TouchableOpacity>
-          <Text style={styles.btnLabel}>Decline</Text>
+          <View style={{ alignItems: 'center' }}>
+            <TouchableOpacity 
+              style={styles.acceptBtn}
+              onPress={handleAcceptCall}
+            >
+              <Ionicons name="call" size={32} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.btnLabel}>Accept</Text>
+          </View>
         </View>
-
-        <View style={{ alignItems: 'center' }}>
-          <TouchableOpacity 
-            style={styles.acceptBtn}
-            onPress={handleAcceptCall}
-          >
-            <Ionicons name="call" size={32} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.btnLabel}>Accept</Text>
-        </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -153,6 +156,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
   },
   header: {
     flexDirection: 'row',
