@@ -101,47 +101,49 @@ const VendorHomeScreen = ({ navigation }) => {
       >
         {/* Header Section */}
         <View style={styles.headerContainer}>
-          <View style={styles.headerTop}>
-            <View style={styles.headerUserInfo}>
-              <TouchableOpacity onPress={() => navigation.navigate('VendorProfile')}>
-                <View style={styles.avatar}>
-                  <Image
-                    source={{ uri: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80' }}
-                    style={styles.avatarImg}
-                  />
+          <View style={styles.webHeaderInner}>
+            <View style={styles.headerTop}>
+              <View style={styles.headerUserInfo}>
+                <TouchableOpacity onPress={() => navigation.navigate('VendorProfile')}>
+                  <View style={styles.avatar}>
+                    <Image
+                      source={{ uri: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80' }}
+                      style={styles.avatarImg}
+                    />
+                  </View>
+                </TouchableOpacity>
+                <View style={{ marginLeft: 12 }}>
+                  <Text style={styles.welcomeText}>Welcome back,</Text>
+                  <Text style={styles.businessNameHeader}>{data.businessName || "Mama's Kitchen"}</Text>
                 </View>
+              </View>
+              <TouchableOpacity
+                style={styles.settingsBtn}
+                onPress={() => navigation.navigate('Notifications')}
+              >
+                <Ionicons name="notifications-outline" size={22} color="#fff" />
               </TouchableOpacity>
-              <View style={{ marginLeft: 12 }}>
-                <Text style={styles.welcomeText}>Welcome back,</Text>
-                <Text style={styles.businessNameHeader}>{data.businessName || "Mama's Kitchen"}</Text>
-              </View>
             </View>
-            <TouchableOpacity
-              style={styles.settingsBtn}
-              onPress={() => navigation.navigate('Notifications')}
-            >
-              <Ionicons name="notifications-outline" size={22} color="#fff" />
-            </TouchableOpacity>
-          </View>
 
-          {/* Store Status Card - Floating */}
-          <View style={[styles.storeCard, { backgroundColor: theme.card }]}>
-            <View style={styles.storeCardLeft}>
-              <View style={[styles.powerIconBg, { backgroundColor: '#E8F5E9' }]}>
-                <Ionicons name="power-outline" size={20} color="#4CAF50" />
+            {/* Store Status Card - Floating */}
+            <View style={[styles.storeCard, { backgroundColor: theme.card }]}>
+              <View style={styles.storeCardLeft}>
+                <View style={[styles.powerIconBg, { backgroundColor: '#E8F5E9' }]}>
+                  <Ionicons name="power-outline" size={20} color="#4CAF50" />
+                </View>
+                <View style={{ marginLeft: 12 }}>
+                  <Text style={[styles.storeOpenText, { color: theme.text }]}>{isOpen ? 'Store is open' : 'Store is closed'}</Text>
+                  <Text style={[styles.storeSubText, { color: theme.subText }]}>{isOpen ? 'Accepting orders' : 'Not accepting orders'}</Text>
+                </View>
               </View>
-              <View style={{ marginLeft: 12 }}>
-                <Text style={[styles.storeOpenText, { color: theme.text }]}>{isOpen ? 'Store is open' : 'Store is closed'}</Text>
-                <Text style={[styles.storeSubText, { color: theme.subText }]}>{isOpen ? 'Accepting orders' : 'Not accepting orders'}</Text>
-              </View>
+              <Switch
+                value={isOpen}
+                onValueChange={toggleStoreStatus}
+                disabled={isPending}
+                trackColor={{ true: '#4CAF50', false: '#ccc' }}
+                thumbColor="#fff"
+              />
             </View>
-            <Switch
-              value={isOpen}
-              onValueChange={toggleStoreStatus}
-              disabled={isPending}
-              trackColor={{ true: '#4CAF50', false: '#ccc' }}
-              thumbColor="#fff"
-            />
           </View>
         </View>
 
@@ -315,6 +317,11 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 35,
     borderBottomRightRadius: 35,
   },
+  webHeaderInner: {
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
+  },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -376,6 +383,9 @@ const styles = StyleSheet.create({
   contentBody: {
     marginTop: 20,
     paddingHorizontal: 20,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
   },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 12 },
   statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 24 },

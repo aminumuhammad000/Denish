@@ -148,58 +148,60 @@ const DriverHomeScreen = ({ navigation }) => {
       >
         {/* ── TOP HEADER ── */}
         <View style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}>
-          <View style={styles.headerTop}>
-            <View style={styles.userInfo}>
+          <View style={styles.webHeaderInner}>
+            <View style={styles.headerTop}>
+              <View style={styles.userInfo}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('DriverProfile')}
+                  style={styles.avatar}
+                >
+                  {profile?.profilePic ? (
+                    <Image source={{ uri: profile.profilePic }} style={styles.avatarImg} />
+                  ) : (
+                    <Text style={styles.avatarText}>
+                      {profile?.name
+                        ? profile.name.split(' ').map((n) => n[0]).join('').toUpperCase()
+                        : 'BA'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+                <View>
+                  <Text style={styles.welcomeBack}>Welcome back</Text>
+                  <Text style={styles.userName}>{profile?.name || 'Bayo Adeyemi'}</Text>
+                </View>
+              </View>
+
               <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => navigation.navigate('DriverProfile')}
-                style={styles.avatar}
+                style={styles.notifBtn}
+                onPress={() => navigation.navigate('Notifications')}
               >
-                {profile?.profilePic ? (
-                  <Image source={{ uri: profile.profilePic }} style={styles.avatarImg} />
-                ) : (
-                  <Text style={styles.avatarText}>
-                    {profile?.name
-                      ? profile.name.split(' ').map((n) => n[0]).join('').toUpperCase()
-                      : 'BA'}
-                  </Text>
-                )}
+                <Ionicons name="notifications-outline" size={24} color="#FFF" />
+                <View style={styles.notifBadge} />
               </TouchableOpacity>
-              <View>
-                <Text style={styles.welcomeBack}>Welcome back</Text>
-                <Text style={styles.userName}>{profile?.name || 'Bayo Adeyemi'}</Text>
-              </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.notifBtn}
-              onPress={() => navigation.navigate('Notifications')}
-            >
-              <Ionicons name="notifications-outline" size={24} color="#FFF" />
-              <View style={styles.notifBadge} />
-            </TouchableOpacity>
-          </View>
-
-          {/* ONLINE TOGGLE */}
-          <View style={styles.onlineBox}>
-            <View style={styles.onlineLeft}>
-              <View style={[styles.powerIconContainer, isOnline && styles.powerIconActive]}>
-                <Ionicons name="power" size={28} color={isOnline ? '#10B981' : '#94A3B8'} />
+            {/* ONLINE TOGGLE */}
+            <View style={styles.onlineBox}>
+              <View style={styles.onlineLeft}>
+                <View style={[styles.powerIconContainer, isOnline && styles.powerIconActive]}>
+                  <Ionicons name="power" size={28} color={isOnline ? '#10B981' : '#94A3B8'} />
+                </View>
+                <View style={styles.onlineStatusTexts}>
+                  <Text style={styles.onlineText}>You're {isOnline ? 'online' : 'offline'}</Text>
+                  <Text style={styles.statusSubtext}>
+                    {isOnline ? 'Receiving delivery requests' : 'Go online to start earning'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.onlineStatusTexts}>
-                <Text style={styles.onlineText}>You're {isOnline ? 'online' : 'offline'}</Text>
-                <Text style={styles.statusSubtext}>
-                  {isOnline ? 'Receiving delivery requests' : 'Go online to start earning'}
-                </Text>
-              </View>
+              <Switch
+                trackColor={{ false: '#CBD5E1', true: '#10B981' }}
+                thumbColor={'#FFF'}
+                ios_backgroundColor="#CBD5E1"
+                onValueChange={setIsOnline}
+                value={isOnline}
+              />
             </View>
-            <Switch
-              trackColor={{ false: '#CBD5E1', true: '#10B981' }}
-              thumbColor={'#FFF'}
-              ios_backgroundColor="#CBD5E1"
-              onValueChange={setIsOnline}
-              value={isOnline}
-            />
           </View>
         </View>
 
@@ -408,6 +410,11 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
+  webHeaderInner: {
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
+  },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -474,7 +481,13 @@ const styles = StyleSheet.create({
   onlineText: { fontSize: 15, fontWeight: 'bold', color: '#1E293B' },
   statusSubtext: { fontSize: 12, color: '#64748B' },
 
-  mainContent: { paddingHorizontal: 20, paddingTop: 20 },
+  mainContent: { 
+    paddingHorizontal: 20, 
+    paddingTop: 20,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

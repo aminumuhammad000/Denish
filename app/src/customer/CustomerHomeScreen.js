@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Dimensions,
+  useWindowDimensions,
+  Platform,
   StatusBar,
   ActivityIndicator,
   Modal,
@@ -20,8 +21,6 @@ import { getRestaurants, getCustomerProfile } from '../services/api';
 import CustomerBottomTab from './components/CustomerBottomTab';
 import { useCart } from '../context/CartContext';
 
-const { width } = Dimensions.get('window');
-
 const SectionHeader = ({ title, showViewAll = false, onPress }) => (
   <View style={styles.sectionHeader}>
     <Text style={styles.sectionTitle}>{title}</Text>
@@ -29,13 +28,13 @@ const SectionHeader = ({ title, showViewAll = false, onPress }) => (
   </View>
 );
 
-const SquareCard = ({ name, sub, rating, price, image, onPress }) => (
-  <TouchableOpacity style={styles.squareCard} onPress={onPress}>
+const SquareCard = ({ name, sub, rating, price, image, onPress, cardWidth }) => (
+  <TouchableOpacity style={[styles.squareCard, cardWidth ? { width: cardWidth } : null]} onPress={onPress}>
     <Image source={{ uri: image }} style={styles.squareImage} />
     <View style={styles.squareInfo}>
-      <Text style={styles.cardTitle}>{name}</Text>
+      <Text style={styles.cardTitle} numberOfLines={1}>{name}</Text>
       <View style={styles.cardRow}>
-        <Text style={styles.cardSub}>{sub}</Text>
+        <Text style={styles.cardSub} numberOfLines={1}>{sub}</Text>
         {rating && (
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={12} color="#FFD700" />
@@ -63,7 +62,15 @@ const ListCard = ({ name, sub, price, image, onPress }) => (
 );
 
 const CustomerHomeScreen = ({ navigation }) => {
+  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === 'web' || width >= 768;
+  const contentWidth = Math.min(width, 1100);
+  const cardWidth = isWeb 
+    ? Math.min((contentWidth - 64) / (width >= 900 ? 4 : width >= 600 ? 3 : 2), 220)
+    : (width - 44) / 2;
+  const bannerWidth = isWeb ? Math.min(contentWidth * 0.85, 480) : width * 0.88;
+
   const [vendors, setVendors] = useState([]);
   const [items, setItems] = useState([]);
   const [banners, setBanners] = useState([]);
@@ -117,7 +124,7 @@ const CustomerHomeScreen = ({ navigation }) => {
         
         {/* Header */}
         <View style={styles.orangeHeader}>
-          <SafeAreaView edges={['top']}>
+          <SafeAreaView edges={['top']} style={styles.webHeaderInner}>
             <View style={styles.headerTop}>
               <TouchableOpacity style={styles.profileBox} onPress={() => navigation.navigate('CustomerProfile')}>
                 <Image
@@ -168,11 +175,11 @@ const CustomerHomeScreen = ({ navigation }) => {
           onRequestClose={() => setAddressModalVisible(false)}
         >
           <TouchableOpacity 
-            style={styles.modalOverlay} 
+            style={[styles.modalOverlay, isWeb && styles.modalOverlayWeb]} 
             activeOpacity={1} 
             onPress={() => setAddressModalVisible(false)}
           >
-            <View style={styles.addressModalContent}>
+            <View style={[styles.addressModalContent, isWeb && styles.addressModalContentWeb]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Select Delivery Address</Text>
                 <TouchableOpacity onPress={() => setAddressModalVisible(false)}>
@@ -233,13 +240,13 @@ const CustomerHomeScreen = ({ navigation }) => {
           {/* Swipeable Banners */}
           <ScrollView 
             horizontal 
-            snapToInterval={width * 0.88 + 12}
+            snapToInterval={bannerWidth + 12}
             decelerationRate="fast"
             showsHorizontalScrollIndicator={false} 
             contentContainerStyle={styles.bannerScroll}
           >
             {/* Banner 1 */}
-            <View style={styles.bannerCard}>
+            <View style={[styles.bannerCard, { width: bannerWidth }]}>
               <View style={styles.bannerWrapper}>
                 <Image 
                   source={{ uri: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1200&q=80' }} 
@@ -253,7 +260,7 @@ const CustomerHomeScreen = ({ navigation }) => {
             </View>
 
             {/* Banner 2 */}
-            <View style={styles.bannerCard}>
+            <View style={[styles.bannerCard, { width: bannerWidth }]}>
               <View style={styles.bannerWrapper}>
                 <Image 
                   source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&q=80' }} 
@@ -267,7 +274,7 @@ const CustomerHomeScreen = ({ navigation }) => {
             </View>
 
             {/* Banner 3 */}
-            <View style={styles.bannerCard}>
+            <View style={[styles.bannerCard, { width: bannerWidth }]}>
               <View style={styles.bannerWrapper}>
                 <Image 
                   source={{ uri: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=1200&q=80' }} 
@@ -287,6 +294,7 @@ const CustomerHomeScreen = ({ navigation }) => {
             {loading ? <ActivityIndicator color={Colors.primary} /> : vendors.map(v => (
               <SquareCard 
                 key={v._id}
+                cardWidth={cardWidth}
                 name={v.businessName || v.name}
                 sub={v.category || "Provisions"}
                 rating={v.rating || "4.8"}
@@ -302,6 +310,7 @@ const CustomerHomeScreen = ({ navigation }) => {
              {items.filter(i => i.category === 'Cooked Foods' || !i.category).map(item => (
                <SquareCard 
                  key={item._id}
+                 cardWidth={cardWidth}
                  name={item.name} 
                  sub={item.description} 
                  price={item.price?.toLocaleString()} 
@@ -317,6 +326,7 @@ const CustomerHomeScreen = ({ navigation }) => {
              {items.filter(i => i.category === 'Grilled Foods').map(item => (
                <SquareCard 
                  key={item._id}
+                 cardWidth={cardWidth}
                  name={item.name} 
                  sub={item.description} 
                  price={item.price?.toLocaleString()} 
@@ -328,16 +338,17 @@ const CustomerHomeScreen = ({ navigation }) => {
 
           {/* Featured Orders */}
           <SectionHeader title="Featured orders" showViewAll onPress={() => navigation.navigate('Category', { category: 'Featured orders' })} />
-          <View style={styles.list}>
+          <View style={[styles.list, isWeb && styles.listWeb]}>
              {items.slice(0, 4).map(item => (
-               <ListCard 
-                 key={item._id}
-                 name={item.name} 
-                 sub={item.description} 
-                 price={item.price?.toLocaleString()} 
-                 image={item.image || "https://images.unsplash.com/photo-1512152272829-e3139592d56f?w=600&q=80"} 
-                 onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
-               />
+               <View key={item._id} style={isWeb && { width: '48%', minWidth: 280 }}>
+                 <ListCard 
+                   name={item.name} 
+                   sub={item.description} 
+                   price={item.price?.toLocaleString()} 
+                   image={item.image || "https://images.unsplash.com/photo-1512152272829-e3139592d56f?w=600&q=80"} 
+                   onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
+                 />
+               </View>
              ))}
           </View>
 
@@ -348,6 +359,7 @@ const CustomerHomeScreen = ({ navigation }) => {
                items.filter(i => i.category === 'Drinks').map(item => (
                  <SquareCard 
                    key={item._id}
+                   cardWidth={cardWidth}
                    name={item.name} 
                    sub={item.description} 
                    price={item.price?.toLocaleString()} 
@@ -357,9 +369,9 @@ const CustomerHomeScreen = ({ navigation }) => {
                ))
              ) : (
                <>
-                 <SquareCard name="Fresh Chapman" sub="Classic refreshing Chapman" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-                 <SquareCard name="Fruit Juice" sub="Fresh squeezed orange juice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-                 <SquareCard name="Red Wine" sub="Premium aged red wine" price="12,000" image="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+                 <SquareCard cardWidth={cardWidth} name="Fresh Chapman" sub="Classic refreshing Chapman" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+                 <SquareCard cardWidth={cardWidth} name="Fruit Juice" sub="Fresh squeezed orange juice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+                 <SquareCard cardWidth={cardWidth} name="Red Wine" sub="Premium aged red wine" price="12,000" image="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
                </>
              )}
           </ScrollView>
@@ -371,6 +383,7 @@ const CustomerHomeScreen = ({ navigation }) => {
                items.filter(i => i.category === 'Fruits').map(item => (
                  <SquareCard 
                    key={item._id}
+                   cardWidth={cardWidth}
                    name={item.name} 
                    sub={item.description} 
                    price={item.price?.toLocaleString()} 
@@ -380,9 +393,9 @@ const CustomerHomeScreen = ({ navigation }) => {
                ))
              ) : (
                <>
-                 <SquareCard name="Fresh Mango" sub="Juicy seasonal mango" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-                 <SquareCard name="Pineapple" sub="Sweet tropical pineapple" price="1,500" image="https://images.unsplash.com/photo-1550258114-68bd25f3dfc8?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-                 <SquareCard name="Watermelon" sub="Refreshing sliced watermelon" price="2,000" image="https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+                 <SquareCard cardWidth={cardWidth} name="Fresh Mango" sub="Juicy seasonal mango" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+                 <SquareCard cardWidth={cardWidth} name="Pineapple" sub="Sweet tropical pineapple" price="1,500" image="https://images.unsplash.com/photo-1550258114-68bd25f3dfc8?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
+                 <SquareCard cardWidth={cardWidth} name="Watermelon" sub="Refreshing sliced watermelon" price="2,000" image="https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
                </>
              )}
           </ScrollView>
@@ -403,6 +416,11 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 40, 
     paddingHorizontal: 20, 
     paddingBottom: 30 
+  },
+  webHeaderInner: {
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
   },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 20 },
   profileBox: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -428,10 +446,15 @@ const styles = StyleSheet.create({
   locationText: { color: '#FFF', fontSize: 12, fontWeight: '500' },
 
   scrollContent: { paddingBottom: 100 },
-  main: { paddingVertical: 16 },
+  main: { 
+    paddingVertical: 16,
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
+  },
 
   bannerScroll: { paddingHorizontal: 16, marginBottom: 25 },
-  bannerCard: { width: width * 0.88, marginRight: 12 },
+  bannerCard: { marginRight: 12 },
   bannerWrapper: { width: '100%', height: 160, borderRadius: 25, overflow: 'hidden', position: 'relative' },
   bannerFullImg: { width: '100%', height: '100%' },
   bannerGradient: { 
@@ -454,7 +477,7 @@ const styles = StyleSheet.create({
   horizontal: { gap: 12, paddingHorizontal: 16, marginBottom: 15 },
   grid: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, marginBottom: 20 },
   
-  squareCard: { width: (width - 44) / 2, backgroundColor: '#FFF' },
+  squareCard: { backgroundColor: '#FFF' },
   squareImage: { width: '100%', height: 110, borderRadius: 15 },
   squareInfo: { marginTop: 8 },
   cardTitle: { fontSize: 14, fontWeight: '700', color: '#333' },
@@ -465,6 +488,7 @@ const styles = StyleSheet.create({
   ratingText: { fontSize: 11, fontWeight: '700', color: '#444' },
 
   list: { gap: 15, paddingHorizontal: 16, marginBottom: 25 },
+  listWeb: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   listCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 15, padding: 8, borderWidth: 1, borderColor: '#FAFAFA' },
   listImage: { width: 60, height: 60, borderRadius: 12 },
   listInfo: { flex: 1, marginLeft: 12 },
@@ -474,7 +498,9 @@ const styles = StyleSheet.create({
   addBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#EEE', justifyContent: 'center', alignItems: 'center' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalOverlayWeb: { justifyContent: 'center', alignItems: 'center', padding: 20 },
   addressModalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 34 },
+  addressModalContentWeb: { maxWidth: 500, width: '100%', borderRadius: 24, paddingBottom: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#111' },
   addressItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#F0F0F0', backgroundColor: '#FAFAFA' },

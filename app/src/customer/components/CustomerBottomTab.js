@@ -97,11 +97,15 @@ const styles = StyleSheet.create({
   },
   bottomTabWeb: {
     position: 'fixed',
-    left: 0,
-    right: 0,
+    left: '50%',
+    transform: 'translateX(-50%)',
     bottom: 0,
     zIndex: 1000,
     width: '100%',
+    maxWidth: 650,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    boxShadow: '0 -4px 16px rgba(0,0,0,0.08)',
   },
   tabItem: {
     alignItems: 'center',

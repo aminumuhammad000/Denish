@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +28,17 @@ const DriverDashboard = () => {
           height: 65 + insets.bottom,
           paddingBottom: insets.bottom > 0 ? insets.bottom : 15,
           paddingTop: 10,
+          ...(Platform.OS === 'web' && {
+            position: 'fixed',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bottom: 0,
+            width: '100%',
+            maxWidth: 650,
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            boxShadow: '0 -4px 16px rgba(0,0,0,0.08)',
+          }),
         },
         tabBarLabelStyle: { 
           fontSize: 11, 
