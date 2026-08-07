@@ -19,6 +19,7 @@ const driverSchema = new mongoose.Schema({
   },
   bank: {
     name: { type: String, default: '' },
+    bankCode: { type: String, default: '' },
     accountName: { type: String, default: '' },
     accountNumber: { type: String, default: '' },
   },

@@ -25,6 +25,7 @@ const vendorSchema = new mongoose.Schema({
   },
   payoutAccount: {
      bank: { type: String, default: 'Access Bank' },
+     bankCode: { type: String, default: '044' },
      accountName: { type: String, default: "Mama's Kitchen Ltd" },
      accountNumber: { type: String, default: '636363633663' }
   },

@@ -13,6 +13,8 @@ import { Colors } from '../../constants/Colors';
 import { useOnboarding } from '../../context/OnboardingContext';
 import AnimatedLoadingText from '../../components/AnimatedLoadingText';
 
+import { updateDriverProfile } from '../../services/api';
+
 const SectionHeader = ({ title, navigation, target }) => (
   <View style={styles.sectionHeader}>
     <Text style={styles.sectionTitle}>{title}</Text>
@@ -35,15 +37,35 @@ const DriverStep5Review = ({ navigation }) => {
 
   const handleSubmit = async () => {
     setLoading(true);
-    // Simulate submission delay
-    setTimeout(() => {
+    try {
+      await updateDriverProfile({
+        name: onboardingData.driverName,
+        email: onboardingData.driverEmail,
+        phone: onboardingData.driverPhone,
+        vehicle: {
+          type: onboardingData.vehicleType,
+          make: onboardingData.vehicleMake,
+          plate: onboardingData.vehiclePlate,
+          color: onboardingData.vehicleColor
+        },
+        bank: {
+          name: onboardingData.bank,
+          bankCode: onboardingData.bankCode,
+          accountName: onboardingData.accountName,
+          accountNumber: onboardingData.accountNumber
+        }
+      });
       setLoading(false);
       Alert.alert(
         "Application Submitted",
         "Your details have been sent for verification. We will notify you once approved.",
         [{ text: "Great", onPress: () => navigation.navigate('DriverLogin') }]
       );
-    }, 2000);
+    } catch (err) {
+      console.error('Driver onboarding submit error:', err);
+      setLoading(false);
+      Alert.alert("Error", "Could not submit application. Please try again.");
+    }
   };
 
   return (

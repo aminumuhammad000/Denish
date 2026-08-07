@@ -57,13 +57,19 @@ const DriverStep3Payout = ({ navigation }) => {
     setErrorHeader('');
     try {
       const result = await verifyAccount(bankCode, accountNumber);
-      if (result.success) {
-        setFormData(prev => ({ ...prev, accountName: result.data.accountName }));
+      if (result?.success && result?.data) {
+        const resolvedName = result.data.accountName || result.data.account_name || '';
+        if (resolvedName) {
+          setFormData(prev => ({ ...prev, accountName: resolvedName }));
+        } else {
+          setErrorHeader('Account name not found. Please check account details.');
+        }
       } else {
-        setErrorHeader(result.message || 'Verification failed');
+        setErrorHeader(result?.message || 'Verification failed');
       }
     } catch (err) {
-      setErrorHeader('Could not verify account. Please check details.');
+      const msg = err.response?.data?.message || err.message || 'Could not verify account. Please check details.';
+      setErrorHeader(msg);
     } finally {
       setVerifying(false);
     }
@@ -103,7 +109,8 @@ const DriverStep3Payout = ({ navigation }) => {
           setErrorHeader(result?.message || 'Verification failed. Please check the account number.');
         }
       } catch (err) {
-        setErrorHeader('Could not verify account. Please check your details.');
+        const msg = err.response?.data?.message || err.message || 'Could not verify account. Please check your details.';
+        setErrorHeader(msg);
       } finally {
         setVerifying(false);
       }

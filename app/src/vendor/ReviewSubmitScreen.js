@@ -51,6 +51,7 @@ const ReviewSubmitScreen = ({ navigation }) => {
         openingHours: onboardingData.openingHours,
         payoutAccount: {
           bank: onboardingData.bank,
+          bankCode: onboardingData.bankCode,
           accountName: onboardingData.accountName,
           accountNumber: onboardingData.accountNumber,
         },

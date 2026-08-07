@@ -54,6 +54,7 @@ const updateDriverProfile = async (req, res) => {
     if (bank) {
       driver.bank = {
         name:          bank.name          || driver.bank?.name          || '',
+        bankCode:      bank.bankCode      || driver.bank?.bankCode      || '',
         accountName:   bank.accountName   || driver.bank?.accountName   || '',
         accountNumber: bank.accountNumber || driver.bank?.accountNumber || '',
       };
