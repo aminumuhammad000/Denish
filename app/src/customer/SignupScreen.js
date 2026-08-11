@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
 import { customerSignup } from '../services/api';
+import { setAuthSession } from '../services/authStorage';
 
 const SignupScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -30,6 +31,12 @@ const SignupScreen = ({ navigation }) => {
     try {
       const response = await customerSignup(name, email, phone, password);
       if (response && response.success) {
+        await setAuthSession({
+          role: 'customer',
+          token: response.token,
+          user: response.user,
+          screen: 'CustomerHome'
+        });
         navigation.navigate('CustomerHome');
       } else {
         setErrorMsg(response.error || 'Signup failed');

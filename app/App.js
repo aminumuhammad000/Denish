@@ -84,6 +84,57 @@ import SplashScreen from './src/screens/SplashScreen';
 import SystemContentScreen from './src/screens/SystemContentScreen';
 import IncomingCallScreen from './src/screens/IncomingCallScreen';
 
+const linking = {
+  prefixes: [],
+  config: {
+    screens: {
+      Splash: 'splash',
+      Onboarding: 'onboarding',
+      RoleSelection: 'roles',
+      CustomerWelcome: 'customer/welcome',
+      CustomerSignup: 'customer/signup',
+      CustomerLogin: 'customer/login',
+      CustomerHome: 'customer/home',
+      CustomerRestaurant: 'customer/restaurant/:restaurantId',
+      CustomerProfile: 'customer/profile',
+      CustomerEditProfile: 'customer/edit-profile',
+      CustomerOrders: 'customer/orders',
+      ChatList: 'customer/chats',
+      ChatDetail: 'customer/chat/:chatId',
+      Checkout: 'customer/checkout',
+      Cart: 'customer/cart',
+      TrackOrder: 'customer/track-order/:orderId',
+      Search: 'customer/search',
+      Category: 'customer/category/:categoryName',
+      SystemContent: 'system-content/:key',
+
+      Welcome: 'vendor/welcome',
+      Login: 'vendor/login',
+      ForgotPassword: 'vendor/forgot-password',
+      Signup: 'vendor/signup',
+      Step1: 'vendor/step1',
+      Step2: 'vendor/step2',
+      Step3: 'vendor/step3',
+      Step4: 'vendor/step4',
+      Step5: 'vendor/step5',
+      Dashboard: 'vendor/dashboard',
+      ItemForm: 'vendor/item-form',
+      RequestPayout: 'vendor/request-payout',
+      VendorProfile: 'vendor/profile',
+      VendorEditProfile: 'vendor/edit-profile',
+
+      DriverWelcome: 'driver/welcome',
+      DriverSignup: 'driver/signup',
+      DriverLogin: 'driver/login',
+      DriverDashboard: 'driver/dashboard',
+      DriverProfile: 'driver/profile',
+      DriverEditProfile: 'driver/edit-profile',
+      DriverOrderTracking: 'driver/track-order',
+      Notifications: 'notifications',
+    },
+  },
+};
+
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -91,7 +142,7 @@ export default function App() {
     <SafeAreaProvider>
       <OnboardingProvider>
         <CartProvider>
-          <NavigationContainer>
+          <NavigationContainer linking={linking}>
             <StatusBar style="auto" />
             <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
               <Stack.Screen name="Splash" component={SplashScreen} />

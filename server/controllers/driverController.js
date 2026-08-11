@@ -1,4 +1,6 @@
 const Driver = require('../models/Driver');
+const axios = require('axios');
+const { getFlutterwaveAuthHeader } = require('../utils/flutterwave');
 
 // ─── GET Driver Profile ───────────────────────────────────────────────────────
 const getDriverProfile = async (req, res) => {
@@ -180,41 +182,38 @@ const withdrawEarnings = async (req, res) => {
 
     const bankCode = driver.bank?.bankCode || driver.bank?.code || '044';
     const accountNumber = driver.bank?.accountNumber || '0123456789';
-    const secretKey = process.env.FLW_SECRET_KEY;
     const reference = `TRF_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
     let flwTransferSuccess = false;
     let flwMessage = 'Withdrawal initiated successfully';
 
-    if (secretKey) {
-      try {
-        const flwRes = await axios.post(
-          'https://api.flutterwave.com/v3/transfers',
-          {
-            account_bank: bankCode,
-            account_number: accountNumber,
-            amount: amount,
-            narration: `Denish Driver Payout to ${driver.name}`,
-            currency: 'NGN',
-            reference: reference,
+    try {
+      const authHeader = await getFlutterwaveAuthHeader();
+      const flwRes = await axios.post(
+        'https://api.flutterwave.com/v3/transfers',
+        {
+          account_bank: bankCode,
+          account_number: accountNumber,
+          amount: amount,
+          narration: `Denish Driver Payout to ${driver.name}`,
+          currency: 'NGN',
+          reference: reference,
+        },
+        {
+          headers: {
+            Authorization: authHeader,
+            'Content-Type': 'application/json',
           },
-          {
-            headers: {
-              Authorization: `Bearer ${secretKey}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        if (flwRes.data && (flwRes.data.status === 'success' || flwRes.data.status === 'NEW')) {
-          flwTransferSuccess = true;
-          flwMessage = flwRes.data.message || 'Flutterwave transfer initiated';
         }
-      } catch (flwErr) {
-        console.error('Flutterwave transfer error:', flwErr.response?.data || flwErr.message);
-        // Fallback: If sandbox/mock mode key or missing balance on FLW test account
-        flwMessage = flwErr.response?.data?.message || 'Transfer processed via local payout pipeline';
+      );
+
+      if (flwRes.data && (flwRes.data.status === 'success' || flwRes.data.status === 'NEW')) {
+        flwTransferSuccess = true;
+        flwMessage = flwRes.data.message || 'Flutterwave transfer initiated';
       }
+    } catch (flwErr) {
+      console.error('Flutterwave transfer error:', flwErr.response?.data || flwErr.message);
+      flwMessage = flwErr.response?.data?.message || 'Transfer processed via local payout pipeline';
     }
 
     // Deduct balance in DB

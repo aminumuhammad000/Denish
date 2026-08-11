@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { updateDriverProfile } from '../services/api';
+import { clearAuthSession } from '../services/authStorage';
 
 const EditCard = ({ title, subtitle, children, onSave, onCancel, loading }) => (
   <View style={styles.card}>
@@ -204,7 +205,10 @@ const DriverEditProfileScreen = ({ route, navigation }) => {
             <Text style={styles.cardSubtitle}>You'll need to sign back in to receive deliveries.</Text>
           </View>
           <View style={styles.cardFooter}>
-            <TouchableOpacity style={styles.saveBtn} onPress={() => navigation.replace('DriverLogin')}>
+            <TouchableOpacity style={styles.saveBtn} onPress={async () => {
+              await clearAuthSession();
+              navigation.replace('DriverLogin');
+            }}>
               <Text style={styles.saveBtnText}>Logout</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>

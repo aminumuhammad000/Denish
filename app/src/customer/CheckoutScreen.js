@@ -35,6 +35,29 @@ const CheckoutScreen = ({ navigation }) => {
   const [cardDetails, setCardDetails] = useState({ number: '', expiry: '', cvv: '' });
   const [modalLoading, setModalLoading] = useState(false);
 
+  const handleCardNumberChange = (val) => {
+    // Only numbers, max 16 digits, auto-formatted with spaces XXXX XXXX XXXX XXXX
+    const cleaned = val.replace(/\D/g, '').slice(0, 16);
+    const formatted = cleaned.match(/.{1,4}/g)?.join(' ') || cleaned;
+    setCardDetails(prev => ({ ...prev, number: formatted }));
+  };
+
+  const handleExpiryChange = (val) => {
+    // Only numbers, max 4 digits (MMYY), auto-formatted as MM/YY
+    const cleaned = val.replace(/\D/g, '').slice(0, 4);
+    let formatted = cleaned;
+    if (cleaned.length >= 3) {
+      formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`;
+    }
+    setCardDetails(prev => ({ ...prev, expiry: formatted }));
+  };
+
+  const handleCvvChange = (val) => {
+    // Only numbers, max 4 digits
+    const cleaned = val.replace(/\D/g, '').slice(0, 4);
+    setCardDetails(prev => ({ ...prev, cvv: cleaned }));
+  };
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -85,14 +108,26 @@ const CheckoutScreen = ({ navigation }) => {
         setAddressValue('');
       } else {
         const { number, expiry } = cardDetails;
-        if (!number || !expiry) throw new Error('Card number and expiry required');
-        const last4 = number.slice(-4) || '0000';
+        const cleanNum = number.replace(/\D/g, '');
+        if (!cleanNum || cleanNum.length < 13 || cleanNum.length > 16) {
+          throw new Error('Please enter a valid card number (13 to 16 digits)');
+        }
+        const cleanExpiry = expiry.replace(/\D/g, '');
+        if (!cleanExpiry || cleanExpiry.length !== 4) {
+          throw new Error('Please enter a valid expiry date (MM/YY)');
+        }
+        const month = parseInt(cleanExpiry.slice(0, 2), 10);
+        if (month < 1 || month > 12) {
+          throw new Error('Please enter a valid month (01-12)');
+        }
+        const formattedExpiry = `${cleanExpiry.slice(0, 2)}/${cleanExpiry.slice(2)}`;
+        const last4 = cleanNum.slice(-4);
         const newId = `card-${Date.now()}`;
         const newPay = { 
           id: newId, 
           type: 'card', 
           title: `Visa ●●●● ${last4}`, 
-          sub: `Expires ${expiry}`, 
+          sub: `Expires ${formattedExpiry}`, 
           icon: 'card-outline' 
         };
         await savePaymentMethod(newPay);
@@ -251,6 +286,9 @@ const CheckoutScreen = ({ navigation }) => {
               </View>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity style={styles.addBtn} onPress={() => { setCardDetails({ number: '', expiry: '', cvv: '' }); setModalType('payment'); setShowModal(true); }}>
+            <Text style={styles.addBtnText}>+ Add new card</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Summary Card */}
@@ -320,9 +358,9 @@ const CheckoutScreen = ({ navigation }) => {
                     style={styles.cardInput}
                     placeholder="Card Number"
                     value={cardDetails.number}
-                    onChangeText={(val) => setCardDetails({...cardDetails, number: val})}
-                    keyboardType="numeric"
-                    maxLength={16}
+                    onChangeText={handleCardNumberChange}
+                    keyboardType="number-pad"
+                    maxLength={19}
                   />
                 </View>
                 <View style={styles.row}>
@@ -331,8 +369,8 @@ const CheckoutScreen = ({ navigation }) => {
                       style={styles.cardInput}
                       placeholder="MM/YY"
                       value={cardDetails.expiry}
-                      onChangeText={(val) => setCardDetails({...cardDetails, expiry: val})}
-                      keyboardType="numeric"
+                      onChangeText={handleExpiryChange}
+                      keyboardType="number-pad"
                       maxLength={5}
                     />
                   </View>
@@ -341,9 +379,9 @@ const CheckoutScreen = ({ navigation }) => {
                       style={styles.cardInput}
                       placeholder="CVV"
                       value={cardDetails.cvv}
-                      onChangeText={(val) => setCardDetails({...cardDetails, cvv: val})}
-                      keyboardType="numeric"
-                      maxLength={3}
+                      onChangeText={handleCvvChange}
+                      keyboardType="number-pad"
+                      maxLength={4}
                       secureTextEntry
                     />
                   </View>

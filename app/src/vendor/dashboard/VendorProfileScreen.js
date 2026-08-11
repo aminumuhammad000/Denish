@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getVendorDashboardData, updateVendorProfile, uploadVendorImages } from '../../services/api';
+import { clearAuthSession } from '../../services/authStorage';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/Colors';
 
@@ -263,7 +264,10 @@ const VendorProfileScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.replace('RoleSelection')}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={async () => {
+          await clearAuthSession();
+          navigation.replace('RoleSelection');
+        }}>
           <View style={styles.logoutContent}>
             <Ionicons name="log-out-outline" size={18} color="#E74C3C" />
             <Text style={styles.logoutText}>Logout</Text>

@@ -12,6 +12,7 @@ import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
 import { customerLogin } from '../services/api';
+import { setAuthSession } from '../services/authStorage';
 
 const LoginScreen = ({ navigation }) => {
   const [authType, setAuthType] = useState('Email'); // 'Email' or 'Phone'
@@ -29,6 +30,12 @@ const LoginScreen = ({ navigation }) => {
     try {
       const response = await customerLogin(email, password);
       if (response && response.success) {
+        await setAuthSession({
+          role: 'customer',
+          token: response.token,
+          user: response.user,
+          screen: 'CustomerHome'
+        });
         navigation.navigate('CustomerHome');
       } else {
         alert(response.error || 'Login failed');

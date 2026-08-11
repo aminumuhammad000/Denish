@@ -1,12 +1,32 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, Text, StatusBar, Platform } from 'react-native';
+import { getAuthSession } from '../services/authStorage';
 
 const SplashScreen = ({ navigation }) => {
   useEffect(() => {
-    const timer = setTimeout(() => {
-      navigation.replace('Onboarding');
-    }, 2500);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+    const timer = setTimeout(async () => {
+      if (!isMounted) return;
+      const session = await getAuthSession();
+      if (session && session.role) {
+        if (session.role === 'customer') {
+          navigation.replace(session.screen || 'CustomerHome');
+        } else if (session.role === 'vendor') {
+          navigation.replace(session.screen || 'Dashboard');
+        } else if (session.role === 'driver') {
+          navigation.replace(session.screen || 'DriverDashboard');
+        } else {
+          navigation.replace('Onboarding');
+        }
+      } else {
+        navigation.replace('Onboarding');
+      }
+    }, 1200);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, [navigation]);
 
   return (

@@ -1,18 +1,14 @@
 const axios = require('axios');
+const { getFlutterwaveAuthHeader } = require('../utils/flutterwave');
 
 const FLW_BASE_URL = 'https://api.flutterwave.com/v3';
 const FLW_V2_URL = 'https://api.ravepay.co/flwv3-pug/getpaidx/api/resolve_account';
 
 const getBanks = async (req, res) => {
-  const secretKey = process.env.FLW_SECRET_KEY;
-
-  if (!secretKey) {
-    return res.status(500).json({ success: false, message: 'Flutterwave secret key not configured' });
-  }
-
   try {
+    const authHeader = await getFlutterwaveAuthHeader();
     const response = await axios.get(`${FLW_BASE_URL}/banks/NG`, {
-      headers: { Authorization: `Bearer ${secretKey}` }
+      headers: { Authorization: authHeader }
     });
 
     if (response.data && response.data.data) {
@@ -33,7 +29,6 @@ const getBanks = async (req, res) => {
 };
 
 const verifyAccount = async (req, res) => {
-  const secretKey = process.env.FLW_SECRET_KEY;
   const publicKey = process.env.FLW_PUBLIC_KEY;
   
   const bankCode = req.query.bankCode || req.body?.bankCode || req.body?.destbankcode;
@@ -45,20 +40,20 @@ const verifyAccount = async (req, res) => {
   }
 
   // 1. Try Flutterwave V3 API
-  if (secretKey) {
-    try {
-      const requestBody = {
-        account_number: accountNumber,
-        account_bank: bankCode,
-        country: country || 'NG',
-      };
+  try {
+    const authHeader = await getFlutterwaveAuthHeader();
+    const requestBody = {
+      account_number: accountNumber,
+      account_bank: bankCode,
+      country: country || 'NG',
+    };
 
-      const response = await axios.post(`${FLW_BASE_URL}/accounts/resolve`, requestBody, {
-        headers: {
-          Authorization: `Bearer ${secretKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
+    const response = await axios.post(`${FLW_BASE_URL}/accounts/resolve`, requestBody, {
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+      },
+    });
 
       if (response.data && response.data.status === 'success' && response.data.data) {
         const accountData = response.data.data;

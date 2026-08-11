@@ -7,6 +7,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 
 import { getCustomerProfile, saveAddress, savePaymentMethod, deleteCustomerAddress, deleteCustomerPaymentMethod, updateCustomerProfile } from '../services/api';
+import { clearAuthSession } from '../services/authStorage';
 import { useIsFocused } from '@react-navigation/native';
 import CustomerBottomTab from './components/CustomerBottomTab';
 
@@ -24,6 +25,37 @@ const CustomerProfileScreen = ({ navigation }) => {
   const [cardType, setCardType] = useState('Visa');
   const [savingAddress, setSavingAddress] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
+
+  const handleCardNumberChange = (val) => {
+    // Restrict to digits only, max 16 digits, auto-format with spaces (XXXX XXXX XXXX XXXX)
+    const cleaned = val.replace(/\D/g, '').slice(0, 16);
+    const formatted = cleaned.match(/.{1,4}/g)?.join(' ') || cleaned;
+    setCardNumber(formatted);
+  };
+
+  const handleCardExpiryChange = (val) => {
+    // Restrict to digits only, max 4 digits (MMYY), auto-format as MM/YY
+    const cleaned = val.replace(/\D/g, '').slice(0, 4);
+    let formatted = cleaned;
+    if (cleaned.length >= 3) {
+      formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`;
+    }
+    setCardExpiry(formatted);
+  };
+
+  const openPaymentModal = () => {
+    setCardNumber('');
+    setCardExpiry('');
+    setCardType('Visa');
+    setPaymentModalVisible(true);
+  };
+
+  const closePaymentModal = () => {
+    setCardNumber('');
+    setCardExpiry('');
+    setCardType('Visa');
+    setPaymentModalVisible(false);
+  };
   const [notifications, setNotifications] = useState({
     orders: true,
     promotions: true,
@@ -174,7 +206,7 @@ const CustomerProfileScreen = ({ navigation }) => {
             <MaterialCommunityIcons name="wallet-outline" size={20} color="#FF8C00" />
             <Text style={styles.sectionTitle}>Payment method</Text>
           </View>
-          <TouchableOpacity onPress={() => setPaymentModalVisible(true)}>
+          <TouchableOpacity onPress={openPaymentModal}>
             <Text style={styles.addText}>+ Add card</Text>
           </TouchableOpacity>
         </View>
@@ -298,7 +330,10 @@ const CustomerProfileScreen = ({ navigation }) => {
             </View>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={() => navigation.replace('RoleSelection')}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={async () => {
+          await clearAuthSession();
+          navigation.replace('RoleSelection');
+        }}>
           <Ionicons name="log-out-outline" size={20} color="#FF5252" style={{ marginRight: 8 }} />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -437,13 +472,13 @@ const CustomerProfileScreen = ({ navigation }) => {
         animationType="slide"
         transparent={true}
         visible={paymentModalVisible}
-        onRequestClose={() => setPaymentModalVisible(false)}
+        onRequestClose={closePaymentModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <TouchableOpacity 
               style={styles.closeBtn} 
-              onPress={() => setPaymentModalVisible(false)}
+              onPress={closePaymentModal}
             >
               <Ionicons name="close" size={22} color="#666" />
             </TouchableOpacity>
@@ -454,12 +489,12 @@ const CustomerProfileScreen = ({ navigation }) => {
               <Text style={styles.modalInputLabel}>Card Number</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="4242 •••• •••• 8812"
+                placeholder="4242 4242 4242 4242"
                 placeholderTextColor="#AAA"
                 keyboardType="number-pad"
                 maxLength={19}
                 value={cardNumber}
-                onChangeText={setCardNumber}
+                onChangeText={handleCardNumberChange}
               />
             </View>
 
@@ -470,9 +505,10 @@ const CustomerProfileScreen = ({ navigation }) => {
                   style={styles.modalInput}
                   placeholder="MM/YY (e.g. 12/28)"
                   placeholderTextColor="#AAA"
+                  keyboardType="number-pad"
                   maxLength={5}
                   value={cardExpiry}
-                  onChangeText={setCardExpiry}
+                  onChangeText={handleCardExpiryChange}
                 />
               </View>
               <View style={[styles.modalInputGroup, { flex: 1 }]}>
@@ -491,11 +527,22 @@ const CustomerProfileScreen = ({ navigation }) => {
               style={styles.saveModalBtn}
               disabled={savingPayment}
               onPress={async () => {
-                const cleanNum = cardNumber.replace(/\s/g, '');
-                if (cleanNum.length < 4) {
-                  Alert.alert('Error', 'Please enter a valid card number.');
+                const cleanNum = cardNumber.replace(/\D/g, '');
+                if (cleanNum.length < 13 || cleanNum.length > 16) {
+                  Alert.alert('Error', 'Please enter a valid card number (13 to 16 digits).');
                   return;
                 }
+                const cleanExpiry = cardExpiry.replace(/\D/g, '');
+                if (cleanExpiry.length !== 4) {
+                  Alert.alert('Error', 'Please enter a valid expiry date in MM/YY format.');
+                  return;
+                }
+                const expMonth = parseInt(cleanExpiry.slice(0, 2), 10);
+                if (expMonth < 1 || expMonth > 12) {
+                  Alert.alert('Error', 'Please enter a valid month (01 to 12).');
+                  return;
+                }
+                const formattedExpiry = `${cleanExpiry.slice(0, 2)}/${cleanExpiry.slice(2)}`;
                 const last4Digits = cleanNum.slice(-4);
                 setSavingPayment(true);
                 try {
@@ -503,12 +550,10 @@ const CustomerProfileScreen = ({ navigation }) => {
                     title: `${cardType || 'Card'} ● ● ● ● ${last4Digits}`,
                     last4: last4Digits,
                     cardType: cardType || 'Visa',
-                    expiry: cardExpiry || '12/28',
+                    expiry: formattedExpiry,
                     type: 'card'
                   });
-                  setCardNumber('');
-                  setCardExpiry('');
-                  setPaymentModalVisible(false);
+                  closePaymentModal();
                   fetchProfile();
                 } catch (e) {
                   Alert.alert('Error', 'Failed to save payment method.');
@@ -526,7 +571,7 @@ const CustomerProfileScreen = ({ navigation }) => {
 
             <TouchableOpacity 
               style={styles.cancelModalBtn}
-              onPress={() => setPaymentModalVisible(false)}
+              onPress={closePaymentModal}
             >
               <Text style={styles.cancelModalBtnText}>Cancel</Text>
             </TouchableOpacity>

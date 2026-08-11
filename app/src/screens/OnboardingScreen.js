@@ -175,24 +175,30 @@ const styles = StyleSheet.create({
   footer: {
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    maxWidth: 500,
+    width: '100%',
+    alignSelf: 'center',
   },
   indicatorContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 10,
+    alignItems: 'center',
+    marginTop: 15,
+    marginBottom: 24,
   },
   indicator: {
-    height: 6,
-    width: 6,
+    height: 8,
+    width: 8,
     backgroundColor: '#E0E0E0',
-    marginHorizontal: 4,
-    borderRadius: 3,
+    marginHorizontal: 5,
+    borderRadius: 4,
   },
   activeIndicator: {
     backgroundColor: Colors.primary,
-    width: 20,
+    width: 24,
   },
   buttonContainer: {
+    marginTop: 8,
     marginBottom: 30,
   },
   btn: {

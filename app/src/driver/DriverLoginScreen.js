@@ -12,6 +12,7 @@ import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
 import { driverLogin } from '../services/api';
+import { setAuthSession } from '../services/authStorage';
 
 const DriverLoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -28,6 +29,12 @@ const DriverLoginScreen = ({ navigation }) => {
     try {
       const response = await driverLogin(email, password);
       if (response && response.success) {
+        await setAuthSession({
+          role: 'driver',
+          token: response.token,
+          user: response.user,
+          screen: 'DriverDashboard'
+        });
         navigation.navigate('DriverDashboard');
       } else {
         setErrorMsg(response.error || 'Login failed');

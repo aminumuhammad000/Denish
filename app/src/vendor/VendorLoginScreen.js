@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { vendorLogin } from '../services/api';
+import { setAuthSession } from '../services/authStorage';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
 
 const VendorLoginScreen = ({ navigation }) => {
@@ -29,6 +30,12 @@ const VendorLoginScreen = ({ navigation }) => {
     try {
       const response = await vendorLogin(email, password);
       if (response && response.success) {
+        await setAuthSession({
+          role: 'vendor',
+          token: response.token,
+          vendor: response.vendor,
+          screen: 'Dashboard'
+        });
         navigation.navigate('Dashboard');
       } else {
         setErrorMsg('Invalid login credentials');
