@@ -141,17 +141,40 @@ const driverSignup = async (req, res) => {
 const forgotPassword = async (req, res) => {
   try {
     const { email, role } = req.body; // role: 'customer', 'vendor', or 'driver'
-    let UserModel;
-    
-    if (role === 'vendor') UserModel = Vendor;
-    else if (role === 'driver') UserModel = Driver;
-    else UserModel = Customer;
+    const cleanEmail = email ? email.trim() : '';
+    if (!cleanEmail) {
+      return res.status(400).json({ success: false, error: 'Email is required' });
+    }
 
-    const user = await UserModel.findOne({ email });
+    const searchRegex = new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    let user = null;
+    let targetRole = role;
+
+    if (role === 'vendor') {
+      user = await Vendor.findOne({ email: searchRegex });
+    } else if (role === 'driver') {
+      user = await Driver.findOne({ email: searchRegex });
+    } else if (role === 'customer') {
+      user = await Customer.findOne({ email: searchRegex });
+    } else {
+      user = await Customer.findOne({ email: searchRegex });
+      if (user) {
+        targetRole = 'customer';
+      } else {
+        user = await Vendor.findOne({ email: searchRegex });
+        if (user) {
+          targetRole = 'vendor';
+        } else {
+          user = await Driver.findOne({ email: searchRegex });
+          if (user) {
+            targetRole = 'driver';
+          }
+        }
+      }
+    }
 
     if (!user) {
-      // For security, don't reveal if user exists, but we'll return error here for simplicity in this demo
-      return res.status(404).json({ success: false, error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'No account found with this email address' });
     }
 
     // Generate a 6-digit OTP
@@ -162,9 +185,67 @@ const forgotPassword = async (req, res) => {
     user.resetPasswordExpires = Date.now() + 3600000; 
     await user.save();
 
-    await sendOTPEmail(email, otp);
+    try {
+      await sendOTPEmail(user.email, otp);
+    } catch (emailErr) {
+      console.error('Error sending OTP email via SMTP:', emailErr.message);
+      console.log(`[DEV OTP LOG] Verification code for ${user.email}: ${otp}`);
+    }
 
-    res.status(200).json({ success: true, message: 'OTP sent to your email' });
+    res.status(200).json({ success: true, message: 'OTP sent to your email', role: targetRole });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword, role } = req.body;
+    const cleanEmail = email ? email.trim() : '';
+    const cleanOTP = otp ? otp.trim() : '';
+    const cleanPassword = newPassword ? newPassword.trim() : '';
+
+    if (!cleanEmail || !cleanOTP || !cleanPassword) {
+      return res.status(400).json({ success: false, error: 'Email, OTP code, and new password are required' });
+    }
+
+    if (cleanPassword.length < 6) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 6 characters long' });
+    }
+
+    const searchRegex = new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    let user = null;
+
+    if (role === 'vendor') {
+      user = await Vendor.findOne({ email: searchRegex });
+    } else if (role === 'driver') {
+      user = await Driver.findOne({ email: searchRegex });
+    } else if (role === 'customer') {
+      user = await Customer.findOne({ email: searchRegex });
+    } else {
+      user = await Customer.findOne({ email: searchRegex }) ||
+             await Vendor.findOne({ email: searchRegex }) ||
+             await Driver.findOne({ email: searchRegex });
+    }
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    if (!user.resetPasswordOTP || String(user.resetPasswordOTP).trim() !== cleanOTP) {
+      return res.status(400).json({ success: false, error: 'Invalid OTP code. Please check and try again.' });
+    }
+
+    if (!user.resetPasswordExpires || user.resetPasswordExpires < Date.now()) {
+      return res.status(400).json({ success: false, error: 'OTP code has expired. Please request a new one.' });
+    }
+
+    user.password = cleanPassword;
+    user.resetPasswordOTP = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -177,5 +258,6 @@ module.exports = {
   customerSignup,
   driverLogin,
   driverSignup,
-  forgotPassword
+  forgotPassword,
+  resetPassword
 };

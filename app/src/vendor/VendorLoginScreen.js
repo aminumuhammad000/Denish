@@ -89,7 +89,7 @@ const VendorLoginScreen = ({ navigation }) => {
             <View style={styles.inputGroup}>
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Password</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { role: 'vendor' })}>
                   <Text style={styles.forgotPassword}>Forgot password?</Text>
                 </TouchableOpacity>
               </View>

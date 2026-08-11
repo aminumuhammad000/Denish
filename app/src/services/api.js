@@ -229,6 +229,16 @@ export const forgotPassword = async (email, role = 'vendor') => {
   }
 };
 
+export const resetPassword = async (email, otp, newPassword, role) => {
+  try {
+    const response = await api.post('/auth/reset-password', { email, otp, newPassword, role });
+    return response.data;
+  } catch (error) {
+    console.error('API resetPassword error:', error);
+    throw error;
+  }
+};
+
 export const requestVendorPayout = async (amount) => {
   try {
     const response = await api.post('/vendor/payout', { amount });

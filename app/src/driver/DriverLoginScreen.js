@@ -72,7 +72,12 @@ const DriverLoginScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Password</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { role: 'driver' })}>
+                  <Text style={styles.forgotPassword}>Forgot password?</Text>
+                </TouchableOpacity>
+              </View>
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={styles.passwordInput}
@@ -151,8 +156,18 @@ const styles = StyleSheet.create({
   inputGroup: {
     gap: 8,
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   label: {
     fontSize: 12,
+    fontWeight: '600',
+  },
+  forgotPassword: {
+    fontSize: 12,
+    color: Colors.primary,
     fontWeight: '600',
   },
   input: {
