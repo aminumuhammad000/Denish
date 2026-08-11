@@ -55,24 +55,23 @@ const verifyAccount = async (req, res) => {
       },
     });
 
-      if (response.data && response.data.status === 'success' && response.data.data) {
-        const accountData = response.data.data;
-        const accountName = accountData.account_name || accountData.customer_name || accountData.accountname || '';
-        if (accountName) {
-          return res.status(200).json({
-            success: true,
-            data: {
-              accountName,
-              account_name: accountName,
-              accountNumber: accountData.account_number || accountNumber,
-              bankCode,
-            }
-          });
-        }
+    if (response.data && response.data.status === 'success' && response.data.data) {
+      const accountData = response.data.data;
+      const accountName = accountData.account_name || accountData.customer_name || accountData.accountname || '';
+      if (accountName) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            accountName,
+            account_name: accountName,
+            accountNumber: accountData.account_number || accountNumber,
+            bankCode,
+          }
+        });
       }
-    } catch (v3Error) {
-      console.warn('Flutterwave V3 verifyAccount warning:', v3Error.response?.data?.message || v3Error.message);
     }
+  } catch (v3Error) {
+    console.warn('Flutterwave V3 verifyAccount warning:', v3Error.response?.data?.message || v3Error.message);
   }
 
   // 2. Fallback to Flutterwave V2 API (Rave endpoint)
@@ -138,4 +137,3 @@ module.exports = {
   getBanks,
   verifyAccount
 };
-
