@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const axios = require('axios');
+const crypto = require('crypto');
 const { getFlutterwaveAuthHeader } = require('../utils/flutterwave');
 const Vendor = require('../models/Vendor');
 const MenuItem = require('../models/MenuItem');
@@ -401,8 +402,7 @@ const respondCall = async (req, res) => {
   }
 };
 
-const axios = require('axios');
-const crypto = require('crypto');
+
 
 let flwTokenCache = { token: null, expiresAt: 0 };
 
