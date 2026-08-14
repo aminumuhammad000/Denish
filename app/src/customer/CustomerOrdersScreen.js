@@ -66,10 +66,13 @@ const CustomerOrdersScreen = ({ navigation }) => {
   useEffect(() => {
     if (activeTab === 'All') {
       setFilteredOrders(orders);
+    } else if (activeTab === 'Active') {
+      setFilteredOrders(orders.filter(o => 
+        ['pending', 'placed', 'accepted', 'preparing', 'ready', 'assigned', 'on the way'].includes(o.status?.toLowerCase())
+      ));
     } else {
       setFilteredOrders(orders.filter(o => 
-        (activeTab === 'Active' && (o.status === 'pending' || o.status === 'preparing' || o.status === 'ready')) ||
-        (o.status?.toLowerCase() === activeTab.toLowerCase())
+        o.status?.toLowerCase() === activeTab.toLowerCase()
       ));
     }
   }, [activeTab, orders]);
@@ -259,7 +262,7 @@ const styles = StyleSheet.create({
   tabBadgeText: { fontSize: 10, fontWeight: 'bold', color: '#666' },
   activeTabBadgeText: { color: '#FFF' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: { padding: 16 },
+  list: { padding: 16, paddingBottom: 110 },
   orderCard: { 
     flexDirection: 'row', 
     alignItems: 'center', 

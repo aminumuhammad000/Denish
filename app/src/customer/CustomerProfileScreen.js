@@ -332,7 +332,10 @@ const CustomerProfileScreen = ({ navigation }) => {
         </View>
         <TouchableOpacity style={styles.logoutBtn} onPress={async () => {
           await clearAuthSession();
-          navigation.replace('RoleSelection');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'RoleSelection' }],
+          });
         }}>
           <Ionicons name="log-out-outline" size={20} color="#FF5252" style={{ marginRight: 8 }} />
           <Text style={styles.logoutText}>Logout</Text>
@@ -598,7 +601,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
   backBtn: { padding: 4 },
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { padding: 16, paddingBottom: 110 },
   
   userCard: {
     backgroundColor: '#FFF',

@@ -69,6 +69,22 @@ const getVendorDashboard = async (req, res) => {
         amount: o.totalAmount || o.total || 0,
         status: o.status === 'pending' ? 'new' : o.status,
         createdAt: o.createdAt
+      })),
+      liveOrders: allOrders.slice(0, 10).map(o => ({
+        id: o.orderId || o._id.toString(),
+        _id: o._id.toString(),
+        orderId: o.orderId || o._id.toString(),
+        customer: o.customerName || 'Customer',
+        phone: o.customerPhone || '+234800000000',
+        address: o.address || o.deliveryAddress || '12 Marina Road, Lagos',
+        itemsCount: o.items?.length || 1,
+        items: o.items?.map(i => `${i.quantity || 1}x ${i.name}`).join(', ') || '1x Order Items',
+        rawItems: (o.items && o.items.length > 0) ? o.items : [{ name: 'Order Items', quantity: 1, price: o.totalAmount || o.total || 5000 }],
+        amount: `₦${Number(o.totalAmount || o.total || 0).toLocaleString()}`,
+        totalNumeric: o.totalAmount || o.total || 0,
+        status: o.status === 'pending' ? 'new' : o.status,
+        specialInstructions: o.specialInstructions || 'None',
+        createdAt: o.createdAt
       }))
     };
 

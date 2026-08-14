@@ -229,6 +229,16 @@ export const forgotPassword = async (email, role = 'vendor') => {
   }
 };
 
+export const verifyOTP = async (email, otp, role = 'vendor') => {
+  try {
+    const response = await api.post('/auth/verify-otp', { email, otp, role });
+    return response.data;
+  } catch (error) {
+    console.error('API verifyOTP error:', error);
+    throw error;
+  }
+};
+
 export const resetPassword = async (email, otp, newPassword, role) => {
   try {
     const response = await api.post('/auth/reset-password', { email, otp, newPassword, role });

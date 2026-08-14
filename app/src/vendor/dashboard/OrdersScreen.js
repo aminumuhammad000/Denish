@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   badgeTextActive: { color: '#FFF' },
 
   // Scroll
-  scroll: { padding: 14, paddingBottom: 100 },
+  scroll: { padding: 14, paddingBottom: 110 },
 
   // Empty state
   empty: { alignItems: 'center', marginTop: 60, gap: 10 },

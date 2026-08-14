@@ -60,10 +60,10 @@ const EarningsScreen = ({ navigation }) => {
   const barHeights = data.barData || [25000, 30000, 28000, 18000, 35000, 28000, 31000];
   const maxBar = Math.max(...barHeights, 1);
 
-  const availableBalance = data.earnings?.availableBalance || 248500;
-  const weeklyRevenue = data.earnings?.weeklyRevenue || 289000;
-  const totalOrders = data.earnings?.totalOrders || 97;
-  const avgOrders = data.earnings?.avgOrders || 2979;
+  const availableBalance = typeof data.earnings?.availableBalance === 'number' ? data.earnings.availableBalance : (data.earnings?.availableBalance ?? data.todayRevenue ?? 0);
+  const weeklyRevenue = typeof data.earnings?.weeklyRevenue === 'number' ? data.earnings.weeklyRevenue : (data.earnings?.weeklyRevenue ?? data.todayRevenue ?? 0);
+  const totalOrders = typeof data.earnings?.totalOrders === 'number' ? data.earnings.totalOrders : (data.earnings?.totalOrders ?? 0);
+  const avgOrders = typeof data.earnings?.avgOrders === 'number' ? data.earnings.avgOrders : (data.earnings?.avgOrders ?? 0);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
   headerSub: { fontSize: 11, color: '#AAA', marginTop: 1 },
 
-  scroll: { paddingBottom: 90 },
+  scroll: { paddingBottom: 110 },
 
   // Balance Card
   balanceCard: {

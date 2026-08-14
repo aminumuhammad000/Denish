@@ -36,7 +36,10 @@ const VendorLoginScreen = ({ navigation }) => {
           vendor: response.vendor,
           screen: 'Dashboard'
         });
-        navigation.navigate('Dashboard');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Dashboard' }],
+        });
       } else {
         setErrorMsg('Invalid login credentials');
       }

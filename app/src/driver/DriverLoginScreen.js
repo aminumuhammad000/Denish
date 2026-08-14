@@ -35,7 +35,10 @@ const DriverLoginScreen = ({ navigation }) => {
           user: response.user,
           screen: 'DriverDashboard'
         });
-        navigation.navigate('DriverDashboard');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'DriverDashboard' }],
+        });
       } else {
         setErrorMsg(response.error || 'Login failed');
       }

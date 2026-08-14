@@ -314,7 +314,11 @@ const getDriverNotifications = async (req, res) => {
   try {
     const Notification = require('../models/Notification');
     const notifications = await Notification.find({
-      recipient: { $in: ['driver', 'all'] }
+      $or: [
+        { recipient: { $in: ['driver', 'all'] } },
+        { recipient: { $exists: false } },
+        { recipient: null }
+      ]
     }).sort({ createdAt: -1 }).limit(50);
 
     res.status(200).json({ success: true, data: notifications });
@@ -329,8 +333,13 @@ const markDriverNotificationRead = async (req, res) => {
   try {
     const Notification = require('../models/Notification');
     const { id } = req.params;
-    await Notification.findByIdAndUpdate(id, { read: true });
-    res.status(200).json({ success: true });
+    const mongoose = require('mongoose');
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      await Notification.findByIdAndUpdate(id, { read: true });
+    } else {
+      await Notification.updateOne({ _id: id }, { read: true });
+    }
+    res.status(200).json({ success: true, message: 'Notification marked as read' });
   } catch (error) {
     console.error('markDriverNotificationRead error:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -342,10 +351,17 @@ const markAllDriverNotificationsRead = async (req, res) => {
   try {
     const Notification = require('../models/Notification');
     await Notification.updateMany(
-      { recipient: { $in: ['driver', 'all'] }, read: false },
+      { 
+        $or: [
+          { recipient: { $in: ['driver', 'all'] } },
+          { recipient: { $exists: false } },
+          { recipient: null }
+        ],
+        read: false 
+      },
       { read: true }
     );
-    res.status(200).json({ success: true });
+    res.status(200).json({ success: true, message: 'All notifications marked as read' });
   } catch (error) {
     console.error('markAllDriverNotificationsRead error:', error);
     res.status(500).json({ success: false, error: error.message });

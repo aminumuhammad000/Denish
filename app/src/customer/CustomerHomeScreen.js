@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,10 +14,12 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getRestaurants, getCustomerProfile } from '../services/api';
+import { getAuthSession } from '../services/authStorage';
 import CustomerBottomTab from './components/CustomerBottomTab';
 import { useCart } from '../context/CartContext';
 
@@ -80,6 +82,20 @@ const CustomerHomeScreen = ({ navigation }) => {
   const { cartItems } = useCart();
   const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isSubscribed = true;
+      getAuthSession().then(session => {
+        if (!isSubscribed) return;
+        if (!session || session.role !== 'customer') {
+          navigation.reset({ index: 0, routes: [{ name: 'RoleSelection' }] });
+          return;
+        }
+      });
+      return () => { isSubscribed = false; };
+    }, [navigation])
+  );
 
   React.useEffect(() => {
     const fetchData = async () => {

@@ -115,17 +115,18 @@ const NotificationsScreen = ({ navigation }) => {
   }, [fetchNotifications]);
 
   const handleMarkRead = async (item) => {
-    if (item.read) return;
+    const itemId = item._id || item.id;
+    if (item.read || !itemId) return;
     // Optimistically mark as read in UI
     setNotifications(prev =>
-      prev.map(n => n._id === item._id ? { ...n, read: true } : n)
+      prev.map(n => (n._id === itemId || n.id === itemId) ? { ...n, read: true } : n)
     );
     try {
-      await markDriverNotificationRead(item._id);
+      await markDriverNotificationRead(itemId);
     } catch (e) {
       // Revert on failure
       setNotifications(prev =>
-        prev.map(n => n._id === item._id ? { ...n, read: false } : n)
+        prev.map(n => (n._id === itemId || n.id === itemId) ? { ...n, read: false } : n)
       );
     }
   };
@@ -136,8 +137,12 @@ const NotificationsScreen = ({ navigation }) => {
     // Optimistically update UI
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     try {
-      await markAllDriverNotificationsRead();
+      const res = await markAllDriverNotificationsRead();
+      if (!res || !res.success) {
+        throw new Error('Failed to mark all as read');
+      }
     } catch (e) {
+      console.error('Mark all read error:', e);
       Alert.alert('Error', 'Could not mark all as read. Please try again.');
       fetchNotifications(); // Revert to server state
     }
@@ -224,7 +229,7 @@ const NotificationsScreen = ({ navigation }) => {
       ) : (
         <FlatList
           data={filteredNotifications}
-          keyExtractor={item => item._id}
+          keyExtractor={item => item._id || item.id || String(Math.random())}
           renderItem={({ item }) => (
             <NotificationCard item={item} onPress={handleMarkRead} />
           )}
@@ -322,7 +327,7 @@ const styles = StyleSheet.create({
   // List
   listContent: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 60,
   },
 
   // Notification Card

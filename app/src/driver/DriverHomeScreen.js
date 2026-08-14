@@ -93,12 +93,25 @@ const DriverHomeScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchDashboardData();
-    }, [fetchDashboardData])
+      let isSubscribed = true;
+      getAuthSession().then(session => {
+        if (!isSubscribed) return;
+        if (!session || session.role !== 'driver') {
+          navigation.reset({ index: 0, routes: [{ name: 'RoleSelection' }] });
+          return;
+        }
+        fetchDashboardData();
+      });
+      return () => { isSubscribed = false; };
+    }, [fetchDashboardData, navigation])
   );
 
   const handleDeclineOrder = async (orderId) => {
     try {
+      setDeliveries(prev => ({
+        ...prev,
+        available: (prev.available || []).filter(o => (o._id || o.id) !== orderId),
+      }));
       if (orderId) {
         await updateOrderStatus(orderId, 'cancelled');
       }
@@ -112,6 +125,12 @@ const DriverHomeScreen = ({ navigation }) => {
   const handleAcceptOrder = async (orderId) => {
     setAcceptingId(orderId);
     try {
+      const acceptedItem = deliveries.available?.find(o => (o._id || o.id) === orderId);
+      setDeliveries(prev => ({
+        ...prev,
+        available: (prev.available || []).filter(o => (o._id || o.id) !== orderId),
+        active: acceptedItem ? [{ ...acceptedItem, status: 'En route to customer' }, ...(prev.active || [])] : (prev.active || []),
+      }));
       await updateOrderStatus(orderId, 'on the way');
       Alert.alert('Request Accepted! 🚀', 'Order accepted. You are now en route to pick up.', [
         {
@@ -122,6 +141,7 @@ const DriverHomeScreen = ({ navigation }) => {
       fetchDashboardData();
     } catch (e) {
       Alert.alert('Error', 'Could not accept request. Please try again.');
+      fetchDashboardData();
     } finally {
       setAcceptingId(null);
     }
@@ -402,7 +422,7 @@ const DriverHomeScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFA' },
-  scrollContent: { paddingBottom: 40 },
+  scrollContent: { paddingBottom: 110 },
   headerContainer: {
     backgroundColor: Colors.primary,
     paddingHorizontal: 20,

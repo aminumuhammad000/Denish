@@ -111,7 +111,7 @@ const VendorProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
 
         {/* ── Banner ── */}
         <View style={styles.bannerContainer}>
@@ -266,7 +266,10 @@ const VendorProfileScreen = ({ navigation }) => {
 
         <TouchableOpacity style={styles.logoutBtn} onPress={async () => {
           await clearAuthSession();
-          navigation.replace('RoleSelection');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'RoleSelection' }],
+          });
         }}>
           <View style={styles.logoutContent}>
             <Ionicons name="log-out-outline" size={18} color="#E74C3C" />

@@ -57,7 +57,10 @@ const ReviewSubmitScreen = ({ navigation }) => {
         },
       });
       if (response && response.success) {
-        navigation.navigate('Login');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
       } else {
         setErrorMsg(response?.error || 'Failed to update profile');
       }

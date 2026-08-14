@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 5, marginRight: 15 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#000' },
-  scrollContent: { padding: 20, paddingBottom: 60 },
+  scrollContent: { padding: 20, paddingBottom: 80 },
   topCard: {
     backgroundColor: '#FFF',
     borderRadius: 20,

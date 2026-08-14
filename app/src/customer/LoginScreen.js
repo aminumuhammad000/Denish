@@ -36,7 +36,10 @@ const LoginScreen = ({ navigation }) => {
           user: response.user,
           screen: 'CustomerHome'
         });
-        navigation.navigate('CustomerHome');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'CustomerHome' }],
+        });
       } else {
         alert(response.error || 'Login failed');
       }

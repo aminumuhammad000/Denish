@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,15 +7,17 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getDriverDeliveries } from '../services/api';
+import { getDriverDeliveries, updateOrderStatus } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
-const DeliveryRequestCard = ({ restaurant, price, distance, dropoff, timer, progress, onAccept }) => (
+const DeliveryRequestCard = ({ restaurant, price, distance, dropoff, timer, progress, onAccept, onDecline, isAccepting }) => (
   <View style={styles.card}>
     <View style={styles.cardHeader}>
       <View style={styles.statusRow}>
@@ -45,13 +47,23 @@ const DeliveryRequestCard = ({ restaurant, price, distance, dropoff, timer, prog
     </View>
 
     <View style={styles.cardActions}>
-      <TouchableOpacity style={styles.declineBtn}>
+      <TouchableOpacity style={styles.declineBtn} onPress={onDecline}>
         <Ionicons name="close" size={18} color="#64748B" />
         <Text style={styles.declineText}>Decline</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.acceptBtn} onPress={onAccept}>
-        <Ionicons name="checkmark" size={18} color="#FFF" />
-        <Text style={styles.acceptText}>Accept</Text>
+      <TouchableOpacity 
+        style={[styles.acceptBtn, isAccepting && { opacity: 0.6 }]} 
+        onPress={onAccept}
+        disabled={isAccepting}
+      >
+        {isAccepting ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <>
+            <Ionicons name="checkmark" size={18} color="#FFF" />
+            <Text style={styles.acceptText}>Accept</Text>
+          </>
+        )}
       </TouchableOpacity>
     </View>
   </View>
@@ -61,21 +73,66 @@ const DriverDeliveriesScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Available');
   const [deliveries, setDeliveries] = useState({ available: [], active: [], completed: [] });
   const [loading, setLoading] = useState(true);
+  const [acceptingId, setAcceptingId] = useState(null);
 
-  React.useEffect(() => {
-    fetchDeliveries();
-  }, []);
-
-  const fetchDeliveries = async () => {
+  const fetchDeliveries = useCallback(async () => {
     try {
       const res = await getDriverDeliveries();
-      if (res.success) {
-        setDeliveries(res.data);
+      if (res && res.success) {
+        setDeliveries(res.data || { available: [], active: [], completed: [] });
       }
     } catch (e) {
       console.error('Fetch driver deliveries error:', e);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDeliveries();
+    }, [fetchDeliveries])
+  );
+
+  const handleAcceptOrder = async (orderId) => {
+    setAcceptingId(orderId);
+    try {
+      // Optimistically move order from available to active in state
+      const acceptedItem = deliveries.available?.find(d => (d._id || d.id) === orderId);
+      setDeliveries(prev => ({
+        ...prev,
+        available: (prev.available || []).filter(d => (d._id || d.id) !== orderId),
+        active: acceptedItem ? [{ ...acceptedItem, status: 'En route to customer' }, ...(prev.active || [])] : (prev.active || []),
+      }));
+
+      await updateOrderStatus(orderId, 'on the way');
+      Alert.alert('Request Accepted! 🚀', 'Order accepted. You are now en route to pick up.', [
+        {
+          text: 'Start Delivery',
+          onPress: () => navigation.navigate('DriverOrderTracking', { orderId }),
+        },
+      ]);
+      fetchDeliveries();
+    } catch (e) {
+      console.error('Accept order error:', e);
+      Alert.alert('Error', 'Could not accept request. Please try again.');
+      fetchDeliveries();
+    } finally {
+      setAcceptingId(null);
+    }
+  };
+
+  const handleDeclineOrder = async (orderId) => {
+    try {
+      setDeliveries(prev => ({
+        ...prev,
+        available: (prev.available || []).filter(d => (d._id || d.id) !== orderId),
+      }));
+      await updateOrderStatus(orderId, 'cancelled');
+      Alert.alert('Request Declined', 'Delivery request declined.');
+      fetchDeliveries();
+    } catch (e) {
+      fetchDeliveries();
     }
   };
 
@@ -137,7 +194,9 @@ const DriverDeliveriesScreen = ({ navigation }) => {
                   dropoff={item.dropoffAddress}
                   timer="25s"
                   progress={80}
-                  onAccept={() => navigation.navigate('DriverOrderTracking', { orderId: item._id || item.id })}
+                  isAccepting={acceptingId === (item._id || item.id)}
+                  onDecline={() => handleDeclineOrder(item._id || item.id)}
+                  onAccept={() => handleAcceptOrder(item._id || item.id)}
                 />
               ))
             ) : (
@@ -260,7 +319,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 100,
+    paddingBottom: 110,
   },
   card: {
     backgroundColor: '#FFF',

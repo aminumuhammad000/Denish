@@ -59,7 +59,7 @@ const DriverStep5Review = ({ navigation }) => {
       Alert.alert(
         "Application Submitted",
         "Your details have been sent for verification. We will notify you once approved.",
-        [{ text: "Great", onPress: () => navigation.navigate('DriverLogin') }]
+        [{ text: "Great", onPress: () => navigation.reset({ index: 0, routes: [{ name: 'DriverLogin' }] }) }]
       );
     } catch (err) {
       console.error('Driver onboarding submit error:', err);

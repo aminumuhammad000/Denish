@@ -258,8 +258,8 @@ const styles = StyleSheet.create({
   stockCount: { color: '#AAA', fontSize: 11 },
   actionContainer: { alignItems: 'center', gap: 12, paddingLeft: 10 },
   editButtons: { flexDirection: 'row', gap: 15 },
-  miniBtn: {
-    padding: 4,
+  scroll: {
+    paddingBottom: 110,
   },
 });
 

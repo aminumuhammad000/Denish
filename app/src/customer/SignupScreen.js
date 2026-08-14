@@ -37,7 +37,10 @@ const SignupScreen = ({ navigation }) => {
           user: response.user,
           screen: 'CustomerHome'
         });
-        navigation.navigate('CustomerHome');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'CustomerHome' }],
+        });
       } else {
         setErrorMsg(response.error || 'Signup failed');
       }

@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
   },
 
-  list: { paddingBottom: 20 },
+  list: { paddingBottom: 110 },
   chatRow: {
     flexDirection: 'row',
     padding: 16,

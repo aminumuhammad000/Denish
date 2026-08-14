@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
-  Switch, Modal, ActivityIndicator, StatusBar, Image, RefreshControl
+  Switch, Modal, ActivityIndicator, StatusBar, Image, RefreshControl, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
-import { getVendorDashboardData, updateVendorProfile } from '../../services/api';
-
+import { getVendorDashboardData, updateVendorProfile, updateVendorOrderStatus } from '../../services/api';
+import { getAuthSession } from '../../services/authStorage';
 
 const statusColor = { new: '#FF8C00', preparing: '#27AE60' };
 const barDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -39,8 +39,17 @@ const VendorHomeScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchDashboard();
-    }, [fetchDashboard])
+      let isSubscribed = true;
+      getAuthSession().then(session => {
+        if (!isSubscribed) return;
+        if (!session || session.role !== 'vendor') {
+          navigation.reset({ index: 0, routes: [{ name: 'RoleSelection' }] });
+          return;
+        }
+        fetchDashboard();
+      });
+      return () => { isSubscribed = false; };
+    }, [fetchDashboard, navigation])
   );
 
   const toggleStoreStatus = async () => {
@@ -52,6 +61,30 @@ const VendorHomeScreen = ({ navigation }) => {
     } catch (err) {
       console.error('Failed to update store status', err);
       setIsOpen(isOpen);
+    }
+  };
+
+  const handleAcceptModalOrder = async (order) => {
+    try {
+      const orderId = order?.id || order?._id || order?.orderId;
+      await updateVendorOrderStatus(orderId, 'preparing');
+      Alert.alert('Order Accepted 🍳', `Order ${orderId} marked as Preparing!`);
+      setModalVisible(false);
+      fetchDashboard();
+    } catch (e) {
+      Alert.alert('Error', 'Could not update order status.');
+    }
+  };
+
+  const handleRejectModalOrder = async (order) => {
+    try {
+      const orderId = order?.id || order?._id || order?.orderId;
+      await updateVendorOrderStatus(orderId, 'cancelled');
+      Alert.alert('Order Rejected', `Order ${orderId} was cancelled.`);
+      setModalVisible(false);
+      fetchDashboard();
+    } catch (e) {
+      setModalVisible(false);
     }
   };
 
@@ -91,6 +124,7 @@ const VendorHomeScreen = ({ navigation }) => {
       <ScrollView 
         showsVerticalScrollIndicator={false} 
         style={[styles.scroll, isPending && { opacity: 0.9 }]}
+        contentContainerStyle={{ paddingBottom: 110 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -107,7 +141,7 @@ const VendorHomeScreen = ({ navigation }) => {
                 <TouchableOpacity onPress={() => navigation.navigate('VendorProfile')}>
                   <View style={styles.avatar}>
                     <Image
-                      source={{ uri: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80' }}
+                      source={{ uri: data.logoUrl || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80' }}
                       style={styles.avatarImg}
                     />
                   </View>
@@ -152,9 +186,9 @@ const VendorHomeScreen = ({ navigation }) => {
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Today</Text>
           <View style={styles.statsGrid}>
             {[
-              { label: 'New', value: data.stats?.new || 2, icon: 'time-outline', color: '#FFF5E6', iconColor: '#FF8C00' },
-              { label: 'Cooking', value: data.stats?.cooking || 2, icon: 'flame-outline', color: '#E8F5E9', iconColor: '#27AE60' },
-              { label: 'Ready', value: data.stats?.ready || 1, icon: 'checkmark-circle-outline', color: '#E3F2FD', iconColor: '#2196F3' }
+              { label: 'New', value: data.stats?.new ?? 0, icon: 'time-outline', color: '#FFF5E6', iconColor: '#FF8C00' },
+              { label: 'Cooking', value: data.stats?.cooking ?? 0, icon: 'flame-outline', color: '#E8F5E9', iconColor: '#27AE60' },
+              { label: 'Ready', value: data.stats?.ready ?? 0, icon: 'checkmark-circle-outline', color: '#E3F2FD', iconColor: '#2196F3' }
             ].map((s) => (
               <View key={s.label} style={[styles.statBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <View style={[styles.statIconBg, { backgroundColor: s.color }]}>
@@ -169,9 +203,9 @@ const VendorHomeScreen = ({ navigation }) => {
           {/* Revenue */}
           <View style={styles.revenueHeader}>
             <Text style={[styles.revenueLabel, { color: theme.subText }]}>Today's revenue</Text>
-            <Text style={styles.deliveredCount}>{data.delivered || 2} delivered</Text>
+            <Text style={styles.deliveredCount}>{data.delivered ?? 0} delivered</Text>
           </View>
-          <Text style={[styles.revenueValue, { color: theme.text }]}>₦{(data.todayRevenue || 17000).toLocaleString()}</Text>
+          <Text style={[styles.revenueValue, { color: theme.text }]}>₦{(data.todayRevenue ?? 0).toLocaleString()}</Text>
 
           {/* Stock Warning */}
           <TouchableOpacity style={styles.warningCard}>
@@ -179,7 +213,7 @@ const VendorHomeScreen = ({ navigation }) => {
               <Ionicons name="alert-circle" size={18} color="#FF8C00" />
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.warningTitle}>{data.lowStock || 1} item low on stock</Text>
+              <Text style={styles.warningTitle}>{data.lowStock ?? 0} items low on stock</Text>
               <Text style={styles.warningSubText}>Puff Puff (8pcs)</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#FF8C00" />
@@ -188,24 +222,24 @@ const VendorHomeScreen = ({ navigation }) => {
           {/* Live Order Queue */}
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>Live order queue</Text>
-            <TouchableOpacity><Text style={styles.viewAllText}>View all</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Orders')}><Text style={styles.viewAllText}>View all</Text></TouchableOpacity>
           </View>
 
-          {(data.liveOrders && data.liveOrders.length > 0 ? data.liveOrders : []).map((o, i) => (
-            <TouchableOpacity key={o._id || i} style={[styles.orderRow, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => { setSelectedOrder(o); setModalVisible(true); }}>
+          {((data.liveOrders && data.liveOrders.length > 0) ? data.liveOrders : (data.recentOrders || [])).map((o, i) => (
+            <TouchableOpacity key={o._id || o.id || i} style={[styles.orderRow, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => { setSelectedOrder(o); setModalVisible(true); }}>
               <View style={styles.orderMainInfo}>
                 <View style={styles.orderIdRow}>
-                  <Text style={[styles.orderIdText, { color: theme.text }]}>{o.id}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: o.status === 'new' ? '#FFF5E6' : '#E8F5E9' }]}>
-                    <Text style={[styles.statusBadgeText, { color: o.status === 'new' ? '#FF8C00' : '#27AE60' }]}>
-                      {o.status.toUpperCase()}
+                  <Text style={[styles.orderIdText, { color: theme.text }]}>{o.id || o.orderId}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: o.status === 'new' || o.status === 'pending' ? '#FFF5E6' : '#E8F5E9' }]}>
+                    <Text style={[styles.statusBadgeText, { color: o.status === 'new' || o.status === 'pending' ? '#FF8C00' : '#27AE60' }]}>
+                      {(o.status || 'NEW').toUpperCase()}
                     </Text>
                   </View>
                 </View>
-                <Text style={[styles.orderCustomerText, { color: theme.subText }]}>{o.customer} | {o.items}</Text>
+                <Text style={[styles.orderCustomerText, { color: theme.subText }]}>{o.customer || o.customerName} | {o.items}</Text>
               </View>
               <View style={styles.orderRightSide}>
-                <Text style={[styles.orderAmountText, { color: theme.text }]}>{o.amount}</Text>
+                <Text style={[styles.orderAmountText, { color: theme.text }]}>{typeof o.amount === 'number' ? `₦${o.amount.toLocaleString()}` : o.amount}</Text>
                 <Ionicons name="chevron-forward" size={16} color="#DDD" />
               </View>
             </TouchableOpacity>
@@ -214,13 +248,13 @@ const VendorHomeScreen = ({ navigation }) => {
           {/* Earnings Section */}
           <View style={[styles.sectionHeader, { marginTop: 20 }]}>
             <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>Earnings</Text>
-            <TouchableOpacity><Text style={styles.viewAllText}>View all</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Earnings')}><Text style={styles.viewAllText}>View all</Text></TouchableOpacity>
           </View>
           <View style={[styles.earningsCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={styles.earningsHeader}>
               <View>
                 <Text style={[styles.earningsSubtitle, { color: theme.subText }]}>Last 7 days</Text>
-                <Text style={[styles.earningsAmount, { color: theme.text }]}>₦42,000 earned</Text>
+                <Text style={[styles.earningsAmount, { color: theme.text }]}>₦{(data.earnings?.weeklyRevenue ?? data.todayRevenue ?? 0).toLocaleString()} earned</Text>
               </View>
               <View style={styles.growthBadge}>
                 <Ionicons name="trending-up" size={12} color="#27AE60" />
@@ -229,9 +263,9 @@ const VendorHomeScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.chartContainer}>
-              {[25, 40, 30, 70, 20, 55, 45].map((h, i) => (
+              {(data.barData || [25, 40, 30, 70, 20, 55, 45]).map((h, i) => (
                 <View key={i} style={styles.chartBarCol}>
-                  <View style={[styles.chartBar, { height: h, backgroundColor: h > 60 ? '#FF8C00' : '#FFDAB9' }]} />
+                  <View style={[styles.chartBar, { height: Math.min(Math.max(h > 1000 ? Math.round(h / 1000) : h, 15), 80), backgroundColor: (h > 1000 ? h > 50000 : h > 60) ? '#FF8C00' : '#FFDAB9' }]} />
                   <Text style={styles.chartBarLabel}>{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</Text>
                 </View>
               ))}
@@ -250,41 +284,48 @@ const VendorHomeScreen = ({ navigation }) => {
                   <Ionicons name="close" size={24} color={theme.text} />
                 </TouchableOpacity>
 
-                <Text style={[styles.modalOrderId, { color: theme.text }]}>{selectedOrder.id}</Text>
-                <Text style={styles.modalOrderTime}>3min ago</Text>
+                <Text style={[styles.modalOrderId, { color: theme.text }]}>{selectedOrder.id || selectedOrder.orderId}</Text>
+                <Text style={styles.modalOrderTime}>{selectedOrder.time || 'Recent'}</Text>
 
                 <View style={styles.customerInfoBlock}>
-                  <Text style={[styles.modalCustomerName, { color: theme.text }]}>{selectedOrder.customer}</Text>
-                  <Text style={styles.modalCustomerPhone}>+2340905838929</Text>
-                  <Text style={[styles.modalCustomerAddress, { color: theme.subText }]}>12 Marina Road, Lagos</Text>
+                  <Text style={[styles.modalCustomerName, { color: theme.text }]}>{selectedOrder.customer || selectedOrder.customerName}</Text>
+                  <Text style={styles.modalCustomerPhone}>{selectedOrder.phone || '+2340905838929'}</Text>
+                  <Text style={[styles.modalCustomerAddress, { color: theme.subText }]}>{selectedOrder.address || '12 Marina Road, Lagos'}</Text>
                 </View>
 
                 <Text style={styles.modalItemsTitle}>ORDER ITEMS</Text>
                 <View style={styles.modalItemsList}>
-                  <View style={styles.modalItemRow}>
-                    <Text style={[styles.modalItemLabel, { color: theme.text }]}>Jollof Rice x 2</Text>
-                    <Text style={[styles.modalItemPrice, { color: theme.text }]}>₦6,000</Text>
-                  </View>
-                  <View style={styles.modalItemRow}>
-                    <Text style={[styles.modalItemLabel, { color: theme.text }]}>Egusi Soup x 1</Text>
-                    <Text style={[styles.modalItemPrice, { color: theme.text }]}>₦3,800</Text>
-                  </View>
+                  {(selectedOrder.rawItems || []).length > 0 ? (
+                    selectedOrder.rawItems.map((item, idx) => (
+                      <View key={idx} style={styles.modalItemRow}>
+                        <Text style={[styles.modalItemLabel, { color: theme.text }]}>{item.name} x {item.quantity || 1}</Text>
+                        <Text style={[styles.modalItemPrice, { color: theme.text }]}>₦{((item.price || 0) * (item.quantity || 1)).toLocaleString()}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={styles.modalItemRow}>
+                      <Text style={[styles.modalItemLabel, { color: theme.text }]}>{selectedOrder.items || 'Items'}</Text>
+                      <Text style={[styles.modalItemPrice, { color: theme.text }]}>{typeof selectedOrder.amount === 'number' ? `₦${selectedOrder.amount.toLocaleString()}` : selectedOrder.amount}</Text>
+                    </View>
+                  )}
                   <View style={[styles.modalItemRow, { borderTopWidth: 1, borderColor: theme.border, paddingTop: 10, marginTop: 4 }]}>
                     <Text style={[styles.modalTotalLabel, { color: theme.text }]}>Total</Text>
-                    <Text style={[styles.modalTotalPrice, { color: theme.text }]}>₦9,800</Text>
+                    <Text style={[styles.modalTotalPrice, { color: theme.text }]}>
+                      {typeof selectedOrder.amount === 'number' ? `₦${selectedOrder.amount.toLocaleString()}` : (selectedOrder.amount || '₦0')}
+                    </Text>
                   </View>
                 </View>
 
                 <View style={[styles.specialInstructionsBox, { backgroundColor: '#FFFBE6', borderColor: '#FFE58F' }]}>
                   <Text style={styles.specialInstructionsHeader}>SPECIAL INSTRUCTIONS</Text>
-                  <Text style={[styles.specialInstructionsText, { color: theme.text }]}>Extra spicy please</Text>
+                  <Text style={[styles.specialInstructionsText, { color: theme.text }]}>{selectedOrder.specialInstructions || 'No special instructions'}</Text>
                 </View>
 
                 <View style={styles.modalActions}>
-                  <TouchableOpacity style={styles.acceptOrderBtn} onPress={() => setModalVisible(false)}>
+                  <TouchableOpacity style={styles.acceptOrderBtn} onPress={() => handleAcceptModalOrder(selectedOrder)}>
                     <Text style={styles.acceptOrderBtnText}>Accept order</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.rejectOrderBtn} onPress={() => setModalVisible(false)}>
+                  <TouchableOpacity style={styles.rejectOrderBtn} onPress={() => handleRejectModalOrder(selectedOrder)}>
                     <Text style={[styles.rejectOrderBtnText, { color: theme.subText }]}>Reject</Text>
                   </TouchableOpacity>
                 </View>

@@ -207,7 +207,10 @@ const DriverEditProfileScreen = ({ route, navigation }) => {
           <View style={styles.cardFooter}>
             <TouchableOpacity style={styles.saveBtn} onPress={async () => {
               await clearAuthSession();
-              navigation.replace('DriverLogin');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'RoleSelection' }],
+              });
             }}>
               <Text style={styles.saveBtnText}>Logout</Text>
             </TouchableOpacity>

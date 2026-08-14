@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, height: 45, fontSize: 15, color: '#1a1a1a' },
-  list: { paddingBottom: 20 },
+  list: { paddingBottom: 110 },
   centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   chatRow: {
     flexDirection: 'row',
