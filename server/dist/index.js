@@ -565,8 +565,14 @@ var require_Vendor = __commonJS({
       resetPasswordExpires: Date,
       status: {
         type: String,
-        enum: ["Pending", "Approved", "Suspended"],
-        default: "Pending"
+        enum: ["Pending", "Approved", "Suspended", "pending", "approved", "suspended"],
+        default: "Pending",
+        set: function(val) {
+          if (typeof val === "string") {
+            return val.charAt(0).toUpperCase() + val.slice(1).toLowerCase();
+          }
+          return val;
+        }
       },
       rating: { type: Number, default: 4.8 },
       deliveryTime: { type: String, default: "25-35 min" },
