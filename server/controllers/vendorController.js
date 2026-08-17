@@ -96,7 +96,19 @@ const getVendorDashboard = async (req, res) => {
 
 const updateVendorProfile = async (req, res) => {
   try {
-    let vendor = await Vendor.findOne();
+    const { email, phone } = req.body;
+    let vendor;
+
+    if (email) {
+      vendor = await Vendor.findOne({ email });
+    }
+    if (!vendor && phone) {
+      vendor = await Vendor.findOne({ phone });
+    }
+    if (!vendor) {
+      vendor = await Vendor.findOne();
+    }
+
     if (!vendor) {
       return res.status(404).json({ success: false, error: 'Vendor not found' });
     }
@@ -105,6 +117,7 @@ const updateVendorProfile = async (req, res) => {
     await vendor.save();
     res.status(200).json({ success: true, data: vendor });
   } catch (error) {
+    console.error('Error in updateVendorProfile:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };

@@ -41,6 +41,7 @@ const ReviewSubmitScreen = ({ navigation }) => {
     try {
       // Send the actual collected data to the backend
       const response = await updateVendorProfile({
+        email: onboardingData.email,
         businessName: onboardingData.businessName,
         address: onboardingData.address,
         phone: onboardingData.phone,
