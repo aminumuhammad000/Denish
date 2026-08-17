@@ -1,6 +1,7 @@
 const Vendor = require('../models/Vendor');
 const Customer = require('../models/Customer');
 const Driver = require('../models/Driver');
+const axios = require('axios');
 const { sendWelcomeEmail, sendOTPEmail } = require('../utils/emailService');
 
 const vendorLogin = async (req, res) => {
@@ -299,6 +300,93 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const googleAuth = async (req, res) => {
+  try {
+    const { token, role, isAccessToken } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'Token is required' });
+    }
+    if (!role) {
+      return res.status(400).json({ success: false, error: 'Role is required' });
+    }
+
+    let email, name, picture, googleId;
+
+    if (isAccessToken) {
+      const response = await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      email = response.data.email;
+      name = response.data.name;
+      picture = response.data.picture;
+      googleId = response.data.sub;
+    } else {
+      const response = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+      email = response.data.email;
+      name = response.data.name;
+      picture = response.data.picture;
+      googleId = response.data.sub;
+    }
+
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Could not retrieve email from Google' });
+    }
+
+    let user = null;
+    let Model = null;
+    let tokenPrefix = '';
+
+    if (role === 'customer') {
+      Model = Customer;
+      tokenPrefix = 'cust-token-';
+    } else if (role === 'vendor') {
+      Model = Vendor;
+      tokenPrefix = 'fake-jwt-token-for-';
+    } else if (role === 'driver') {
+      Model = Driver;
+      tokenPrefix = 'driver-token-';
+    } else {
+      return res.status(400).json({ success: false, error: 'Invalid role' });
+    }
+
+    user = await Model.findOne({ email: { $regex: new RegExp(`^${email.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+
+    if (!user) {
+      const placeholderPhone = `google-${googleId}`;
+      const placeholderPassword = Math.random().toString(36).slice(-10);
+
+      const createData = {
+        name,
+        email,
+        phone: placeholderPhone,
+        password: placeholderPassword,
+        profilePic: picture,
+      };
+
+      if (role === 'driver') {
+        createData.vehicleType = 'Motorcycle';
+        createData.status = 'Pending';
+      } else if (role === 'vendor') {
+        createData.logoUrl = picture;
+        createData.status = 'Pending';
+      }
+
+      user = await Model.create(createData);
+
+      sendWelcomeEmail(email, name).catch(err => console.error('Error sending welcome email:', err));
+    }
+
+    res.status(200).json({
+      success: true,
+      token: tokenPrefix + user._id,
+      user
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   vendorLogin,
   vendorSignup,
@@ -308,5 +396,6 @@ module.exports = {
   driverSignup,
   forgotPassword,
   verifyOTP,
-  resetPassword
+  resetPassword,
+  googleAuth
 };

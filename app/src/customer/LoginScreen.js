@@ -11,8 +11,9 @@ import {StyleSheet,
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
-import { customerLogin } from '../services/api';
+import { customerLogin, googleAuthApi } from '../services/api';
 import { setAuthSession } from '../services/authStorage';
+import { signInWithGoogle } from '../services/googleAuth';
 
 const LoginScreen = ({ navigation }) => {
   const [authType, setAuthType] = useState('Email'); // 'Email' or 'Phone'
@@ -45,6 +46,34 @@ const LoginScreen = ({ navigation }) => {
       }
     } catch (error) {
        alert(error.response?.data?.error || 'Invalid credentials or network error.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      const { token, isAccessToken } = await signInWithGoogle();
+      const response = await googleAuthApi(token, 'customer', isAccessToken);
+      
+      if (response && response.success) {
+        await setAuthSession({
+          role: 'customer',
+          token: response.token,
+          user: response.user,
+          screen: 'CustomerHome'
+        });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'CustomerHome' }],
+        });
+      } else {
+        alert(response.error || 'Google Sign-In failed');
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'An error occurred during Google Sign-In');
     } finally {
       setLoading(false);
     }
@@ -140,11 +169,11 @@ const LoginScreen = ({ navigation }) => {
           </View>
 
           {/* Social Icons */}
-          <View style={[styles.socialContainer, { opacity: 0.6 }]}>
-            <TouchableOpacity style={styles.socialButton} disabled={true}>
+          <View style={styles.socialContainer}>
+            <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
               <FontAwesome name="google" size={28} color="#EA4335" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton} disabled={true}>
+            <TouchableOpacity style={[styles.socialButton, { opacity: 0.5 }]} disabled={true}>
               <FontAwesome name="apple" size={28} color="#000000" />
             </TouchableOpacity>
           </View>

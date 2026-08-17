@@ -12,7 +12,9 @@ import { FontAwesome, Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
 
-import { vendorSignup } from '../services/api';
+import { vendorSignup, googleAuthApi } from '../services/api';
+import { setAuthSession } from '../services/authStorage';
+import { signInWithGoogle } from '../services/googleAuth';
 
 const SignupScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -44,6 +46,43 @@ const SignupScreen = ({ navigation }) => {
     } catch (err) {
       const serverMsg = err.response?.data?.error;
       setErrorMsg(serverMsg || 'Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const { token, isAccessToken } = await signInWithGoogle();
+      const response = await googleAuthApi(token, 'vendor', isAccessToken);
+      
+      if (response && response.success) {
+        await setAuthSession({
+          role: 'vendor',
+          token: response.token,
+          vendor: response.user,
+          screen: response.user.status === 'Approved' ? 'Dashboard' : 'Step1'
+        });
+        
+        if (response.user.status === 'Approved') {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Dashboard' }],
+          });
+        } else {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Step1' }],
+          });
+        }
+      } else {
+        setErrorMsg(response.error || 'Google Sign-In failed');
+      }
+    } catch (error) {
+      console.error(error);
+      setErrorMsg(error.message || 'An error occurred during Google Sign-In');
     } finally {
       setLoading(false);
     }
@@ -115,11 +154,11 @@ const SignupScreen = ({ navigation }) => {
           <View style={styles.dividerLine} />
         </View>
 
-        <View style={[styles.socialContainer, { opacity: 0.6 }]}>
-          <TouchableOpacity style={styles.socialButton} disabled={true}>
+        <View style={styles.socialContainer}>
+          <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
             <FontAwesome name="google" size={24} color="#EA4335" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.socialButton} disabled={true}>
+          <TouchableOpacity style={[styles.socialButton, { opacity: 0.5 }]} disabled={true}>
             <FontAwesome name="apple" size={24} color="#000000" />
           </TouchableOpacity>
         </View>

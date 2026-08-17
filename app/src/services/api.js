@@ -249,6 +249,16 @@ export const resetPassword = async (email, otp, newPassword, role) => {
   }
 };
 
+export const googleAuthApi = async (token, role, isAccessToken = false) => {
+  try {
+    const response = await api.post('/auth/google', { token, role, isAccessToken });
+    return response.data;
+  } catch (error) {
+    console.error('API googleAuthApi error:', error);
+    throw error;
+  }
+};
+
 export const requestVendorPayout = async (amount) => {
   try {
     const response = await api.post('/vendor/payout', { amount });

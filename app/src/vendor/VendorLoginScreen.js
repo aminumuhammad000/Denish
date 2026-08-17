@@ -12,9 +12,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
-import { vendorLogin } from '../services/api';
+import { vendorLogin, googleAuthApi } from '../services/api';
 import { setAuthSession } from '../services/authStorage';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
+import { signInWithGoogle } from '../services/googleAuth';
 
 const VendorLoginScreen = ({ navigation }) => {
   const [authType, setAuthType] = useState('Email');
@@ -45,6 +46,35 @@ const VendorLoginScreen = ({ navigation }) => {
       }
     } catch (err) {
       setErrorMsg('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const { token, isAccessToken } = await signInWithGoogle();
+      const response = await googleAuthApi(token, 'vendor', isAccessToken);
+      
+      if (response && response.success) {
+        await setAuthSession({
+          role: 'vendor',
+          token: response.token,
+          vendor: response.vendor,
+          screen: 'Dashboard'
+        });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Dashboard' }],
+        });
+      } else {
+        setErrorMsg(response.error || 'Google Sign-In failed');
+      }
+    } catch (error) {
+      console.error(error);
+      setErrorMsg(error.message || 'An error occurred during Google Sign-In');
     } finally {
       setLoading(false);
     }
@@ -128,11 +158,11 @@ const VendorLoginScreen = ({ navigation }) => {
             <View style={styles.dividerLine} />
           </View>
 
-          <View style={[styles.socialContainer, { opacity: 0.6 }]}>
-            <TouchableOpacity style={styles.socialButton} disabled={true}>
+          <View style={styles.socialContainer}>
+            <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
               <FontAwesome name="google" size={24} color="#EA4335" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton} disabled={true}>
+            <TouchableOpacity style={[styles.socialButton, { opacity: 0.5 }]} disabled={true}>
               <FontAwesome name="apple" size={24} color="#000000" />
             </TouchableOpacity>
           </View>
