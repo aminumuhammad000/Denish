@@ -22,6 +22,7 @@ import {
   getDriverEarnings,
   updateOrderStatus,
 } from '../services/api';
+import { getAuthSession } from '../services/authStorage';
 
 const StatCard = ({ iconName, value, label, iconColor = "#FF8C00" }) => (
   <View style={styles.statCard}>
