@@ -72,7 +72,7 @@ var require_seedAdmin = __commonJS({
     var seedAdmin2 = async ({ exitOnComplete = false } = {}) => {
       try {
         await connectDB2();
-        const adminEmail = "admin@denish.com";
+        const adminEmail = "admin@denishng.com";
         const adminPassword = "Admin@123456";
         const existingAdmin = await Admin.findOne({ email: adminEmail });
         if (existingAdmin) {
@@ -101,404 +101,6 @@ var require_seedAdmin = __commonJS({
       seedAdmin2({ exitOnComplete: true });
     }
     module2.exports = { seedAdmin: seedAdmin2 };
-  }
-});
-
-// models/Driver.js
-var require_Driver = __commonJS({
-  "models/Driver.js"(exports2, module2) {
-    var mongoose2 = require("mongoose");
-    var driverSchema = new mongoose2.Schema({
-      name: { type: String, required: true },
-      email: { type: String, required: true, unique: true },
-      phone: { type: String, required: true, unique: true },
-      password: { type: String, required: true },
-      profilePic: { type: String, default: null },
-      vehicleType: {
-        type: String,
-        enum: ["Bike", "Bicycle", "Car", "Motorcycle"],
-        default: "Motorcycle"
-      },
-      vehicle: {
-        type: { type: String, default: "" },
-        make: { type: String, default: "" },
-        plate: { type: String, default: "" },
-        color: { type: String, default: "" }
-      },
-      bank: {
-        name: { type: String, default: "" },
-        bankCode: { type: String, default: "" },
-        accountName: { type: String, default: "" },
-        accountNumber: { type: String, default: "" }
-      },
-      status: {
-        type: String,
-        enum: ["Pending", "Active", "Suspended"],
-        default: "Pending"
-      },
-      isWarned: {
-        type: Boolean,
-        default: false
-      },
-      isSuspended: {
-        type: Boolean,
-        default: false
-      },
-      earnings: {
-        totalEarned: { type: Number, default: 0 },
-        availableBalance: { type: Number, default: 0 },
-        totalTrips: { type: Number, default: 0 }
-      },
-      resetPasswordOTP: String,
-      resetPasswordExpires: Date
-    }, { timestamps: true });
-    module2.exports = mongoose2.model("Driver", driverSchema);
-  }
-});
-
-// seedDrivers.js
-var require_seedDrivers = __commonJS({
-  "seedDrivers.js"(exports2, module2) {
-    require("dotenv").config();
-    var mongoose2 = require("mongoose");
-    var Driver = require_Driver();
-    var DRIVER_ACCOUNTS = [
-      {
-        name: "Bayo Adeyemi",
-        email: "driver@denish.ng",
-        phone: "08012345678",
-        password: "driver123",
-        profilePic: null,
-        vehicleType: "Motorcycle",
-        vehicle: {
-          type: "Motorcycle",
-          make: "Honda CB500",
-          plate: "LAG-234-BA",
-          color: "Red"
-        },
-        bank: {
-          name: "GTBank",
-          accountName: "Bayo Adeyemi",
-          accountNumber: "0123456789"
-        },
-        status: "Active",
-        earnings: {
-          totalEarned: 248e3,
-          availableBalance: 62500,
-          totalTrips: 97
-        }
-      },
-      {
-        name: "Chukwuemeka Eze",
-        email: "driver2@denish.ng",
-        phone: "08098765432",
-        password: "driver123",
-        profilePic: null,
-        vehicleType: "Bike",
-        vehicle: {
-          type: "Bike",
-          make: "TVS Apache 200",
-          plate: "ABJ-110-CK",
-          color: "Black"
-        },
-        bank: {
-          name: "Access Bank",
-          accountName: "Chukwuemeka Eze",
-          accountNumber: "0987654321"
-        },
-        status: "Active",
-        earnings: {
-          totalEarned: 185e3,
-          availableBalance: 41e3,
-          totalTrips: 73
-        }
-      }
-    ];
-    var seedDrivers2 = async ({ exitOnComplete = false } = {}) => {
-      try {
-        if (mongoose2.connection.readyState === 0) {
-          const connectDB2 = require_db();
-          await connectDB2();
-        }
-        for (const driverData of DRIVER_ACCOUNTS) {
-          const existing = await Driver.findOne({ email: driverData.email });
-          if (!existing) {
-            await Driver.create(driverData);
-            console.log(`\u2705 Driver created: ${driverData.name} (${driverData.email})`);
-          } else {
-            console.log(`\u2139\uFE0F  Driver already exists: ${driverData.name} (${driverData.email})`);
-          }
-        }
-        if (exitOnComplete) {
-          console.log("");
-          console.log("====================================================");
-          console.log("  \u2705  DRIVER SEED COMPLETED SUCCESSFULLY!");
-          console.log("====================================================");
-          console.log("  Driver Login Credentials:");
-          console.log("");
-          DRIVER_ACCOUNTS.forEach((d, i) => {
-            console.log(`  ${i + 1}. ${d.name}`);
-            console.log(`     Email:    ${d.email}`);
-            console.log(`     Phone:    ${d.phone}`);
-            console.log(`     Password: ${d.password}`);
-            console.log(`     Vehicle:  ${d.vehicle.color} ${d.vehicle.make} (${d.vehicle.plate})`);
-            console.log(`     Status:   ${d.status}`);
-            console.log("");
-          });
-          console.log("====================================================");
-          process.exit(0);
-        }
-        return true;
-      } catch (error) {
-        console.error("\u274C Error seeding drivers:", error);
-        if (exitOnComplete) process.exit(1);
-        throw error;
-      }
-    };
-    if (require.main === module2) {
-      seedDrivers2({ exitOnComplete: true });
-    }
-    module2.exports = { seedDrivers: seedDrivers2 };
-  }
-});
-
-// models/Notification.js
-var require_Notification = __commonJS({
-  "models/Notification.js"(exports2, module2) {
-    var mongoose2 = require("mongoose");
-    var NotificationSchema = new mongoose2.Schema({
-      title: {
-        type: String,
-        required: true
-      },
-      message: {
-        type: String,
-        required: true
-      },
-      type: {
-        type: String,
-        enum: ["dispute", "driver", "order", "payment", "system", "promo"],
-        default: "system"
-      },
-      recipient: {
-        type: String,
-        enum: ["admin", "driver", "vendor", "customer", "all"],
-        default: "admin"
-      },
-      read: {
-        type: Boolean,
-        default: false
-      }
-    }, { timestamps: true });
-    module2.exports = mongoose2.model("Notification", NotificationSchema);
-  }
-});
-
-// seedDriverNotifications.js
-var require_seedDriverNotifications = __commonJS({
-  "seedDriverNotifications.js"(exports2, module2) {
-    require("dotenv").config();
-    var mongoose2 = require("mongoose");
-    var DRIVER_NOTIFICATIONS = [
-      {
-        title: "New Delivery Available",
-        message: "Order #ORD-2451 from Mama's Kitchen is ready for pickup. Delivery to Lekki Phase 1.",
-        type: "order",
-        recipient: "driver",
-        read: false
-      },
-      {
-        title: "Earnings Credited",
-        message: "\u20A6850 has been added to your wallet for delivering Order #ORD-2449.",
-        type: "payment",
-        recipient: "driver",
-        read: false
-      },
-      {
-        title: "Order Assigned",
-        message: "You have been assigned Order #ORD-2448 from Spicy Chops. Customer: Aisha Mohammed.",
-        type: "order",
-        recipient: "driver",
-        read: false
-      },
-      {
-        title: "Withdrawal Successful",
-        message: "Your withdrawal of \u20A625,000 to GTBank account ending in 6789 was successful.",
-        type: "payment",
-        recipient: "driver",
-        read: true
-      },
-      {
-        title: "Bonus Promo Available",
-        message: "Complete 10 deliveries this week and earn a \u20A65,000 bonus! Offer valid till Sunday.",
-        type: "promo",
-        recipient: "driver",
-        read: true
-      },
-      {
-        title: "Order Delivered Successfully",
-        message: "Order #ORD-2445 has been marked as delivered. Great job!",
-        type: "order",
-        recipient: "driver",
-        read: true
-      },
-      {
-        title: "App Update Available",
-        message: "A new version of the Denish Driver app is available. Please update for the best experience.",
-        type: "system",
-        recipient: "all",
-        read: true
-      },
-      {
-        title: "Terms of Service Updated",
-        message: "We have updated our terms of service and privacy policy. Please review the changes.",
-        type: "system",
-        recipient: "all",
-        read: true
-      }
-    ];
-    var seedDriverNotifications2 = async ({ exitOnComplete = false } = {}) => {
-      try {
-        if (mongoose2.connection.readyState === 0) {
-          const connectDB2 = require_db();
-          await connectDB2();
-        }
-        const Notification = require_Notification();
-        const existing = await Notification.countDocuments({ recipient: { $in: ["driver", "all"] } });
-        if (existing > 0) {
-          console.log(`\u2139\uFE0F  Driver notifications already exist (${existing} found). Skipping seed.`);
-          if (exitOnComplete) process.exit(0);
-          return true;
-        }
-        const now = /* @__PURE__ */ new Date();
-        const withTimestamps = DRIVER_NOTIFICATIONS.map((n, i) => ({
-          ...n,
-          createdAt: new Date(now - i * 3 * 60 * 60 * 1e3),
-          // each 3 hours apart
-          updatedAt: new Date(now - i * 3 * 60 * 60 * 1e3)
-        }));
-        await Notification.insertMany(withTimestamps);
-        console.log(`\u2705 Seeded ${withTimestamps.length} driver notifications.`);
-        if (exitOnComplete) {
-          console.log("====================================================");
-          console.log("  \u2705  DRIVER NOTIFICATIONS SEEDED SUCCESSFULLY!");
-          console.log("====================================================");
-          process.exit(0);
-        }
-        return true;
-      } catch (error) {
-        console.error("\u274C Error seeding driver notifications:", error);
-        if (exitOnComplete) process.exit(1);
-        throw error;
-      }
-    };
-    if (require.main === module2) {
-      seedDriverNotifications2({ exitOnComplete: true });
-    }
-    module2.exports = { seedDriverNotifications: seedDriverNotifications2 };
-  }
-});
-
-// models/Message.js
-var require_Message = __commonJS({
-  "models/Message.js"(exports2, module2) {
-    var mongoose2 = require("mongoose");
-    var messageSchema = new mongoose2.Schema({
-      senderId: { type: String, required: true },
-      senderName: { type: String, required: true },
-      recipientId: { type: String, required: true },
-      recipientName: { type: String, required: true },
-      text: String,
-      imageUrl: String,
-      type: { type: String, enum: ["text", "image", "call"], default: "text" },
-      subText: String,
-      read: { type: Boolean, default: false }
-    }, { timestamps: true });
-    module2.exports = mongoose2.model("Message", messageSchema);
-  }
-});
-
-// seedDriverChats.js
-var require_seedDriverChats = __commonJS({
-  "seedDriverChats.js"(exports2, module2) {
-    require("dotenv").config();
-    var mongoose2 = require("mongoose");
-    var SAMPLE_MESSAGES = [
-      {
-        senderId: "customer-101",
-        senderName: "John Doe (Customer)",
-        recipientId: "driver-1",
-        recipientName: "Bayo Adeyemi",
-        text: "I'm standing by the white gate.",
-        type: "text",
-        read: false
-      },
-      {
-        senderId: "driver-1",
-        senderName: "Bayo Adeyemi",
-        recipientId: "customer-101",
-        recipientName: "John Doe (Customer)",
-        text: "Okay, I'm almost there in 2 minutes.",
-        type: "text",
-        read: true
-      },
-      {
-        senderId: "vendor-201",
-        senderName: "Spice Avenue (Restaurant)",
-        recipientId: "driver-1",
-        recipientName: "Bayo Adeyemi",
-        text: "Order is ready for pickup!",
-        type: "text",
-        read: true
-      },
-      {
-        senderId: "support-301",
-        senderName: "Denish Support",
-        recipientId: "driver-1",
-        recipientName: "Bayo Adeyemi",
-        text: "We've received your inquiry. A representative will be with you.",
-        type: "text",
-        read: true
-      }
-    ];
-    var seedDriverChats2 = async ({ exitOnComplete = false } = {}) => {
-      try {
-        if (mongoose2.connection.readyState === 0) {
-          const connectDB2 = require_db();
-          await connectDB2();
-        }
-        const Message = require_Message();
-        const existing = await Message.countDocuments({
-          $or: [
-            { senderName: "John Doe (Customer)" },
-            { recipientName: "John Doe (Customer)" }
-          ]
-        });
-        if (existing > 0) {
-          console.log(`\u2139\uFE0F Driver chats already exist (${existing} messages). Skipping seed.`);
-          if (exitOnComplete) process.exit(0);
-          return true;
-        }
-        const now = Date.now();
-        const withDates = SAMPLE_MESSAGES.map((m, idx) => ({
-          ...m,
-          createdAt: new Date(now - (30 - idx * 5) * 60 * 1e3),
-          updatedAt: new Date(now - (30 - idx * 5) * 60 * 1e3)
-        }));
-        await Message.insertMany(withDates);
-        console.log("\u2705 Driver chat messages seeded successfully!");
-        if (exitOnComplete) process.exit(0);
-        return true;
-      } catch (error) {
-        console.error("\u274C Error seeding driver chats:", error);
-        if (exitOnComplete) process.exit(1);
-        throw error;
-      }
-    };
-    if (require.main === module2) {
-      seedDriverChats2({ exitOnComplete: true });
-    }
-    module2.exports = { seedDriverChats: seedDriverChats2 };
   }
 });
 
@@ -1121,6 +723,58 @@ var require_Customer = __commonJS({
   }
 });
 
+// models/Driver.js
+var require_Driver = __commonJS({
+  "models/Driver.js"(exports2, module2) {
+    var mongoose2 = require("mongoose");
+    var driverSchema = new mongoose2.Schema({
+      name: { type: String, required: true },
+      email: { type: String, required: true, unique: true },
+      phone: { type: String, required: true, unique: true },
+      password: { type: String, required: true },
+      profilePic: { type: String, default: null },
+      vehicleType: {
+        type: String,
+        enum: ["Bike", "Bicycle", "Car", "Motorcycle"],
+        default: "Motorcycle"
+      },
+      vehicle: {
+        type: { type: String, default: "" },
+        make: { type: String, default: "" },
+        plate: { type: String, default: "" },
+        color: { type: String, default: "" }
+      },
+      bank: {
+        name: { type: String, default: "" },
+        bankCode: { type: String, default: "" },
+        accountName: { type: String, default: "" },
+        accountNumber: { type: String, default: "" }
+      },
+      status: {
+        type: String,
+        enum: ["Pending", "Active", "Suspended"],
+        default: "Pending"
+      },
+      isWarned: {
+        type: Boolean,
+        default: false
+      },
+      isSuspended: {
+        type: Boolean,
+        default: false
+      },
+      earnings: {
+        totalEarned: { type: Number, default: 0 },
+        availableBalance: { type: Number, default: 0 },
+        totalTrips: { type: Number, default: 0 }
+      },
+      resetPasswordOTP: String,
+      resetPasswordExpires: Date
+    }, { timestamps: true });
+    module2.exports = mongoose2.model("Driver", driverSchema);
+  }
+});
+
 // config/email.js
 var require_email = __commonJS({
   "config/email.js"(exports2, module2) {
@@ -1638,6 +1292,25 @@ var require_flutterwave = __commonJS({
       getFlutterwaveAuthHeader,
       getFlutterwaveKeys
     };
+  }
+});
+
+// models/Message.js
+var require_Message = __commonJS({
+  "models/Message.js"(exports2, module2) {
+    var mongoose2 = require("mongoose");
+    var messageSchema = new mongoose2.Schema({
+      senderId: { type: String, required: true },
+      senderName: { type: String, required: true },
+      recipientId: { type: String, required: true },
+      recipientName: { type: String, required: true },
+      text: String,
+      imageUrl: String,
+      type: { type: String, enum: ["text", "image", "call"], default: "text" },
+      subText: String,
+      read: { type: Boolean, default: false }
+    }, { timestamps: true });
+    module2.exports = mongoose2.model("Message", messageSchema);
   }
 });
 
@@ -2373,6 +2046,38 @@ var require_paymentRoutes = __commonJS({
     router.get("/verify-account", verifyAccount);
     router.post("/verify-account", verifyAccount);
     module2.exports = router;
+  }
+});
+
+// models/Notification.js
+var require_Notification = __commonJS({
+  "models/Notification.js"(exports2, module2) {
+    var mongoose2 = require("mongoose");
+    var NotificationSchema = new mongoose2.Schema({
+      title: {
+        type: String,
+        required: true
+      },
+      message: {
+        type: String,
+        required: true
+      },
+      type: {
+        type: String,
+        enum: ["dispute", "driver", "order", "payment", "system", "promo"],
+        default: "system"
+      },
+      recipient: {
+        type: String,
+        enum: ["admin", "driver", "vendor", "customer", "all"],
+        default: "admin"
+      },
+      read: {
+        type: Boolean,
+        default: false
+      }
+    }, { timestamps: true });
+    module2.exports = mongoose2.model("Notification", NotificationSchema);
   }
 });
 
@@ -3565,9 +3270,6 @@ var express = require("express");
 var cors = require("cors");
 var connectDB = require_db();
 var { seedAdmin } = require_seedAdmin();
-var { seedDrivers } = require_seedDrivers();
-var { seedDriverNotifications } = require_seedDriverNotifications();
-var { seedDriverChats } = require_seedDriverChats();
 var vendorRoutes = require_vendorRoutes();
 var authRoutes = require_authRoutes();
 var customerRoutes = require_customerRoutes();
@@ -3675,24 +3377,6 @@ connectDB().then(async () => {
     console.log("Admin seed check complete.");
   } catch (error) {
     console.error("Admin seed check failed:", error);
-  }
-  try {
-    await seedDrivers();
-    console.log("Driver seed check complete.");
-  } catch (error) {
-    console.error("Driver seed check failed:", error);
-  }
-  try {
-    await seedDriverNotifications();
-    console.log("Driver notification seed check complete.");
-  } catch (error) {
-    console.error("Driver notification seed check failed:", error);
-  }
-  try {
-    await seedDriverChats();
-    console.log("Driver chat seed check complete.");
-  } catch (error) {
-    console.error("Driver chat seed check failed:", error);
   }
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server started on http://0.0.0.0:${PORT}`);
