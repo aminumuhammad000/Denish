@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
@@ -56,15 +57,24 @@ const DriverStep5Review = ({ navigation }) => {
         }
       });
       setLoading(false);
-      Alert.alert(
-        "Application Submitted",
-        "Your details have been sent for verification. We will notify you once approved.",
-        [{ text: "Great", onPress: () => navigation.reset({ index: 0, routes: [{ name: 'DriverLogin' }] }) }]
-      );
+      if (Platform.OS === 'web') {
+        alert("Application Submitted: Your details have been sent for verification. We will notify you once approved.");
+        navigation.reset({ index: 0, routes: [{ name: 'DriverLogin' }] });
+      } else {
+        Alert.alert(
+          "Application Submitted",
+          "Your details have been sent for verification. We will notify you once approved.",
+          [{ text: "Great", onPress: () => navigation.reset({ index: 0, routes: [{ name: 'DriverLogin' }] }) }]
+        );
+      }
     } catch (err) {
       console.error('Driver onboarding submit error:', err);
       setLoading(false);
-      Alert.alert("Error", "Could not submit application. Please try again.");
+      if (Platform.OS === 'web') {
+        alert("Error: Could not submit application. Please try again.");
+      } else {
+        Alert.alert("Error", "Could not submit application. Please try again.");
+      }
     }
   };
 
