@@ -95,19 +95,32 @@ const DriverStep1Personal = ({ navigation }) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Date of birth</Text>
-              <TouchableOpacity 
-                style={[styles.input, errors.dob && styles.inputError, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-                onPress={() => setShowDatePicker(true)}
-                activeOpacity={0.7}
-              >
-                <Text style={{ color: dob ? '#333' : '#999', fontSize: 16 }}>
-                  {dob || 'Select date of birth'}
-                </Text>
-                <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
-              </TouchableOpacity>
+              {Platform.OS === 'web' ? (
+                <TextInput
+                  style={[styles.input, errors.dob && styles.inputError]}
+                  placeholder="MM/DD/YYYY"
+                  placeholderTextColor="#999"
+                  value={dob}
+                  onChangeText={(v) => {
+                    setDob(v);
+                    if (errors.dob) setErrors({ ...errors, dob: null });
+                  }}
+                />
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.input, errors.dob && styles.inputError, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: dob ? '#333' : '#999', fontSize: 16 }}>
+                    {dob || 'Select date of birth'}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
+                </TouchableOpacity>
+              )}
               {errors.dob && <Text style={styles.errorText}>{errors.dob}</Text>}
               
-              {showDatePicker && (
+              {Platform.OS !== 'web' && showDatePicker && (
                 <DateTimePicker
                   value={date}
                   mode="date"
