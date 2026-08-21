@@ -346,7 +346,7 @@ export const useAdminStore = create<AdminState>()(
               orders: v.earnings?.totalOrders || v.ordersCount || 0,
               revenue: "₦" + (extractNumber(v.earnings) || v.revenue || 0).toLocaleString(),
               rating: v.rating || 0,
-              image: v.logoUrl || v.image || "/images/Vendor_management_images/mama's kitchen.png",
+              image: v.coverUrl || v.bannerUrl || v.logoUrl || v.image || "/images/Vendor_management_images/mama's kitchen.png",
               commissionRate: v.commissionRate || 15,
             }));
             set({ vendors: formattedVendors });
@@ -459,7 +459,7 @@ export const useAdminStore = create<AdminState>()(
               orders: v.earnings?.totalOrders || v.ordersCount || 0,
               revenue: "₦" + (extractNumber(v.earnings) || v.revenue || 0).toLocaleString(),
               rating: v.rating || 0,
-              image: v.logoUrl || v.image || "/images/Vendor_management_images/mama's kitchen.png",
+              image: v.coverUrl || v.bannerUrl || v.logoUrl || v.image || "/images/Vendor_management_images/mama's kitchen.png",
               commissionRate: v.commissionRate || 15,
             }));
 
