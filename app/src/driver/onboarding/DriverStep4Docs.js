@@ -25,6 +25,10 @@ const DriverStep4Docs = ({ navigation }) => {
   });
 
   const handlePick = (type) => {
+    if (Platform.OS === 'web') {
+      pickFile(type);
+      return;
+    }
     Alert.alert(
       "Upload Document",
       "Choose a source for your file",
@@ -41,7 +45,11 @@ const DriverStep4Docs = ({ navigation }) => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert("Permission Required", "Allow access to your photos to upload documents.");
+      if (Platform.OS === 'web') {
+        alert("Allow access to your photos to upload documents.");
+      } else {
+        Alert.alert("Permission Required", "Allow access to your photos to upload documents.");
+      }
       return;
     }
 
@@ -74,7 +82,11 @@ const DriverStep4Docs = ({ navigation }) => {
         updateOnboardingData({ docs: newDocs });
       }
     } catch (err) {
-      Alert.alert("Error", "Could not pick document. Please try again.");
+      if (Platform.OS === 'web') {
+        alert("Could not pick document. Please try again.");
+      } else {
+        Alert.alert("Error", "Could not pick document. Please try again.");
+      }
     }
   };
 
