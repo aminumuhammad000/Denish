@@ -70,7 +70,7 @@ const getDashboardStats = async (req, res) => {
         totalOrders,
         totalVendors,
         totalDrivers,
-        totalUsers: totalCustomers,
+        totalUsers: totalCustomers + totalVendors + totalDrivers,
         revenue,
         activeOrders,
         completionRate: totalOrders > 0 ? (deliveredOrders.length / totalOrders) * 100 : 0,

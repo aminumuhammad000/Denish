@@ -89,7 +89,7 @@ export function DashboardStats() {
     (o) => o.status !== "delivered" && o.status !== "cancelled"
   ).length;
 
-  const totalUsers = usersList.length;
+  const totalUsers = usersList.length + vendorList.length + driversList.length;
   const totalVendors = vendorList.length;
   const totalDrivers = driversList.length;
 
