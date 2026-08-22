@@ -18,7 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getRestaurants, getCustomerProfile } from '../services/api';
+import { getRestaurants, getCustomerProfile, fetchIncomingCall } from '../services/api';
 import { getAuthSession } from '../services/authStorage';
 import CustomerBottomTab from './components/CustomerBottomTab';
 import { useCart } from '../context/CartContext';
@@ -82,6 +82,40 @@ const CustomerHomeScreen = ({ navigation }) => {
   const { cartItems } = useCart();
   const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    let intervalId = null;
+    let isSubscribed = true;
+
+    const checkIncomingCalls = async () => {
+      try {
+        const session = await getAuthSession();
+        if (!isSubscribed || !session || !session.user) return;
+        const nameToQuery = session.user.name;
+        if (!nameToQuery) return;
+
+        const res = await fetchIncomingCall(nameToQuery);
+        if (isSubscribed && res.success && res.call) {
+          navigation.navigate('IncomingCall', {
+            callId: res.call._id,
+            callerName: res.call.callerName,
+            phone: res.call.phone || '08123456789',
+            orderId: res.call.orderId,
+            subtitle: res.call.subtitle
+          });
+        }
+      } catch (e) {
+        // Silent error
+      }
+    };
+
+    intervalId = setInterval(checkIncomingCalls, 3000);
+
+    return () => {
+      isSubscribed = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {

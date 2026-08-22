@@ -173,9 +173,6 @@ const LoginScreen = ({ navigation }) => {
             <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
               <FontAwesome name="google" size={28} color="#EA4335" />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.socialButton, { opacity: 0.5 }]} disabled={true}>
-              <FontAwesome name="apple" size={28} color="#000000" />
-            </TouchableOpacity>
           </View>
 
           {/* Footer */}

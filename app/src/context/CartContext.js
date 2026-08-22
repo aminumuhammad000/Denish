@@ -47,7 +47,15 @@ export const CartProvider = ({ children }) => {
   };
 
   const getTotal = () => {
-    return cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    return cartItems.reduce((acc, item) => {
+      let price = item.price;
+      if (typeof price === 'string') {
+        price = parseFloat(price.replace(/,/g, '')) || 0;
+      } else if (typeof price !== 'number') {
+        price = 0;
+      }
+      return acc + (price * item.quantity);
+    }, 0);
   };
 
   return (

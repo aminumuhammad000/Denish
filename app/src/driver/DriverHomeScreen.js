@@ -21,6 +21,7 @@ import {
   getDriverDeliveries,
   getDriverEarnings,
   updateOrderStatus,
+  fetchIncomingCall,
 } from '../services/api';
 import { getAuthSession } from '../services/authStorage';
 
@@ -61,6 +62,40 @@ const DriverHomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [acceptingId, setAcceptingId] = useState(null);
+
+  React.useEffect(() => {
+    let intervalId = null;
+    let isSubscribed = true;
+
+    const checkIncomingCalls = async () => {
+      try {
+        const session = await getAuthSession();
+        if (!isSubscribed || !session || !session.user) return;
+        const nameToQuery = session.user.name;
+        if (!nameToQuery) return;
+
+        const res = await fetchIncomingCall(nameToQuery);
+        if (isSubscribed && res.success && res.call) {
+          navigation.navigate('IncomingCall', {
+            callId: res.call._id,
+            callerName: res.call.callerName,
+            phone: res.call.phone || '08123456789',
+            orderId: res.call.orderId,
+            subtitle: res.call.subtitle
+          });
+        }
+      } catch (e) {
+        // Silent error
+      }
+    };
+
+    intervalId = setInterval(checkIncomingCalls, 3000);
+
+    return () => {
+      isSubscribed = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [navigation]);
 
   const fetchDashboardData = useCallback(async (isRef = false) => {
     if (isRef) setRefreshing(true);

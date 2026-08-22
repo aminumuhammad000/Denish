@@ -144,7 +144,7 @@ const CheckoutScreen = ({ navigation }) => {
   };
 
   const rawSubtotal = getTotal();
-  const subtotal = rawSubtotal > 0 ? rawSubtotal : 5000;
+  const subtotal = rawSubtotal;
   const deliveryFee = 500;
   const serviceFee = 200;
   const total = subtotal + deliveryFee + serviceFee;
@@ -159,12 +159,18 @@ const CheckoutScreen = ({ navigation }) => {
     try {
       const orderPayload = {
         vendorId: restaurantId,
-        items: cartItems.map(item => ({
-          menuItemId: item.id || item._id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity
-        })),
+        items: cartItems.map(item => {
+          let price = item.price;
+          if (typeof price === 'string') {
+            price = parseFloat(price.replace(/,/g, '')) || 0;
+          }
+          return {
+            menuItemId: item.id || item._id,
+            name: item.name,
+            price: price,
+            quantity: item.quantity
+          };
+        }),
         totalAmount: total,
         deliveryAddress: addresses.find(a => (a.id || a._id) === selectedAddressId)?.addr || addresses[0]?.addr || 'Primary Address',
         customerName: profile?.name || "Usman Umar",

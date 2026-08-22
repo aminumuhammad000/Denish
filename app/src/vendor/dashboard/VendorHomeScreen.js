@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
-import { getVendorDashboardData, updateVendorProfile, updateVendorOrderStatus } from '../../services/api';
+import { getVendorDashboardData, updateVendorProfile, updateVendorOrderStatus, fetchIncomingCall } from '../../services/api';
 import { getAuthSession } from '../../services/authStorage';
 
 const statusColor = { new: '#FF8C00', preparing: '#27AE60' };
@@ -20,6 +20,40 @@ const VendorHomeScreen = ({ navigation }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+
+  useEffect(() => {
+    let intervalId = null;
+    let isSubscribed = true;
+
+    const checkIncomingCalls = async () => {
+      try {
+        const session = await getAuthSession();
+        if (!isSubscribed || !session || !session.vendor) return;
+        const nameToQuery = session.vendor.businessName || session.vendor.name;
+        if (!nameToQuery) return;
+
+        const res = await fetchIncomingCall(nameToQuery);
+        if (isSubscribed && res.success && res.call) {
+          navigation.navigate('IncomingCall', {
+            callId: res.call._id,
+            callerName: res.call.callerName,
+            phone: res.call.phone || '08123456789',
+            orderId: res.call.orderId,
+            subtitle: res.call.subtitle
+          });
+        }
+      } catch (e) {
+        // Silent error
+      }
+    };
+
+    intervalId = setInterval(checkIncomingCalls, 3000);
+
+    return () => {
+      isSubscribed = false;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [navigation]);
 
   const fetchDashboard = useCallback(async (isRef = false) => {
     if (isRef) setRefreshing(true);

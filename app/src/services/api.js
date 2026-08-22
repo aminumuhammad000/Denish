@@ -77,14 +77,15 @@ export const addVendorMenuItem = async (itemData) => {
 
 export const uploadItemImage = async (uri) => {
   try {
-    const formData = new FormData();
-    const uriParts = uri.split('.');
-    const fileType = uriParts[uriParts.length - 1];
+    const filename = uri.split('/').pop() || 'item.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const fileType = match ? match[1].toLowerCase() : 'jpeg';
+    const cleanType = fileType === 'heic' || fileType === 'heif' ? 'jpeg' : fileType;
 
     formData.append('image', {
       uri,
-      name: `item-image.${fileType}`,
-      type: `image/${fileType}`,
+      name: `item-image.${cleanType}`,
+      type: `image/${cleanType}`,
     });
 
     const response = await api.post('/vendor/upload-item-image', formData, {
@@ -189,14 +190,15 @@ export const updateDriverProfile = async (profileData) => {
 
 export const uploadDriverProfilePic = async (uri) => {
   try {
-    const formData = new FormData();
-    const uriParts = uri.split('.');
-    const fileType = uriParts[uriParts.length - 1];
+    const filename = uri.split('/').pop() || 'driver.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const fileType = match ? match[1].toLowerCase() : 'jpeg';
+    const cleanType = fileType === 'heic' || fileType === 'heif' ? 'jpeg' : fileType;
 
     formData.append('image', {
       uri,
-      name: `driver-profile.${fileType}`,
-      type: `image/${fileType}`,
+      name: `driver-profile.${cleanType}`,
+      type: `image/${cleanType}`,
     });
 
     const response = await api.post('/driver/upload-profile-pic', formData, {
@@ -427,9 +429,9 @@ export const initiateCallSession = async (payload) => {
   }
 };
 
-export const fetchIncomingCall = async () => {
+export const fetchIncomingCall = async (receiverName) => {
   try {
-    const response = await api.get('/customer/call/incoming');
+    const response = await api.get('/customer/call/incoming', { params: { receiverName } });
     return response.data;
   } catch (error) {
     console.error('API fetchIncomingCall error:', error);
@@ -489,14 +491,15 @@ export const fetchOrderTracking = async (orderId) => {
 
 export const uploadCustomerProfilePic = async (uri) => {
   try {
-    const formData = new FormData();
-    const uriParts = uri.split('.');
-    const fileType = uriParts[uriParts.length - 1];
+    const filename = uri.split('/').pop() || 'customer.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const fileType = match ? match[1].toLowerCase() : 'jpeg';
+    const cleanType = fileType === 'heic' || fileType === 'heif' ? 'jpeg' : fileType;
 
     formData.append('image', {
       uri,
-      name: `profile-pic.${fileType}`,
-      type: `image/${fileType}`,
+      name: `profile-pic.${cleanType}`,
+      type: `image/${cleanType}`,
     });
 
     const response = await api.post('/customer/upload-profile-pic', formData, {

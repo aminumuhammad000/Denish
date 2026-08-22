@@ -827,6 +827,7 @@ var require_emailService = __commonJS({
     };
     var sendWelcomeEmail = async (email, name) => {
       const subject = "Welcome to Denish - Your Culinary Journey Begins!";
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       const html = `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
         <div style="background-color: #FF5E00; padding: 40px 20px; text-align: center;">
@@ -837,7 +838,7 @@ var require_emailService = __commonJS({
             <p style="font-size: 16px;">We're absolutely thrilled to have you join our community! Denish is your premium gateway to the finest culinary experiences, right at your fingertips.</p>
             <p style="font-size: 16px;">Whether you're looking for a quick bite or a gourmet feast, we've got you covered. Get started by exploring the best restaurants in your area.</p>
             <div style="text-align: center; margin: 40px 0;">
-                <a href="#" style="background-color: #FF5E00; color: #ffffff; padding: 15px 35px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; display: inline-block; transition: background-color 0.3s;">Explore Now</a>
+                <a href="${frontendUrl}" style="background-color: #FF5E00; color: #ffffff; padding: 15px 35px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 16px; display: inline-block; transition: background-color 0.3s;">Explore Now</a>
             </div>
             <p style="font-size: 14px; color: #777777;">If you have any questions, our support team is always here to help.</p>
         </div>
@@ -1673,7 +1674,14 @@ var require_customerController = __commonJS({
     };
     var getIncomingCall = async (req, res) => {
       try {
-        const call = await CallSession.findOne({ status: "ringing" }).sort({ createdAt: -1 });
+        const { receiverName } = req.query;
+        const query = { status: "ringing" };
+        if (receiverName) {
+          let escaped = receiverName.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+          escaped = escaped.replace(/[’']/g, "['\u2019]");
+          query.receiverName = { $regex: new RegExp(`^${escaped}$`, "i") };
+        }
+        const call = await CallSession.findOne(query).sort({ createdAt: -1 });
         res.status(200).json({ success: true, call });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });

@@ -373,7 +373,14 @@ const initiateCall = async (req, res) => {
 
 const getIncomingCall = async (req, res) => {
   try {
-    const call = await CallSession.findOne({ status: 'ringing' }).sort({ createdAt: -1 });
+    const { receiverName } = req.query;
+    const query = { status: 'ringing' };
+    if (receiverName) {
+      let escaped = receiverName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      escaped = escaped.replace(/[’']/g, "['’]");
+      query.receiverName = { $regex: new RegExp(`^${escaped}$`, 'i') };
+    }
+    const call = await CallSession.findOne(query).sort({ createdAt: -1 });
     res.status(200).json({ success: true, call });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

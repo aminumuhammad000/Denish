@@ -8,12 +8,14 @@ import {
   Switch,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getDriverProfile } from '../services/api';
+import * as ImagePicker from 'expo-image-picker';
+import { getDriverProfile, updateDriverProfile, uploadDriverProfilePic } from '../services/api';
 
 const ProfileCard = ({ title, children, onEdit, showEdit = true }) => (
   <View style={styles.profileCard}>
@@ -71,11 +73,53 @@ const NotificationRow = ({ title, sub, value, onToggle }) => (
 const DriverProfileScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [driver, setDriver] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [notifs, setNotifs] = useState({
     orders: true,
     payouts: true,
     promos: false,
   });
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      handleImageUpload(result.assets[0].uri);
+    }
+  };
+
+  const handleImageUpload = async (uri) => {
+    setUploadingImage(true);
+    try {
+      const response = await uploadDriverProfilePic(uri);
+      if (response.success) {
+        const updateRes = await updateDriverProfile({ profilePic: response.imageUrl });
+        if (updateRes.success) {
+          setDriver(updateRes.data || updateRes.driver);
+          Alert.alert('Success', 'Profile picture updated successfully!');
+        } else {
+          throw new Error(updateRes.error || 'Failed to update profile');
+        }
+      } else {
+        throw new Error(response.error || 'Upload failed');
+      }
+    } catch (err) {
+      Alert.alert('Upload Error', err.message || 'Could not upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -138,7 +182,8 @@ const DriverProfileScreen = ({ navigation }) => {
         <View style={styles.topCard}>
           <TouchableOpacity 
             style={styles.avatarWrapper}
-            onPress={() => navigation.navigate('DriverEditProfile', { driver: profile })}
+            onPress={pickImage}
+            disabled={uploadingImage}
           >
             <View style={styles.avatar}>
                {profile.profilePic ? (
@@ -148,7 +193,11 @@ const DriverProfileScreen = ({ navigation }) => {
                )}
             </View>
             <View style={styles.editAvatarBtn}>
-              <Ionicons name="camera" size={12} color="#FFF" />
+              {uploadingImage ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Ionicons name="camera" size={12} color="#FFF" />
+              )}
             </View>
           </TouchableOpacity>
           <Text style={styles.userName}>{profile.name}</Text>
