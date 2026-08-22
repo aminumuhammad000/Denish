@@ -77,6 +77,7 @@ export const addVendorMenuItem = async (itemData) => {
 
 export const uploadItemImage = async (uri) => {
   try {
+    const formData = new FormData();
     const filename = uri.split('/').pop() || 'item.jpg';
     const match = /\.(\w+)$/.exec(filename);
     const fileType = match ? match[1].toLowerCase() : 'jpeg';
@@ -190,6 +191,7 @@ export const updateDriverProfile = async (profileData) => {
 
 export const uploadDriverProfilePic = async (uri) => {
   try {
+    const formData = new FormData();
     const filename = uri.split('/').pop() || 'driver.jpg';
     const match = /\.(\w+)$/.exec(filename);
     const fileType = match ? match[1].toLowerCase() : 'jpeg';
@@ -491,6 +493,7 @@ export const fetchOrderTracking = async (orderId) => {
 
 export const uploadCustomerProfilePic = async (uri) => {
   try {
+    const formData = new FormData();
     const filename = uri.split('/').pop() || 'customer.jpg';
     const match = /\.(\w+)$/.exec(filename);
     const fileType = match ? match[1].toLowerCase() : 'jpeg';
