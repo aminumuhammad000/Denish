@@ -83,11 +83,17 @@ export const uploadItemImage = async (uri) => {
     const fileType = match ? match[1].toLowerCase() : 'jpeg';
     const cleanType = fileType === 'heic' || fileType === 'heif' ? 'jpeg' : fileType;
 
-    formData.append('image', {
-      uri,
-      name: `item-image.${cleanType}`,
-      type: `image/${cleanType}`,
-    });
+    if (Platform.OS === 'web') {
+      const res = await fetch(uri);
+      const blob = await res.blob();
+      formData.append('image', blob, `item-image.${cleanType}`);
+    } else {
+      formData.append('image', {
+        uri,
+        name: `item-image.${cleanType}`,
+        type: `image/${cleanType}`,
+      });
+    }
 
     const response = await api.post('/vendor/upload-item-image', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -197,11 +203,17 @@ export const uploadDriverProfilePic = async (uri) => {
     const fileType = match ? match[1].toLowerCase() : 'jpeg';
     const cleanType = fileType === 'heic' || fileType === 'heif' ? 'jpeg' : fileType;
 
-    formData.append('image', {
-      uri,
-      name: `driver-profile.${cleanType}`,
-      type: `image/${cleanType}`,
-    });
+    if (Platform.OS === 'web') {
+      const res = await fetch(uri);
+      const blob = await res.blob();
+      formData.append('image', blob, `driver-profile.${cleanType}`);
+    } else {
+      formData.append('image', {
+        uri,
+        name: `driver-profile.${cleanType}`,
+        type: `image/${cleanType}`,
+      });
+    }
 
     const response = await api.post('/driver/upload-profile-pic', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -499,11 +511,17 @@ export const uploadCustomerProfilePic = async (uri) => {
     const fileType = match ? match[1].toLowerCase() : 'jpeg';
     const cleanType = fileType === 'heic' || fileType === 'heif' ? 'jpeg' : fileType;
 
-    formData.append('image', {
-      uri,
-      name: `profile-pic.${cleanType}`,
-      type: `image/${cleanType}`,
-    });
+    if (Platform.OS === 'web') {
+      const res = await fetch(uri);
+      const blob = await res.blob();
+      formData.append('image', blob, `profile-pic.${cleanType}`);
+    } else {
+      formData.append('image', {
+        uri,
+        name: `profile-pic.${cleanType}`,
+        type: `image/${cleanType}`,
+      });
+    }
 
     const response = await api.post('/customer/upload-profile-pic', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -519,18 +537,30 @@ export const uploadVendorImages = async (logoUri, coverUri) => {
   try {
     const formData = new FormData();
     if (logoUri) {
-      formData.append('logo', {
-        uri: logoUri,
-        name: 'logo.jpg',
-        type: 'image/jpeg',
-      });
+      if (Platform.OS === 'web') {
+        const res = await fetch(logoUri);
+        const blob = await res.blob();
+        formData.append('logo', blob, 'logo.jpg');
+      } else {
+        formData.append('logo', {
+          uri: logoUri,
+          name: 'logo.jpg',
+          type: 'image/jpeg',
+        });
+      }
     }
     if (coverUri) {
-      formData.append('cover', {
-        uri: coverUri,
-        name: 'cover.jpg',
-        type: 'image/jpeg',
-      });
+      if (Platform.OS === 'web') {
+        const res = await fetch(coverUri);
+        const blob = await res.blob();
+        formData.append('cover', blob, 'cover.jpg');
+      } else {
+        formData.append('cover', {
+          uri: coverUri,
+          name: 'cover.jpg',
+          type: 'image/jpeg',
+        });
+      }
     }
 
     const response = await api.post('/vendor/upload-images', formData, {
