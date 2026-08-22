@@ -47,19 +47,19 @@ const RoleSelectionScreen = ({ navigation }) => {
               icon={<Ionicons name="fast-food-outline" size={24} color={Colors.primary} />}
               title="Customer"
               subtitle="Order delicious meals to your door"
-              onPress={() => navigation.navigate('CustomerWelcome')}
+              onPress={() => navigation.navigate('CustomerLogin')}
             />
             <RoleCard
               icon={<MaterialCommunityIcons name="store-outline" size={24} color={Colors.primary} />}
               title="Vendor"
               subtitle="Grow your food business with us"
-              onPress={() => navigation.navigate('Welcome')}
+              onPress={() => navigation.navigate('Login')}
             />
             <RoleCard
               icon={<FontAwesome5 name="bicycle" size={22} color={Colors.primary} />}
               title="Driver"
               subtitle="Earn money by delivering orders"
-              onPress={() => navigation.navigate('DriverWelcome')}
+              onPress={() => navigation.navigate('DriverLogin')}
             />
           </View>
 

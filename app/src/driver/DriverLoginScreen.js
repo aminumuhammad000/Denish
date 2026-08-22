@@ -149,6 +149,13 @@ const DriverLoginScreen = ({ navigation }) => {
               <FontAwesome name="google" size={24} color="#EA4335" />
             </TouchableOpacity>
           </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>New here? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('DriverSignup')}>
+              <Text style={styles.createAccount}>Create an account</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -255,6 +262,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderWidth: 1,
     borderColor: '#EEE',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 30,
+  },
+  footerText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  createAccount: {
+    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 
