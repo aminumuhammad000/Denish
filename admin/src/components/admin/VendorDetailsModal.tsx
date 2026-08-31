@@ -96,15 +96,17 @@ export function VendorDetailsModal({ vendor, onClose, onSuspend, onViewMenu }: V
             </div>
             <div className="flex flex-col gap-1">
               <p className="text-[12px] font-medium text-[#848484]">Reviews</p>
-              <p className="text-[16px] font-medium text-[#212121]">16</p>
+              <p className="text-[16px] font-medium text-[#212121]">0</p>
             </div>
             <div className="flex flex-col gap-1">
               <p className="text-[12px] font-medium text-[#848484]">Commission Paid</p>
-              <p className="text-[16px] font-medium text-[#212121]">₦709,520</p>
+              <p className="text-[16px] font-medium text-[#212121]">
+                ₦{((parseFloat(vendor.revenue.replace(/[^\d.]/g, "")) || 0) * (vendor.commissionRate || 15) / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </p>
             </div>
             <div className="flex flex-col gap-1">
               <p className="text-[12px] font-medium text-[#848484]">Complaints</p>
-              <p className="text-[16px] font-medium text-[#212121]">2</p>
+              <p className="text-[16px] font-medium text-[#212121]">0</p>
             </div>
           </div>
 
