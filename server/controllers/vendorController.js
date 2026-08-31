@@ -1,10 +1,25 @@
 const Vendor = require('../models/Vendor');
 const Order = require('../models/Order');
+const mongoose = require('mongoose');
+
+const getCurrentVendor = async (req) => {
+  const userId = req.headers['x-user-id'];
+  const userEmail = req.headers['x-user-email'];
+  if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+    const vendor = await Vendor.findById(userId);
+    if (vendor) return vendor;
+  }
+  if (userEmail) {
+    const vendor = await Vendor.findOne({ email: userEmail });
+    if (vendor) return vendor;
+  }
+  return await Vendor.findOne();
+};
 
 // Get vendor dashboard data
 const getVendorDashboard = async (req, res) => {
   try {
-    let vendor = await Vendor.findOne();
+    let vendor = await getCurrentVendor(req);
     if (!vendor) {
       vendor = await Vendor.create({
         name: 'Demo Vendor',
@@ -14,7 +29,7 @@ const getVendorDashboard = async (req, res) => {
       });
     }
 
-    const allOrders = await Order.find().sort({ createdAt: -1 });
+    const allOrders = await Order.find({ vendorId: vendor._id }).sort({ createdAt: -1 });
     const stats = {
       new: allOrders.filter(o => o.status === 'pending' || o.status === 'new').length,
       cooking: allOrders.filter(o => o.status === 'preparing').length,
@@ -96,18 +111,7 @@ const getVendorDashboard = async (req, res) => {
 
 const updateVendorProfile = async (req, res) => {
   try {
-    const { email, phone } = req.body;
-    let vendor;
-
-    if (email) {
-      vendor = await Vendor.findOne({ email });
-    }
-    if (!vendor && phone) {
-      vendor = await Vendor.findOne({ phone });
-    }
-    if (!vendor) {
-      vendor = await Vendor.findOne();
-    }
+    let vendor = await getCurrentVendor(req);
 
     if (!vendor) {
       return res.status(404).json({ success: false, error: 'Vendor not found' });
@@ -152,7 +156,7 @@ const requestVendorPayout = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid payout amount' });
     }
 
-    const vendor = await Vendor.findOne();
+    const vendor = await getCurrentVendor(req);
     if (!vendor) {
       return res.status(404).json({ success: false, error: 'Vendor not found' });
     }
@@ -188,7 +192,7 @@ const requestVendorPayout = async (req, res) => {
 
 const getVendorTransactions = async (req, res) => {
   try {
-    const vendor = await Vendor.findOne();
+    const vendor = await getCurrentVendor(req);
     if (!vendor) {
       return res.status(404).json({ success: false, error: 'Vendor not found' });
     }
