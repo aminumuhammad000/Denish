@@ -254,7 +254,7 @@ const VendorProfileScreen = ({ navigation }) => {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.helpRow}>
+        <TouchableOpacity style={styles.helpRow} onPress={() => navigation.navigate('SystemContent', { key: 'help_and_support', title: 'Help & Support' })}>
           <View style={styles.helpIconBg}>
             <Ionicons name="help-circle-outline" size={20} color="#666" />
           </View>

@@ -289,7 +289,7 @@ const DriverProfileScreen = ({ navigation }) => {
         </ProfileCard>
 
         {/* HELP & SUPPORT */}
-        <TouchableOpacity style={styles.helpItem}>
+        <TouchableOpacity style={styles.helpItem} onPress={() => navigation.navigate('SystemContent', { key: 'help_and_support', title: 'Help & Support' })}>
           <View style={styles.helpLeft}>
              <View style={styles.helpIconCircle}>
                 <Ionicons name="alert-circle-outline" size={20} color="#64748B" />
