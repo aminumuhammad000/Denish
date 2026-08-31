@@ -151,6 +151,49 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
       );
     }
 
+    if (type === 'hours') {
+      return (
+        <View style={{ gap: 15 }}>
+          <Text style={{ fontSize: 13, color: '#888', marginBottom: 15 }}>
+            Enter hours (e.g., "08:00 - 17:00" or "Closed") for each day:
+          </Text>
+          {(Array.isArray(formData) ? formData : []).map((item, index) => (
+            <View key={item.day} style={{ borderBottomWidth: 1, borderBottomColor: '#EEE', paddingBottom: 15, marginBottom: 10 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 8 }}>{item.day}</Text>
+              <TextInput
+                style={styles.input}
+                value={item.hours}
+                onChangeText={(text) => {
+                  const updated = [...formData];
+                  updated[index] = { ...updated[index], hours: text };
+                  setFormData(updated);
+                }}
+                placeholder="e.g. 08:00 - 17:00"
+              />
+            </View>
+          ))}
+        </View>
+      );
+    }
+
+    if (type === 'locations') {
+      return (
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Delivery Locations (Comma-separated)</Text>
+          <TextInput
+            style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+            value={Array.isArray(formData) ? formData.join(', ') : ''}
+            multiline
+            placeholder="e.g. Victoria Island, Lekki Phase 1, Ajah"
+            onChangeText={(t) => {
+              const list = t.split(',').map(item => item.trim()).filter(item => item.length > 0);
+              setFormData(list);
+            }}
+          />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.placeholder}>
         <Ionicons name="construct-outline" size={40} color="#CCC" />
