@@ -41,6 +41,8 @@ export interface Vendor {
   rating: number;
   image: string;
   commissionRate?: number;
+  email?: string;
+  phone?: string;
 }
 
 export interface User {
@@ -350,6 +352,8 @@ export const useAdminStore = create<AdminState>()(
               rating: v.rating || 0,
               image: v.coverUrl || v.bannerUrl || v.logoUrl || v.image || "/images/Vendor_management_images/mama's kitchen.png",
               commissionRate: v.commissionRate || 15,
+              email: v.email || "",
+              phone: v.phone || "",
             }));
             set({ vendors: formattedVendors });
           }
@@ -463,6 +467,8 @@ export const useAdminStore = create<AdminState>()(
               rating: v.rating || 0,
               image: v.coverUrl || v.bannerUrl || v.logoUrl || v.image || "/images/Vendor_management_images/mama's kitchen.png",
               commissionRate: v.commissionRate || 15,
+              email: v.email || "",
+              phone: v.phone || "",
             }));
 
             // Format users
