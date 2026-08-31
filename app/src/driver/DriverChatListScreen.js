@@ -46,14 +46,14 @@ const DriverChatListScreen = ({ navigation }) => {
   const loadChats = async () => {
     try {
       const res = await getDriverChats();
-      if (res && res.success && res.threads && res.threads.length > 0) {
+      if (res && res.success && res.threads) {
         setChats(res.threads);
       } else {
-        setChats(DEFAULT_CHATS);
+        setChats([]);
       }
     } catch (e) {
       console.error('Error loading driver chats:', e);
-      setChats(DEFAULT_CHATS);
+      setChats([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
