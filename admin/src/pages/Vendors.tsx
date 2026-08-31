@@ -41,7 +41,15 @@ export default function VendorsPage() {
   }
 
   const toggleVendorStatus = async (vendorId: string, currentStatus: string) => {
-    const newStatus = currentStatus === "suspended" ? "approved" : "suspended";
+    let newStatus = "approved";
+    if (currentStatus.toLowerCase() === "pending") {
+      newStatus = "approved";
+    } else if (currentStatus.toLowerCase() === "suspended") {
+      newStatus = "approved";
+    } else {
+      newStatus = "suspended";
+    }
+
     await updateVendorStatusOnServer(vendorId, newStatus);
     setToastMessage(newStatus === "suspended" ? "Vendor Suspended" : "Vendor Approved");
     setSelectedVendor(null);
@@ -308,12 +316,20 @@ export default function VendorsPage() {
                     <button
                       onClick={() => toggleVendorStatus(vendor.id, vendor.status)}
                       className={`flex-1 max-w-[92px] px-1 md:px-0 flex items-center justify-center h-[clamp(32px,3vw,42px)] border rounded-[8px] text-[clamp(10px,1.5vw,14px)] font-semibold transition-all bg-[#F8F8F8] cursor-pointer ${
-                        vendor.status === "suspended"
-                          ? "border-[#29A378] text-[#29A378] hover:bg-[#F0FBF4]"
-                          : "border-[#E14343] text-red-500 hover:bg-red-50"
+                        vendor.status.toLowerCase() === "pending"
+                          ? "border-[#FE7200] text-[#FE7200] hover:bg-[#FFF4E4]"
+                          : vendor.status.toLowerCase() === "suspended"
+                            ? "border-[#29A378] text-[#29A378] hover:bg-[#F0FBF4]"
+                            : "border-[#E14343] text-red-500 hover:bg-red-50"
                       }`}
                     >
-                      <span className="truncate">{vendor.status === "suspended" ? "Unsuspend" : "Suspend"}</span>
+                      <span className="truncate text-[12px]">
+                        {vendor.status.toLowerCase() === "pending"
+                          ? "Approve"
+                          : vendor.status.toLowerCase() === "suspended"
+                            ? "Unsuspend"
+                            : "Suspend"}
+                      </span>
                     </button>
                   </div>
                 </div>

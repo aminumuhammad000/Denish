@@ -28,7 +28,8 @@ const getCurrentCustomer = async (req) => {
 const getRestaurants = async (req, res) => {
   try {
     const vendors = await Vendor.find({ status: 'Approved' });
-    const items = await MenuItem.find({ available: true });
+    const approvedVendorIds = vendors.map(v => v._id);
+    const items = await MenuItem.find({ available: true, vendorId: { $in: approvedVendorIds } });
     const banners = await Banner.find({ status: 'active' });
 
     res.status(200).json({ 

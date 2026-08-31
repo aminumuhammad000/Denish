@@ -13,6 +13,7 @@ interface Vendor {
   revenue: string;
   rating: number;
   image: string;
+  commissionRate?: number;
 }
 
 interface VendorDetailsModalProps {
@@ -121,12 +122,18 @@ export function VendorDetailsModal({ vendor, onClose, onSuspend, onViewMenu }: V
             <button 
               onClick={onSuspend}
               className={`w-[120px] h-[42px] border rounded-[8px] text-[14px] font-medium transition-all ${
-                vendor.status === "suspended"
-                  ? "border-[#29A378] text-[#29A378] hover:bg-[#F0FBF4]"
-                  : "border-[#E14343] text-[#E14343] hover:bg-red-50"
+                vendor.status.toLowerCase() === "pending"
+                  ? "border-[#FE7200] text-[#FE7200] hover:bg-[#FFF4E4]"
+                  : vendor.status.toLowerCase() === "suspended"
+                    ? "border-[#29A378] text-[#29A378] hover:bg-[#F0FBF4]"
+                    : "border-[#E14343] text-[#E14343] hover:bg-red-50"
               }`}
             >
-              {vendor.status === "suspended" ? "Unsuspend" : "Suspend"}
+              {vendor.status.toLowerCase() === "pending"
+                ? "Approve"
+                : vendor.status.toLowerCase() === "suspended"
+                  ? "Unsuspend"
+                  : "Suspend"}
             </button>
           </div>
         </div>
