@@ -54,6 +54,11 @@ const DriverStep5Review = ({ navigation }) => {
           bankCode: onboardingData.bankCode,
           accountName: onboardingData.accountName,
           accountNumber: onboardingData.accountNumber
+        },
+        documents: {
+          nationalId: onboardingData.docs?.nationalId?.uri || null,
+          vehiclePhoto: onboardingData.docs?.vehiclePhoto?.uri || null,
+          license: onboardingData.docs?.license?.uri || null
         }
       });
       setLoading(false);

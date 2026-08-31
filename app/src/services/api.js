@@ -597,6 +597,31 @@ export const uploadVendorImages = async (logoUri, coverUri) => {
 };
 
 
+export const uploadImageToCloudinary = async (uri) => {
+  try {
+    const formData = new FormData();
+    const uriParts = uri.split('.');
+    const fileType = uriParts[uriParts.length - 1] || 'jpg';
+
+    formData.append('image', {
+      uri,
+      name: `photo.${fileType}`,
+      type: `image/${fileType}`,
+    });
+
+    const response = await api.post('/admin/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('API uploadImageToCloudinary error:', error);
+    throw error;
+  }
+};
+
+
 export const getBanks = async () => {
   try {
     const response = await api.get('/payment/banks');

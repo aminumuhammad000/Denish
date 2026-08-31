@@ -23,6 +23,11 @@ const driverSchema = new mongoose.Schema({
     accountName: { type: String, default: '' },
     accountNumber: { type: String, default: '' },
   },
+  documents: {
+    nationalId: { type: String, default: null },
+    vehiclePhoto: { type: String, default: null },
+    license: { type: String, default: null },
+  },
   status: {
     type: String,
     enum: ['Pending', 'Active', 'Suspended'],

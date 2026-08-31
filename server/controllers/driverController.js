@@ -55,7 +55,7 @@ const updateDriverProfile = async (req, res) => {
     let driver = await getCurrentDriver(req);
     if (!driver) return res.status(404).json({ success: false, error: 'Driver not found' });
 
-    const { name, email, phone, vehicle, bank, profilePic } = req.body;
+    const { name, email, phone, vehicle, bank, documents, profilePic } = req.body;
 
     if (name)   driver.name = name;
     if (email)  driver.email = email;
@@ -79,6 +79,14 @@ const updateDriverProfile = async (req, res) => {
         bankCode:      bank.bankCode      || driver.bank?.bankCode      || '',
         accountName:   bank.accountName   || driver.bank?.accountName   || '',
         accountNumber: bank.accountNumber || driver.bank?.accountNumber || '',
+      };
+    }
+
+    if (documents) {
+      driver.documents = {
+        nationalId:   documents.nationalId   || driver.documents?.nationalId   || null,
+        vehiclePhoto: documents.vehiclePhoto || driver.documents?.vehiclePhoto || null,
+        license:      documents.license      || driver.documents?.license      || null,
       };
     }
 

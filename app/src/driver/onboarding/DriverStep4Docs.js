@@ -9,12 +9,14 @@ import {
   Image,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Colors } from '../../constants/Colors';
 import { useOnboarding } from '../../context/OnboardingContext';
+import { uploadImageToCloudinary } from '../../services/api';
 
 const DriverStep4Docs = ({ navigation }) => {
   const { onboardingData, updateOnboardingData } = useOnboarding();
@@ -22,6 +24,11 @@ const DriverStep4Docs = ({ navigation }) => {
     nationalId: null,
     vehiclePhoto: null,
     license: null,
+  });
+  const [uploadingState, setUploadingState] = useState({
+    nationalId: false,
+    vehiclePhoto: false,
+    license: false,
   });
 
   const handlePick = (type) => {
@@ -49,9 +56,27 @@ const DriverStep4Docs = ({ navigation }) => {
     if (!result.canceled) {
       const uri = result.assets[0].uri;
       const fileName = uri.split('/').pop();
-      const newDocs = { ...docs, [type]: { uri, name: fileName, format: 'image' } };
-      setDocs(newDocs);
-      updateOnboardingData({ docs: newDocs });
+      setUploadingState(prev => ({ ...prev, [type]: true }));
+      try {
+        const response = await uploadImageToCloudinary(uri);
+        if (response && response.success) {
+          const cloudinaryUrl = response.url;
+          const newDocs = { ...docs, [type]: { uri: cloudinaryUrl, name: fileName, format: 'image' } };
+          setDocs(newDocs);
+          updateOnboardingData({ docs: newDocs });
+        } else {
+          throw new Error("Upload failed");
+        }
+      } catch (err) {
+        console.error("Cloudinary upload error:", err);
+        if (Platform.OS === 'web') {
+          alert("Failed to upload document to Cloudinary.");
+        } else {
+          Alert.alert("Upload Failed", "Failed to upload document. Please try again.");
+        }
+      } finally {
+        setUploadingState(prev => ({ ...prev, [type]: false }));
+      }
     }
   };
 
@@ -63,12 +88,18 @@ const DriverStep4Docs = ({ navigation }) => {
 
   const UploadBox = ({ label, type, value }) => {
     const isUploaded = !!value;
+    const isUploading = uploadingState[type];
 
     return (
       <View style={styles.uploadCard}>
         <Text style={styles.uploadLabel}>{label}</Text>
         
-        {isUploaded ? (
+        {isUploading ? (
+          <View style={styles.uploadedBox}>
+            <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 10 }} />
+            <Text style={styles.fileName}>Uploading to server...</Text>
+          </View>
+        ) : isUploaded ? (
           <View style={styles.uploadedBox}>
             <Ionicons 
               name="image-outline" 
