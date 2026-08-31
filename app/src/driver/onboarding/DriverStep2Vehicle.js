@@ -22,8 +22,10 @@ const DriverStep2Vehicle = ({ navigation }) => {
   
   const [errors, setErrors] = useState({});
   const [vModalVisible, setVModalVisible] = useState(false);
+  const [cModalVisible, setCModalVisible] = useState(false);
 
   const vehicleTypes = ['Motorcycle', 'Car', 'Bicycle', 'Truck'];
+  const vehicleColors = ['Red', 'Black', 'White', 'Blue', 'Silver', 'Grey', 'Green', 'Yellow', 'Other'];
 
   const handleContinue = () => {
     let newErrors = {};
@@ -122,6 +124,7 @@ const DriverStep2Vehicle = ({ navigation }) => {
                   value={model}
                   onChangeText={(v) => { setModel(v); if(errors.model) setErrors({...errors, model: null}); }}
                 />
+                {errors.model && <Text style={styles.errorText}>{errors.model}</Text>}
               </View>
             </View>
 
@@ -136,18 +139,48 @@ const DriverStep2Vehicle = ({ navigation }) => {
                   value={plate}
                   onChangeText={(v) => { setPlate(v); if(errors.plate) setErrors({...errors, plate: null}); }}
                 />
+                {errors.plate && <Text style={styles.errorText}>{errors.plate}</Text>}
               </View>
               <View style={[styles.inputGroup, { flex: 1 }]}>
                 <Text style={styles.label}>Color</Text>
-                <TextInput
-                  style={[styles.input, errors.color && styles.inputError]}
-                  placeholder="Red"
-                  placeholderTextColor="#999"
-                  value={color}
-                  onChangeText={(v) => { setColor(v); if(errors.color) setErrors({...errors, color: null}); }}
-                />
+                <TouchableOpacity 
+                  style={[styles.dropdown, errors.color && styles.inputError]}
+                  onPress={() => setCModalVisible(true)}
+                >
+                  <Text style={styles.dropdownText}>{color || 'Select color'}</Text>
+                  <Ionicons name="chevron-down" size={20} color="#999" />
+                </TouchableOpacity>
+                {errors.color && <Text style={styles.errorText}>{errors.color}</Text>}
               </View>
             </View>
+
+            {/* Color Selection Modal */}
+            <Modal
+              visible={cModalVisible}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setCModalVisible(false)}
+            >
+              <TouchableOpacity 
+                style={styles.modalOverlay} 
+                activeOpacity={1} 
+                onPress={() => setCModalVisible(false)}
+              >
+                <View style={styles.vModalContent}>
+                  <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+                    {vehicleColors.map((col) => (
+                      <TouchableOpacity 
+                        key={col} 
+                        style={styles.vOption}
+                        onPress={() => { setColor(col); setCModalVisible(false); if(errors.color) setErrors({...errors, color: null}); }}
+                      >
+                        <Text style={[styles.vOptionText, color === col && { color: Colors.primary, fontWeight: 'bold' }]}>{col}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </TouchableOpacity>
+            </Modal>
           </View>
         </ScrollView>
 
