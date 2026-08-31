@@ -145,6 +145,32 @@ const BusinessInfoScreen = ({ navigation }) => {
             <TouchableOpacity 
               style={styles.button}
               onPress={() => {
+                const { businessName, category, phone, email, address, customCategory } = formData;
+                if (!businessName.trim()) {
+                  alert("Please enter your business name.");
+                  return;
+                }
+                if (!category) {
+                  alert("Please select a food category.");
+                  return;
+                }
+                if (category === 'Other' && !customCategory.trim()) {
+                  alert("Please specify your custom category.");
+                  return;
+                }
+                if (!phone.trim()) {
+                  alert("Please enter your phone number.");
+                  return;
+                }
+                if (!email.trim()) {
+                  alert("Please enter your email address.");
+                  return;
+                }
+                if (!address.trim()) {
+                  alert("Please enter your address.");
+                  return;
+                }
+
                 updateOnboardingData(formData);
                 navigation.navigate('Step2');
               }}
