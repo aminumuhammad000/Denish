@@ -201,8 +201,8 @@ const VendorProfileScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
           <View style={styles.locationChips}>
-            {(data.deliveryLocations || []).map((loc) => (
-              <View key={loc} style={styles.chip}>
+            {(data.deliveryLocations || []).map((loc, idx) => (
+              <View key={`${loc}-${idx}`} style={styles.chip}>
                 <Text style={styles.chipText}>{loc}</Text>
               </View>
             ))}

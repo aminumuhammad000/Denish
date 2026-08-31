@@ -338,7 +338,13 @@ const VendorHomeScreen = ({ navigation }) => {
                     ))
                   ) : (
                     <View style={styles.modalItemRow}>
-                      <Text style={[styles.modalItemLabel, { color: theme.text }]}>{selectedOrder.items || 'Items'}</Text>
+                      <Text style={[styles.modalItemLabel, { color: theme.text }]}>
+                        {typeof selectedOrder.items === 'string' 
+                          ? selectedOrder.items 
+                          : Array.isArray(selectedOrder.items) 
+                            ? selectedOrder.items.map(i => `${i.quantity || 1}x ${i.name}`).join(', ')
+                            : 'Items'}
+                      </Text>
                       <Text style={[styles.modalItemPrice, { color: theme.text }]}>{typeof selectedOrder.amount === 'number' ? `₦${selectedOrder.amount.toLocaleString()}` : selectedOrder.amount}</Text>
                     </View>
                   )}
