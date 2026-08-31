@@ -1146,6 +1146,8 @@ export default function ContentManagementPage() {
             </div>
           </div>
         </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {bannerToDelete && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
