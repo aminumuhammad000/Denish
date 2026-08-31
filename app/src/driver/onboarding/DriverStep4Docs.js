@@ -25,20 +25,7 @@ const DriverStep4Docs = ({ navigation }) => {
   });
 
   const handlePick = (type) => {
-    if (Platform.OS === 'web') {
-      pickFile(type);
-      return;
-    }
-    Alert.alert(
-      "Upload Document",
-      "Choose a source for your file",
-      [
-        { text: "Photo Library", onPress: () => pickImage(type) },
-        { text: "Files / Documents", onPress: () => pickFile(type) },
-        { text: "Cancel", style: "cancel" }
-      ],
-      { cancelable: true }
-    );
+    pickImage(type);
   };
 
   const pickImage = async (type) => {
@@ -68,28 +55,6 @@ const DriverStep4Docs = ({ navigation }) => {
     }
   };
 
-  const pickFile = async (type) => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*'], // Allow PDF and common images
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled) {
-        const file = result.assets[0];
-        const newDocs = { ...docs, [type]: { uri: file.uri, name: file.name, format: 'document' } };
-        setDocs(newDocs);
-        updateOnboardingData({ docs: newDocs });
-      }
-    } catch (err) {
-      if (Platform.OS === 'web') {
-        alert("Could not pick document. Please try again.");
-      } else {
-        Alert.alert("Error", "Could not pick document. Please try again.");
-      }
-    }
-  };
-
   const removeDoc = (type) => {
     const newDocs = { ...docs, [type]: null };
     setDocs(newDocs);
@@ -106,7 +71,7 @@ const DriverStep4Docs = ({ navigation }) => {
         {isUploaded ? (
           <View style={styles.uploadedBox}>
             <Ionicons 
-              name={value.format === 'image' ? "image-outline" : "document-outline"} 
+              name="image-outline" 
               size={20} 
               color="#2E7D32" 
               style={{ marginRight: 10 }}
@@ -122,7 +87,7 @@ const DriverStep4Docs = ({ navigation }) => {
             onPress={() => handlePick(type)}
           >
             <Ionicons name="cloud-upload-outline" size={24} color={type === 'vehiclePhoto' ? Colors.primary : '#999'} />
-            <Text style={styles.uploadText}>Tap to upload image or PDF</Text>
+            <Text style={styles.uploadText}>Tap to upload image</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -142,7 +107,7 @@ const DriverStep4Docs = ({ navigation }) => {
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <Text style={styles.mainTitle}>Upload documents</Text>
-          <Text style={styles.subtitle}>Clear photos or PDF files help us verify you faster.</Text>
+          <Text style={styles.subtitle}>Clear photos help us verify you faster.</Text>
 
           <View style={styles.form}>
             <UploadBox 
