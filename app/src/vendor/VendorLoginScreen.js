@@ -23,6 +23,7 @@ const VendorLoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if(!email || !password) return;
@@ -132,9 +133,11 @@ const VendorLoginScreen = ({ navigation }) => {
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••"
-                  secureTextEntry
+                  secureTextEntry={!showPassword}
                 />
-                <Ionicons name="eye-off-outline" size={20} color="#999" />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
+                  <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#999" />
+                </TouchableOpacity>
               </View>
             </View>
 

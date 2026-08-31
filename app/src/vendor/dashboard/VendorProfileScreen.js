@@ -136,11 +136,11 @@ const VendorProfileScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.profileInfo}>
-            <Text style={styles.businessName}>{data.businessName || "Mama's Kitchen"}</Text>
+            <Text style={styles.businessName}>{data.businessName || data.name || "Vendor"}</Text>
             <View style={styles.ratingRow}>
               <Ionicons name="star" size={13} color="#F1C40F" />
               <Text style={styles.ratingText}>4.8</Text>
-              <Text style={styles.ordersText}>  {data.earnings?.totalOrders || 1248} orders</Text>
+              <Text style={styles.ordersText}>  {data.earnings?.totalOrders || 0} orders</Text>
             </View>
           </View>
         </View>
@@ -156,10 +156,10 @@ const VendorProfileScreen = ({ navigation }) => {
 
           {[
             { label: 'Category', value: data.category || 'Local dishes' },
-            { label: 'Phone',    value: data.phone || '+234800000000' },
-            { label: 'Email',    value: data.email || 'info@mamaskitchen.ng' },
-            { label: 'Address',  value: (data.address || '14 Secretariat Avenue...').substring(0, 30) + '...' },
-            { label: 'About',    value: data.about || 'Authentic Nigerian home-style...' },
+            { label: 'Phone',    value: data.phone || 'N/A' },
+            { label: 'Email',    value: data.email || 'N/A' },
+            { label: 'Address',  value: data.address ? (data.address.substring(0, 30) + '...') : 'N/A' },
+            { label: 'About',    value: data.about || 'N/A' },
           ].map((item, idx, arr) => (
             <View key={item.label} style={[styles.detailRow, idx === arr.length - 1 && { borderBottomWidth: 0 }]}>
               <Text style={styles.detailLabel}>{item.label}</Text>

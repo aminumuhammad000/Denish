@@ -182,7 +182,7 @@ const VendorHomeScreen = ({ navigation }) => {
                 </TouchableOpacity>
                 <View style={{ marginLeft: 12 }}>
                   <Text style={styles.welcomeText}>Welcome back,</Text>
-                  <Text style={styles.businessNameHeader}>{data.businessName || "Mama's Kitchen"}</Text>
+                  <Text style={styles.businessNameHeader}>{data.businessName || data.name || "Vendor"}</Text>
                 </View>
               </View>
               <TouchableOpacity
