@@ -28,11 +28,11 @@ import { getAuthSession } from '../services/authStorage';
 const StatCard = ({ iconName, value, label, iconColor = "#FF8C00" }) => (
   <View style={styles.statCard}>
     <View style={styles.statIconContainer}>
-      <Ionicons name={iconName} size={16} color={iconColor} />
+      <Ionicons name={iconName} size={18} color={iconColor} />
     </View>
     <View style={styles.statTexts}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+      <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
     </View>
   </View>
 );
@@ -560,9 +560,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 16,
     padding: 12,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
+    gap: 8,
     borderWidth: 1,
     borderColor: '#F1F5F9',
   },
@@ -574,9 +575,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  statTexts: { flex: 1 },
-  statValue: { fontSize: 14, fontWeight: 'bold', color: '#0F172A' },
-  statLabel: { fontSize: 11, color: '#64748B' },
+  statTexts: { alignItems: 'center', width: '100%' },
+  statValue: { fontSize: 13, fontWeight: 'bold', color: '#0F172A', textAlign: 'center' },
+  statLabel: { fontSize: 11, color: '#64748B', textAlign: 'center' },
 
   // Active delivery card
   activeDeliveryCard: {
