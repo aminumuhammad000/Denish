@@ -15,6 +15,27 @@ const api = axios.create({
   },
 });
 
+import { getAuthSession } from './authStorage';
+
+api.interceptors.request.use(async (config) => {
+  try {
+    const session = await getAuthSession();
+    if (session) {
+      const u = session.user || session.vendor || session.driver;
+      if (u) {
+        config.headers['X-User-Id'] = u._id;
+        config.headers['X-User-Email'] = u.email;
+        config.headers['X-User-Role'] = session.role || 'customer';
+      }
+    }
+  } catch (e) {
+    console.error('Interceptor error:', e);
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
 export const getVendorDashboardData = async () => {
   try {
     const response = await api.get('/vendor/dashboard');

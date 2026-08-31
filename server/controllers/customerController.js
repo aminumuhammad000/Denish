@@ -11,6 +11,20 @@ const CallSession = require('../models/CallSession');
 
 const Banner = require('../models/Banner');
 
+const getCurrentCustomer = async (req) => {
+  const userId = req.headers['x-user-id'];
+  const userEmail = req.headers['x-user-email'];
+  if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+    const customer = await Customer.findById(userId);
+    if (customer) return customer;
+  }
+  if (userEmail) {
+    const customer = await Customer.findOne({ email: userEmail });
+    if (customer) return customer;
+  }
+  return await Customer.findOne().sort({ createdAt: -1 });
+};
+
 const getRestaurants = async (req, res) => {
   try {
     const vendors = await Vendor.find({ status: 'Approved' });
@@ -93,10 +107,19 @@ const placeOrder = async (req, res) => {
       quantity: item.quantity || 1
     }));
 
+    const customer = await getCurrentCustomer(req);
+    const resolvedCustomerName = customer ? customer.name : (customerName || 'Test User');
+    const resolvedCustomerId = customer ? customer._id : undefined;
+
+    const vendorDoc = await Vendor.findById(validVendorId);
+    const resolvedVendorName = vendorDoc ? (vendorDoc.businessName || vendorDoc.name) : 'Unknown Vendor';
+
     const newOrder = await Order.create({
       orderId: generatedOrderId,
+      customerId: resolvedCustomerId,
+      customerName: resolvedCustomerName,
       vendorId: validVendorId,
-      customerName: customerName || 'Usman Umar',
+      vendorName: resolvedVendorName,
       address: finalAddress,
       deliveryAddress: finalAddress,
       items: formattedItems,
@@ -114,8 +137,7 @@ const placeOrder = async (req, res) => {
 
 const getCustomerProfile = async (req, res) => {
   try {
-    // Fetch the most recently created/signed up customer
-    const customer = await Customer.findOne().sort({ createdAt: -1 });
+    const customer = await getCurrentCustomer(req);
     if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
     res.status(200).json({ success: true, data: customer });
   } catch (error) {
@@ -125,11 +147,10 @@ const getCustomerProfile = async (req, res) => {
 
 const updateCustomerProfile = async (req, res) => {
   try {
-    const customer = await Customer.findOneAndUpdate(
-      {},
-      req.body,
-      { new: true, sort: { createdAt: -1 } }
-    );
+    const customer = await getCurrentCustomer(req);
+    if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+    Object.assign(customer, req.body);
+    await customer.save();
     res.status(200).json({ success: true, data: customer });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -138,11 +159,10 @@ const updateCustomerProfile = async (req, res) => {
 
 const addAddress = async (req, res) => {
   try {
-    const customer = await Customer.findOneAndUpdate(
-      {}, 
-      { $push: { addresses: req.body } },
-      { new: true, sort: { createdAt: -1 } }
-    );
+    const customer = await getCurrentCustomer(req);
+    if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+    customer.addresses.push(req.body);
+    await customer.save();
     res.status(200).json({ success: true, data: customer });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -151,11 +171,10 @@ const addAddress = async (req, res) => {
 
 const addPaymentMethod = async (req, res) => {
   try {
-    const customer = await Customer.findOneAndUpdate(
-      {}, 
-      { $push: { paymentMethods: req.body } },
-      { new: true, sort: { createdAt: -1 } }
-    );
+    const customer = await getCurrentCustomer(req);
+    if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+    customer.paymentMethods.push(req.body);
+    await customer.save();
     res.status(200).json({ success: true, data: customer });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -165,11 +184,10 @@ const addPaymentMethod = async (req, res) => {
 const deleteAddress = async (req, res) => {
   try {
     const { addressId } = req.params;
-    const customer = await Customer.findOneAndUpdate(
-      {},
-      { $pull: { addresses: { _id: addressId } } },
-      { new: true, sort: { createdAt: -1 } }
-    );
+    const customer = await getCurrentCustomer(req);
+    if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+    customer.addresses = customer.addresses.filter(addr => addr._id.toString() !== addressId);
+    await customer.save();
     res.status(200).json({ success: true, data: customer });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -179,11 +197,10 @@ const deleteAddress = async (req, res) => {
 const deletePaymentMethod = async (req, res) => {
   try {
     const { paymentId } = req.params;
-    const customer = await Customer.findOneAndUpdate(
-      {},
-      { $pull: { paymentMethods: { _id: paymentId } } },
-      { new: true, sort: { createdAt: -1 } }
-    );
+    const customer = await getCurrentCustomer(req);
+    if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+    customer.paymentMethods = customer.paymentMethods.filter(pay => pay._id.toString() !== paymentId);
+    await customer.save();
     res.status(200).json({ success: true, data: customer });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -269,7 +286,7 @@ const search = async (req, res) => {
 
 const getChatThreads = async (req, res) => {
   try {
-    const customer = await Customer.findOne().sort({ createdAt: -1 });
+    const customer = await getCurrentCustomer(req);
     const customerId = customer ? customer._id.toString() : 'demo';
     
     // Aggregate threads by recipient/sender
@@ -303,10 +320,13 @@ const getChatThreads = async (req, res) => {
 const getMessages = async (req, res) => {
   try {
     const { recipientName } = req.query;
+    const customer = await getCurrentCustomer(req);
+    const customerName = customer ? customer.name : 'Usman Umar';
+
     const messages = await Message.find({
       $or: [
-        { recipientName },
-        { senderName: recipientName }
+        { senderName: customerName, recipientName: recipientName },
+        { senderName: recipientName, recipientName: customerName }
       ]
     }).sort({ createdAt: 1 });
 
@@ -329,7 +349,7 @@ const getMessages = async (req, res) => {
 const sendMessage = async (req, res) => {
   try {
     const { recipientName, text, imageUrl, type, subText } = req.body;
-    const customer = await Customer.findOne().sort({ createdAt: -1 });
+    const customer = await getCurrentCustomer(req);
 
     const newMsg = await Message.create({
       senderId: customer ? customer._id.toString() : 'customer-1',

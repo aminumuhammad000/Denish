@@ -4,7 +4,7 @@ import { X, Star, Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
-import { type User } from "@/lib/store";
+import { useAdminStore, type User } from "@/lib/store";
 
 interface UserDetailsModalProps {
   user: User;
@@ -26,6 +26,8 @@ const statusStyles = {
 export function UserDetailsModal({ user, onClose, onUpdateUser }: UserDetailsModalProps) {
   const [isWarned, setIsWarned] = useState(user.isWarned || false);
   const [isBanned, setIsBanned] = useState(user.status === "Suspended");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const deleteUserOnServer = useAdminStore((state) => state.deleteUserOnServer);
 
   useEffect(() => {
     setIsWarned(user.isWarned || false);
@@ -256,8 +258,62 @@ export function UserDetailsModal({ user, onClose, onUpdateUser }: UserDetailsMod
               {isBanned ? "Unban" : "Ban"}
             </span>
           </button>
+
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex-1 flex items-center justify-center gap-2 h-[42px] border border-[#EF4343] text-[#EF4343] hover:bg-[#FEF2F2] rounded-[8px] transition-all group"
+          >
+            <span className="text-[16px] font-medium">Delete</span>
+          </button>
         </div>
       </motion.div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-[400px] w-full p-6 shadow-xl border border-[#EAEAEA] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              {/* Alert Icon */}
+              <div className="w-[56px] h-[56px] bg-[#FEF2F2] rounded-full flex items-center justify-center text-[#EF4343]">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+
+              {/* Title & Desc */}
+              <div>
+                <h3 className="text-[18px] font-bold text-[#191C1C] mb-2">Delete Account?</h3>
+                <p className="text-[14px] text-[#747475] leading-relaxed">
+                  Are you sure you want to delete {user.name}'s account? This action cannot be undone and their profile will be permanently removed.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 h-[46px] border border-[#EAEAEA] rounded-[10px] text-[14px] font-bold text-[#747475] hover:bg-gray-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowDeleteConfirm(false);
+                    await deleteUserOnServer(user.id, user.role);
+                    toast.success("User deleted successfully");
+                    onClose();
+                  }}
+                  className="flex-1 h-[46px] bg-[#EF4343] text-white rounded-[10px] text-[14px] font-bold hover:bg-[#D32F2F] transition-all"
+                >
+                  Yes, Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

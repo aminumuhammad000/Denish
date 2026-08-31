@@ -18,13 +18,29 @@ import { signInWithGoogle } from '../services/googleAuth';
 const LoginScreen = ({ navigation }) => {
   const [authType, setAuthType] = useState('Email'); // 'Email' or 'Phone'
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const handleEmailChange = (val) => {
+    setEmail(val);
+    if (authType === 'Email') {
+      if (val === '') {
+        setEmailError('');
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+        setEmailError('Please enter a valid email address');
+      } else {
+        setEmailError('');
+      }
+    } else {
+      setEmailError('');
+    }
+  };
+
   const handleLogin = async () => {
-    if (!email || !password) {
-      alert('Please enter your email/phone and password.');
+    if (!email || !password || emailError) {
+      alert('Please enter a valid email/phone and password.');
       return;
     }
     setLoading(true);
@@ -85,94 +101,103 @@ const LoginScreen = ({ navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Welcome back</Text>
-            <Text style={styles.subtitle}>Sign in to keep ordering your favorites</Text>
-          </View>
-
-          {/* Tabs */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tab, authType === 'Email' && styles.activeTab]}
-              onPress={() => setAuthType('Email')}
-            >
-              <Text style={[styles.tabText, authType === 'Email' && styles.activeTabText]}>Email</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, authType === 'Phone' && styles.activeTab]}
-              onPress={() => setAuthType('Phone')}
-            >
-              <Text style={[styles.tabText, authType === 'Phone' && styles.activeTabText]}>Phone</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Form */}
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>{authType}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder={authType === 'Email' ? 'you@email.com' : '0800 000 0000'}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType={authType === 'Email' ? 'email-address' : 'phone-pad'}
-                autoCapitalize="none"
-              />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.mainContent}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.title}>Welcome back</Text>
+              <Text style={styles.subtitle}>Sign in to keep ordering your favorites</Text>
             </View>
 
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>Password</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { role: 'customer' })}>
-                  <Text style={styles.forgotPassword}>Forgot password?</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.passwordContainer}>
+            {/* Tabs */}
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[styles.tab, authType === 'Email' && styles.activeTab]}
+                onPress={() => {
+                  setAuthType('Email');
+                  setEmailError('');
+                }}
+              >
+                <Text style={[styles.tabText, authType === 'Email' && styles.activeTabText]}>Email</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, authType === 'Phone' && styles.activeTab]}
+                onPress={() => {
+                  setAuthType('Phone');
+                  setEmailError('');
+                }}
+              >
+                <Text style={[styles.tabText, authType === 'Phone' && styles.activeTabText]}>Phone</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Form */}
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>{authType}</Text>
                 <TextInput
-                  style={styles.passwordInput}
-                  placeholder="••••••"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
+                  style={[styles.input, emailError ? { borderColor: '#FF3B30' } : null]}
+                  placeholder={authType === 'Email' ? 'you@email.com' : '0800 000 0000'}
+                  value={email}
+                  onChangeText={handleEmailChange}
+                  keyboardType={authType === 'Email' ? 'email-address' : 'phone-pad'}
+                  autoCapitalize="none"
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons
-                    name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                    size={24}
-                    color="#999"
-                  />
-                </TouchableOpacity>
+                {emailError ? <Text style={styles.fieldErrorText}>{emailError}</Text> : null}
               </View>
+
+              <View style={styles.inputGroup}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.label}>Password</Text>
+                  <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { role: 'customer' })}>
+                    <Text style={styles.forgotPassword}>Forgot password?</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="••••••"
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Ionicons
+                      name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                      size={24}
+                      color="#999"
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Sign In Button */}
+              <TouchableOpacity 
+                style={[styles.button, (loading || !email || !password || !!emailError) && { opacity: 0.5 }]}
+                onPress={handleLogin}
+                disabled={loading || !email || !password || !!emailError}
+              >
+                {loading ? (
+                  <AnimatedLoadingText text="Signing in" style={styles.buttonText} />
+                ) : (
+                  <Text style={styles.buttonText}>Sign in</Text>
+                )}
+              </TouchableOpacity>
             </View>
 
-            {/* Sign In Button */}
-            <TouchableOpacity 
-              style={[styles.button, (!email || !password) && { opacity: 0.5 }]}
-              onPress={handleLogin}
-              disabled={loading || !email || !password}
-            >
-              {loading ? (
-                <AnimatedLoadingText text="Signing in" style={styles.buttonText} />
-              ) : (
-                <Text style={styles.buttonText}>Sign in</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+            {/* Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-          {/* Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social Icons */}
-          <View style={styles.socialContainer}>
-            <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
-              <FontAwesome name="google" size={28} color="#EA4335" />
-            </TouchableOpacity>
+            {/* Social Icons */}
+            <View style={styles.socialContainer}>
+              <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
+                <FontAwesome name="google" size={28} color="#EA4335" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Footer */}
@@ -198,8 +223,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
-    paddingTop: 50,
     flexGrow: 1,
+    justifyContent: 'space-between',
+  },
+  mainContent: {
+    flex: 1,
+    justifyContent: 'center',
   },
   header: {
     marginBottom: 24,
@@ -347,6 +376,11 @@ const styles = StyleSheet.create({
     color: '#FF8C00',
     fontSize: 14,
     fontWeight: '700',
+  },
+  fieldErrorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginTop: 4,
   },
 });
 

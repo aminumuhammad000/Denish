@@ -197,6 +197,7 @@ interface AdminState {
 
   updateDriverStatusOnServer: (id: string, status: string, extra?: Partial<Driver>) => Promise<void>;
   updateUserStatusOnServer: (id: string, status: string, extra?: Partial<User>) => Promise<void>;
+  deleteUserOnServer: (id: string, role: string) => Promise<void>;
   updateDisputeStatusOnServer: (id: string, status: string) => Promise<void>;
   addTransactionOnServer: (transaction: Transaction) => Promise<void>;
   updateOrderOnServer: (id: string, updatedData: Partial<Order>) => Promise<void>;
@@ -208,6 +209,7 @@ interface AdminState {
   updatePromotionOnServer: (id: string, promoData: any) => Promise<void>;
   deletePromotionOnServer: (id: string) => Promise<void>;
   updateProfileOnServer: (profileData: any) => Promise<void>;
+  uploadImageOnServer: (file: File) => Promise<string | null>;
   admin: { name: string; email: string; image: string } | null;
   fetchAdminProfile: () => Promise<void>;
 }
@@ -550,6 +552,26 @@ export const useAdminStore = create<AdminState>()(
           console.error("Error updating user status:", error);
         }
       },
+      deleteUserOnServer: async (id: string, role: string) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/users/${id}?role=${role}`, {
+            method: "DELETE",
+          });
+          if (response.ok) {
+            set((state) => {
+              if (role === "Vendor") {
+                return { vendors: state.vendors.filter((v) => v.id !== id) };
+              } else if (role === "Driver") {
+                return { drivers: state.drivers.filter((d) => d.id !== id) };
+              } else {
+                return { users: state.users.filter((u) => u.id !== id) };
+              }
+            });
+          }
+        } catch (error) {
+          console.error("Error deleting user:", error);
+        }
+      },
       updateVendorOnServer: async (id: string, updatedData: Partial<Vendor>) => {
         try {
           const response = await fetch(`${API_BASE_URL}/vendors/${id}`, {
@@ -729,6 +751,26 @@ export const useAdminStore = create<AdminState>()(
           }
         } catch (error) {
           console.error("Error updating profile:", error);
+        }
+      },
+      uploadImageOnServer: async (file: File): Promise<string | null> => {
+        try {
+          const formData = new FormData();
+          formData.append("image", file);
+          const response = await fetch(`${API_BASE_URL}/upload`, {
+            method: "POST",
+            body: formData,
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.url) {
+              return data.url;
+            }
+          }
+          return null;
+        } catch (error) {
+          console.error("Error uploading image:", error);
+          return null;
         }
       },
       admin: null,

@@ -24,6 +24,7 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
 
   const [step, setStep] = useState(1); // 1: Request OTP, 2: Verify OTP & Reset Password
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -51,13 +52,24 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
     };
   }, [countdown]);
 
+  const handleEmailChange = (val) => {
+    setEmail(val);
+    if (val === '') {
+      setEmailError('');
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      setEmailError('Please enter a valid email address');
+    } else {
+      setEmailError('');
+    }
+  };
+
   const handleSendOTP = async () => {
     setErrorMsg('');
     setSuccessMsg('');
     const cleanEmail = email.trim();
 
-    if (!cleanEmail) {
-      setErrorMsg('Please enter your email address');
+    if (!cleanEmail || emailError) {
+      setErrorMsg('Please enter a valid email address');
       return;
     }
 
@@ -215,174 +227,177 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => {
-              if (step === 2) {
-                setStep(1);
-                setErrorMsg('');
-                setSuccessMsg('');
-              } else {
-                navigation.goBack();
-              }
-            }}
-          >
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => {
+            if (step === 2) {
+              setStep(1);
+              setErrorMsg('');
+              setSuccessMsg('');
+            } else {
+              navigation.goBack();
+            }
+          }}
+        >
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
 
-          {step === 1 ? (
-            <>
-              <View style={styles.header}>
-                <View style={styles.iconCircle}>
-                  <Ionicons name="key-outline" size={32} color={Colors.primary} />
-                </View>
-                <Text style={styles.title}>Forgot password?</Text>
-                <Text style={styles.subtitle}>
-                  Enter your registered account email. We'll send you a 6-digit OTP verification code to reset your password.
-                </Text>
-              </View>
-
-              {errorMsg ? <View style={styles.errorBox}><Text style={styles.errorText}>{errorMsg}</Text></View> : null}
-              {successMsg ? <View style={styles.successBox}><Text style={styles.successText}>{successMsg}</Text></View> : null}
-
-              <View style={styles.form}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Email Address</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="you@email.com"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.button, (!email.trim() || loading) && { opacity: 0.6 }]}
-                  onPress={handleSendOTP}
-                  disabled={loading || !email.trim()}
-                >
-                  {loading ? (
-                    <AnimatedLoadingText text="Sending verification code" style={styles.buttonText} />
-                  ) : (
-                    <Text style={styles.buttonText}>Send OTP Code</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              <View style={styles.header}>
-                <View style={styles.iconCircle}>
-                  <Ionicons name="shield-checkmark-outline" size={32} color={Colors.primary} />
-                </View>
-                <Text style={styles.title}>Enter OTP & Reset</Text>
-                <Text style={styles.subtitle}>
-                  We sent a 6-digit code to <Text style={styles.emailHighlight}>{email}</Text>
-                </Text>
-                <TouchableOpacity onPress={() => setStep(1)} style={styles.changeEmailBtn}>
-                  <Text style={styles.changeEmailText}>Change email address</Text>
-                </TouchableOpacity>
-              </View>
-
-              {successMsg ? <View style={styles.successBox}><Text style={styles.successText}>{successMsg}</Text></View> : null}
-              {errorMsg ? <View style={styles.errorBox}><Text style={styles.errorText}>{errorMsg}</Text></View> : null}
-
-              <View style={styles.form}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>6-Digit Security Code</Text>
-                  <View style={styles.otpContainer}>
-                    {otpDigits.map((digit, idx) => (
-                      <TextInput
-                        key={idx}
-                        ref={(ref) => (digitInputs.current[idx] = ref)}
-                        style={[
-                          styles.otpCell,
-                          digit ? styles.otpCellFilled : null,
-                        ]}
-                        value={digit}
-                        onChangeText={(val) => handleDigitChange(val, idx)}
-                        onKeyPress={(e) => handleKeyPress(e, idx)}
-                        keyboardType="number-pad"
-                        maxLength={1}
-                        selectTextOnFocus
-                        textAlign="center"
-                      />
-                    ))}
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.mainContent}>
+            {step === 1 ? (
+              <>
+                <View style={styles.header}>
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="key-outline" size={32} color={Colors.primary} />
                   </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>New Password</Text>
-                  <View style={styles.passwordContainer}>
-                    <TextInput
-                      style={styles.passwordInput}
-                      value={newPassword}
-                      onChangeText={setNewPassword}
-                      placeholder="Minimum 6 characters"
-                      secureTextEntry={!showPassword}
-                    />
-                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                      <Ionicons
-                        name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                        size={20}
-                        color="#999"
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Confirm New Password</Text>
-                  <View style={styles.passwordContainer}>
-                    <TextInput
-                      style={styles.passwordInput}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      placeholder="Re-enter new password"
-                      secureTextEntry={!showConfirmPassword}
-                    />
-                    <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                      <Ionicons
-                        name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
-                        size={20}
-                        color="#999"
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.button, (!otpComplete || !newPassword.trim() || loading) && { opacity: 0.6 }]}
-                  onPress={handleResetPassword}
-                  disabled={loading || !otpComplete || !newPassword.trim()}
-                >
-                  {loading ? (
-                    <AnimatedLoadingText text="Updating password" style={styles.buttonText} />
-                  ) : (
-                    <Text style={styles.buttonText}>Reset Password</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.resendBtn}
-                  onPress={handleResendOTP}
-                  disabled={countdown > 0 || resending}
-                >
-                  <Text style={[styles.resendText, countdown > 0 && { color: '#94A3B8' }]}>
-                    {resending
-                      ? 'Resending code...'
-                      : countdown > 0
-                      ? `Resend code in ${countdown}s`
-                      : "Didn't receive code? Resend OTP"}
+                  <Text style={styles.title}>Forgot password?</Text>
+                  <Text style={styles.subtitle}>
+                    Enter your registered account email. We'll send you a 6-digit OTP verification code to reset your password.
                   </Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+                </View>
+
+                {errorMsg ? <View style={styles.errorBox}><Text style={styles.errorText}>{errorMsg}</Text></View> : null}
+                {successMsg ? <View style={styles.successBox}><Text style={styles.successText}>{successMsg}</Text></View> : null}
+
+                <View style={styles.form}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Email Address</Text>
+                    <TextInput
+                      style={[styles.input, emailError ? { borderColor: 'red' } : null]}
+                      value={email}
+                      onChangeText={handleEmailChange}
+                      placeholder="you@email.com"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    {emailError ? <Text style={styles.fieldErrorText}>{emailError}</Text> : null}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.button, (!email.trim() || !!emailError || loading) && { opacity: 0.6 }]}
+                    onPress={handleSendOTP}
+                    disabled={loading || !email.trim() || !!emailError}
+                  >
+                    {loading ? (
+                      <AnimatedLoadingText text="Sending verification code" style={styles.buttonText} />
+                    ) : (
+                      <Text style={styles.buttonText}>Send OTP Code</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.header}>
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="shield-checkmark-outline" size={32} color={Colors.primary} />
+                  </View>
+                  <Text style={styles.title}>Enter OTP & Reset</Text>
+                  <Text style={styles.subtitle}>
+                    We sent a 6-digit code to <Text style={styles.emailHighlight}>{email}</Text>
+                  </Text>
+                  <TouchableOpacity onPress={() => setStep(1)} style={styles.changeEmailBtn}>
+                    <Text style={styles.changeEmailText}>Change email address</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {successMsg ? <View style={styles.successBox}><Text style={styles.successText}>{successMsg}</Text></View> : null}
+                {errorMsg ? <View style={styles.errorBox}><Text style={styles.errorText}>{errorMsg}</Text></View> : null}
+
+                <View style={styles.form}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>6-Digit Security Code</Text>
+                    <View style={styles.otpContainer}>
+                      {otpDigits.map((digit, idx) => (
+                        <TextInput
+                          key={idx}
+                          ref={(ref) => (digitInputs.current[idx] = ref)}
+                          style={[
+                            styles.otpCell,
+                            digit ? styles.otpCellFilled : null,
+                          ]}
+                          value={digit}
+                          onChangeText={(val) => handleDigitChange(val, idx)}
+                          onKeyPress={(e) => handleKeyPress(e, idx)}
+                          keyboardType="number-pad"
+                          maxLength={1}
+                          selectTextOnFocus
+                          textAlign="center"
+                        />
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>New Password</Text>
+                    <View style={styles.passwordContainer}>
+                      <TextInput
+                        style={styles.passwordInput}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        placeholder="Minimum 6 characters"
+                        secureTextEntry={!showPassword}
+                      />
+                      <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                        <Ionicons
+                          name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                          size={20}
+                          color="#999"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Confirm New Password</Text>
+                    <View style={styles.passwordContainer}>
+                      <TextInput
+                        style={styles.passwordInput}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        placeholder="Re-enter new password"
+                        secureTextEntry={!showConfirmPassword}
+                      />
+                      <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                        <Ionicons
+                          name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
+                          size={20}
+                          color="#999"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.button, (!otpComplete || !newPassword.trim() || loading) && { opacity: 0.6 }]}
+                    onPress={handleResetPassword}
+                    disabled={loading || !otpComplete || !newPassword.trim()}
+                  >
+                    {loading ? (
+                      <AnimatedLoadingText text="Updating password" style={styles.buttonText} />
+                    ) : (
+                      <Text style={styles.buttonText}>Reset Password</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.resendBtn}
+                    onPress={handleResendOTP}
+                    disabled={countdown > 0 || resending}
+                  >
+                    <Text style={[styles.resendText, countdown > 0 && { color: '#94A3B8' }]}>
+                      {resending
+                        ? 'Resending code...'
+                        : countdown > 0
+                        ? `Resend code in ${countdown}s`
+                        : "Didn't receive code? Resend OTP"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -397,15 +412,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  scrollContent: {
     padding: 20,
     flexGrow: 1,
+    justifyContent: 'space-between',
+  },
+  mainContent: {
+    flex: 1,
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingBottom: 20,
   },
   backButton: {
     marginTop: 10,
-    marginBottom: 20,
+    marginLeft: 20,
+    marginBottom: 10,
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -424,17 +444,20 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
+    alignItems: 'center',
   },
   title: {
     fontSize: 26,
     fontWeight: '800',
     color: '#0F172A',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
     color: '#64748B',
     lineHeight: 22,
+    textAlign: 'center',
   },
   emailHighlight: {
     fontWeight: 'bold',
@@ -557,6 +580,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.primary,
     fontWeight: '600',
+  },
+  fieldErrorText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: 4,
   },
 });
 

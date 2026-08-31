@@ -295,47 +295,74 @@ const CustomerHomeScreen = ({ navigation }) => {
             showsHorizontalScrollIndicator={false} 
             contentContainerStyle={styles.bannerScroll}
           >
-            {/* Banner 1 */}
-            <View style={[styles.bannerCard, { width: bannerWidth }]}>
-              <View style={styles.bannerWrapper}>
-                <Image 
-                  source={{ uri: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1200&q=80' }} 
-                  style={styles.bannerFullImg} 
-                />
-                <View style={styles.bannerGradient}>
-                  <Text style={styles.bannerTitleFull}>Free delivery</Text>
-                  <Text style={styles.bannerSubFull}>On your first 3 orders this week</Text>
+            {banners && banners.length > 0 ? (
+              banners.map((item, index) => {
+                const gradients = [
+                  'rgba(0, 0, 0, 0.4)',
+                  'rgba(255, 30, 30, 0.4)',
+                  'rgba(39, 165, 114, 0.45)'
+                ];
+                const bgGradient = gradients[index % gradients.length];
+                return (
+                  <View key={item._id || index} style={[styles.bannerCard, { width: bannerWidth }]}>
+                    <View style={styles.bannerWrapper}>
+                      <Image 
+                        source={{ uri: item.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&q=80' }} 
+                        style={styles.bannerFullImg} 
+                      />
+                      <View style={[styles.bannerGradient, { backgroundColor: bgGradient }]}>
+                        <Text style={styles.bannerTitleFull}>{item.title}</Text>
+                        <Text style={styles.bannerSubFull}>{item.description}</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })
+            ) : (
+              <>
+                {/* Fallback Banner 1 */}
+                <View style={[styles.bannerCard, { width: bannerWidth }]}>
+                  <View style={styles.bannerWrapper}>
+                    <Image 
+                      source={{ uri: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1200&q=80' }} 
+                      style={styles.bannerFullImg} 
+                    />
+                    <View style={styles.bannerGradient}>
+                      <Text style={styles.bannerTitleFull}>Free delivery</Text>
+                      <Text style={styles.bannerSubFull}>On your first 3 orders this week</Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </View>
 
-            {/* Banner 2 */}
-            <View style={[styles.bannerCard, { width: bannerWidth }]}>
-              <View style={styles.bannerWrapper}>
-                <Image 
-                  source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&q=80' }} 
-                  style={styles.bannerFullImg} 
-                />
-                <View style={[styles.bannerGradient, { backgroundColor: 'rgba(255, 30, 30, 0.4)' }]}>
-                  <Text style={styles.bannerTitleFull}>50% Discount</Text>
-                  <Text style={styles.bannerSubFull}>Get huge discounts on your favorite meals</Text>
+                {/* Fallback Banner 2 */}
+                <View style={[styles.bannerCard, { width: bannerWidth }]}>
+                  <View style={styles.bannerWrapper}>
+                    <Image 
+                      source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&q=80' }} 
+                      style={styles.bannerFullImg} 
+                    />
+                    <View style={[styles.bannerGradient, { backgroundColor: 'rgba(255, 30, 30, 0.4)' }]}>
+                      <Text style={styles.bannerTitleFull}>50% Discount</Text>
+                      <Text style={styles.bannerSubFull}>Get huge discounts on your favorite meals</Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </View>
 
-            {/* Banner 3 */}
-            <View style={[styles.bannerCard, { width: bannerWidth }]}>
-              <View style={styles.bannerWrapper}>
-                <Image 
-                  source={{ uri: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=1200&q=80' }} 
-                  style={styles.bannerFullImg} 
-                />
-                <View style={[styles.bannerGradient, { backgroundColor: 'rgba(39, 165, 114, 0.45)' }]}>
-                  <Text style={styles.bannerTitleFull}>Daily Specials</Text>
-                  <Text style={styles.bannerSubFull}>Explore new tastes every day with our chef specials</Text>
+                {/* Fallback Banner 3 */}
+                <View style={[styles.bannerCard, { width: bannerWidth }]}>
+                  <View style={styles.bannerWrapper}>
+                    <Image 
+                      source={{ uri: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=1200&q=80' }} 
+                      style={styles.bannerFullImg} 
+                    />
+                    <View style={[styles.bannerGradient, { backgroundColor: 'rgba(39, 165, 114, 0.45)' }]}>
+                      <Text style={styles.bannerTitleFull}>Daily Specials</Text>
+                      <Text style={styles.bannerSubFull}>Explore new tastes every day with our chef specials</Text>
+                    </View>
+                  </View>
                 </View>
-              </View>
-            </View>
+              </>
+            )}
           </ScrollView>
 
           {/* Featured Vendors */}

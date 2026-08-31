@@ -1,0 +1,11 @@
+admin/
+admin-old/
+landing/
+server/
+.git/
+.gradle/
+.kotlin/
+node_modules/
+dist/
+web-build/
+.expo/

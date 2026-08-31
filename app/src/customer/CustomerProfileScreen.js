@@ -22,6 +22,7 @@ const CustomerProfileScreen = ({ navigation }) => {
   const [addressStreet, setAddressStreet] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
+  const [cvv, setCvv] = useState('');
   const [cardType, setCardType] = useState('Visa');
   const [savingAddress, setSavingAddress] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
@@ -31,6 +32,19 @@ const CustomerProfileScreen = ({ navigation }) => {
     const cleaned = val.replace(/\D/g, '').slice(0, 16);
     const formatted = cleaned.match(/.{1,4}/g)?.join(' ') || cleaned;
     setCardNumber(formatted);
+
+    // Auto-detect card type
+    if (cleaned.startsWith('4')) {
+      setCardType('Visa');
+    } else if (cleaned.startsWith('5') || cleaned.startsWith('2')) {
+      setCardType('Mastercard');
+    } else if (cleaned.startsWith('34') || cleaned.startsWith('37')) {
+      setCardType('Amex');
+    } else if (cleaned.startsWith('506') || cleaned.startsWith('507') || cleaned.startsWith('6500')) {
+      setCardType('Verve');
+    } else {
+      setCardType('Card');
+    }
   };
 
   const handleCardExpiryChange = (val) => {
@@ -46,6 +60,7 @@ const CustomerProfileScreen = ({ navigation }) => {
   const openPaymentModal = () => {
     setCardNumber('');
     setCardExpiry('');
+    setCvv('');
     setCardType('Visa');
     setPaymentModalVisible(true);
   };
@@ -53,6 +68,7 @@ const CustomerProfileScreen = ({ navigation }) => {
   const closePaymentModal = () => {
     setCardNumber('');
     setCardExpiry('');
+    setCvv('');
     setCardType('Visa');
     setPaymentModalVisible(false);
   };
@@ -506,7 +522,7 @@ const CustomerProfileScreen = ({ navigation }) => {
                 <Text style={styles.modalInputLabel}>Expiry Date</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="MM/YY (e.g. 12/28)"
+                  placeholder="MM/YY"
                   placeholderTextColor="#AAA"
                   keyboardType="number-pad"
                   maxLength={5}
@@ -515,16 +531,25 @@ const CustomerProfileScreen = ({ navigation }) => {
                 />
               </View>
               <View style={[styles.modalInputGroup, { flex: 1 }]}>
-                <Text style={styles.modalInputLabel}>Card Type</Text>
+                <Text style={styles.modalInputLabel}>CVV</Text>
                 <TextInput
                   style={styles.modalInput}
-                  placeholder="Visa / Mastercard"
+                  placeholder="123"
                   placeholderTextColor="#AAA"
-                  value={cardType}
-                  onChangeText={setCardType}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  secureTextEntry
+                  value={cvv}
+                  onChangeText={(v) => setCvv(v.replace(/\D/g, '').slice(0, 4))}
                 />
               </View>
             </View>
+
+            {cardNumber.replace(/\D/g, '').length > 0 && (
+              <Text style={{ fontSize: 13, color: '#666', marginBottom: 12, marginTop: -4, fontWeight: '500' }}>
+                Detected Card Type: <Text style={{ color: Colors.primary, fontWeight: '700' }}>{cardType}</Text>
+              </Text>
+            )}
 
             <TouchableOpacity 
               style={styles.saveModalBtn}
@@ -541,18 +566,33 @@ const CustomerProfileScreen = ({ navigation }) => {
                   return;
                 }
                 const expMonth = parseInt(cleanExpiry.slice(0, 2), 10);
+                const expYear = parseInt(cleanExpiry.slice(2), 10);
                 if (expMonth < 1 || expMonth > 12) {
                   Alert.alert('Error', 'Please enter a valid month (01 to 12).');
                   return;
                 }
+                
+                // Expiry year validation (must be current year or future)
+                const currentYear = parseInt(new Date().getFullYear().toString().slice(-2), 10);
+                const currentMonth = new Date().getMonth() + 1;
+                if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
+                  Alert.alert('Error', 'This card has already expired.');
+                  return;
+                }
+
+                if (cvv.length < 3 || cvv.length > 4) {
+                  Alert.alert('Error', 'Please enter a valid 3 or 4 digit CVV.');
+                  return;
+                }
+
                 const formattedExpiry = `${cleanExpiry.slice(0, 2)}/${cleanExpiry.slice(2)}`;
                 const last4Digits = cleanNum.slice(-4);
                 setSavingPayment(true);
                 try {
                   await savePaymentMethod({
-                    title: `${cardType || 'Card'} ● ● ● ● ${last4Digits}`,
+                    title: `${cardType} ● ● ● ● ${last4Digits}`,
                     last4: last4Digits,
-                    cardType: cardType || 'Visa',
+                    cardType: cardType,
                     expiry: formattedExpiry,
                     type: 'card'
                   });

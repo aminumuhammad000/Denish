@@ -1,13 +1,27 @@
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { Platform } from 'react-native';
 import { GOOGLE_CLIENT_IDS } from '../constants/Config';
 
-// Initialize the Google SDK
-GoogleSignin.configure({
-  webClientId: GOOGLE_CLIENT_IDS.webClientId,
-  iosClientId: GOOGLE_CLIENT_IDS.iosClientId,
-});
+let GoogleSignin = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    // Dynamically require to avoid crash on startup in Expo Go
+    GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+    
+    GoogleSignin.configure({
+      webClientId: GOOGLE_CLIENT_IDS.webClientId,
+      iosClientId: GOOGLE_CLIENT_IDS.iosClientId,
+    });
+  } catch (error) {
+    console.warn('GoogleSignin native module not found. This is expected if running in Expo Go.');
+  }
+}
 
 export const signInWithGoogle = async () => {
+  if (!GoogleSignin) {
+    throw new Error('Google Sign-In is not available in Expo Go. Please use a Development Build to use native Google login.');
+  }
+
   try {
     await GoogleSignin.hasPlayServices();
     const response = await GoogleSignin.signIn();
@@ -32,6 +46,7 @@ export const signInWithGoogle = async () => {
 };
 
 export const signOutWithGoogle = async () => {
+  if (!GoogleSignin) return;
   try {
     await GoogleSignin.signOut();
   } catch (error) {

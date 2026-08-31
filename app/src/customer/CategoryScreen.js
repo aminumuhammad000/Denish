@@ -72,9 +72,10 @@ const CategoryScreen = ({ navigation, route }) => {
     try {
       const res = await getRestaurants();
       if (res.success) {
-        setVendors(res.data || []);
+        const vendorList = res.data?.vendors || [];
+        setVendors(vendorList);
         if (category === 'Featured vendors') {
-          setItems((res.data || []).map(v => ({
+          setItems(vendorList.map(v => ({
             id: v._id,
             name: v.businessName || v.name,
             sub: v.category || 'Local dishes',
@@ -83,7 +84,7 @@ const CategoryScreen = ({ navigation, route }) => {
             vendorId: v._id
           })));
         } else {
-          const fetchedItems = res.items || [];
+          const fetchedItems = res.data?.items || [];
           const filtered = fetchedItems.filter(i => 
             category === 'Featured orders' ? true : i.category === category
           ).map(i => ({

@@ -32,7 +32,8 @@ const {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   getSystemContent,
-  updateSystemContent
+  updateSystemContent,
+  deleteUser
 } = require('../controllers/adminController');
 const { upload } = require('../config/cloudinary');
 const { getVendorMenuById } = require('../controllers/menuController');
@@ -56,6 +57,7 @@ router.get('/vendors/:vendorId/menu-items', getVendorMenuById);
 router.patch('/vendors/:id/status', updateVendorStatus);
 router.patch('/drivers/:id/status', updateDriverStatus);
 router.patch('/users/:id/status', updateUserStatus);
+router.delete('/users/:id', deleteUser);
 router.put('/dispute/:id', updateDisputeStatus);
 router.post('/transaction', addTransaction);
 router.put('/order/:id', updateOrder);

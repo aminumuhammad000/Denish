@@ -20,13 +20,8 @@ const ChatDetailScreen = ({ route, navigation }) => {
   const loadMessages = async () => {
     try {
       const res = role === 'Driver' ? await fetchDriverMessages(name) : await fetchMessages(name);
-      if (res.success && res.messages?.length > 0) {
-        setMessages(res.messages);
-      } else {
-        setMessages([
-          { id: '1', text: "I'm standing by the white gate.", time: "12:30 PM", sender: 'them' },
-          { id: '2', text: "Okay, I'm almost there in 2 minutes.", time: "12:31 PM", sender: 'me' },
-        ]);
+      if (res.success) {
+        setMessages(res.messages || []);
       }
     } catch (e) {
       console.error(e);

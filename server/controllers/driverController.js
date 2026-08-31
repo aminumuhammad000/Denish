@@ -1,13 +1,26 @@
 const Driver = require('../models/Driver');
 const axios = require('axios');
+const mongoose = require('mongoose');
 const { getFlutterwaveAuthHeader } = require('../utils/flutterwave');
+
+const getCurrentDriver = async (req) => {
+  const userId = req.headers['x-user-id'];
+  const userEmail = req.headers['x-user-email'];
+  if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+    const driver = await Driver.findById(userId);
+    if (driver) return driver;
+  }
+  if (userEmail) {
+    const driver = await Driver.findOne({ email: userEmail });
+    if (driver) return driver;
+  }
+  return await Driver.findOne();
+};
 
 // ─── GET Driver Profile ───────────────────────────────────────────────────────
 const getDriverProfile = async (req, res) => {
   try {
-    // In production: use req.user._id from JWT middleware.
-    // For now, find the first driver that exists (demo mode).
-    let driver = await Driver.findOne().select('-password -resetPasswordOTP -resetPasswordExpires');
+    let driver = await getCurrentDriver(req);
 
     if (!driver) {
       // Seed a demo driver so the screen never breaks
@@ -21,6 +34,12 @@ const getDriverProfile = async (req, res) => {
         bank: { name: 'GTBank', accountName: 'Bayo Adeyemi', accountNumber: '0123456789' },
         status: 'Active',
       });
+    } else {
+      // Remove sensitive fields
+      driver = driver.toObject();
+      delete driver.password;
+      delete driver.resetPasswordOTP;
+      delete driver.resetPasswordExpires;
     }
 
     res.status(200).json({ success: true, data: driver });
@@ -33,14 +52,15 @@ const getDriverProfile = async (req, res) => {
 // ─── UPDATE Driver Profile ────────────────────────────────────────────────────
 const updateDriverProfile = async (req, res) => {
   try {
-    let driver = await Driver.findOne();
+    let driver = await getCurrentDriver(req);
     if (!driver) return res.status(404).json({ success: false, error: 'Driver not found' });
 
-    const { name, email, phone, vehicle, bank } = req.body;
+    const { name, email, phone, vehicle, bank, profilePic } = req.body;
 
     if (name)   driver.name = name;
     if (email)  driver.email = email;
     if (phone)  driver.phone = phone;
+    if (profilePic) driver.profilePic = profilePic;
 
     if (vehicle) {
       driver.vehicle = {
@@ -77,7 +97,7 @@ const getDriverEarnings = async (req, res) => {
   try {
     const Order = require('../models/Order');
     const Transaction = require('../models/Transaction');
-    const driver = await Driver.findOne();
+    const driver = await getCurrentDriver(req);
     if (!driver) return res.status(404).json({ success: false, error: 'Driver not found' });
 
     // Fetch all delivered orders
@@ -372,7 +392,7 @@ const markAllDriverNotificationsRead = async (req, res) => {
 const getDriverChats = async (req, res) => {
   try {
     const Message = require('../models/Message');
-    let driver = await Driver.findOne();
+    let driver = await getCurrentDriver(req);
     const driverId = driver ? driver._id.toString() : 'driver-1';
     const driverName = driver ? driver.name : 'Bayo Adeyemi';
 
@@ -423,10 +443,13 @@ const getDriverMessages = async (req, res) => {
   try {
     const Message = require('../models/Message');
     const { recipientName } = req.query;
+    const driver = await getCurrentDriver(req);
+    const driverName = driver ? driver.name : 'Bayo Adeyemi';
+
     const messages = await Message.find({
       $or: [
-        { recipientName },
-        { senderName: recipientName }
+        { senderName: driverName, recipientName: recipientName },
+        { senderName: recipientName, recipientName: driverName }
       ]
     }).sort({ createdAt: 1 });
 
@@ -452,7 +475,7 @@ const sendDriverMessage = async (req, res) => {
   try {
     const Message = require('../models/Message');
     const { recipientName, text, imageUrl, type, subText } = req.body;
-    let driver = await Driver.findOne();
+    let driver = await getCurrentDriver(req);
 
     const newMsg = await Message.create({
       senderId: driver ? driver._id.toString() : 'driver-1',

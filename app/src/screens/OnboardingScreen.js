@@ -85,7 +85,7 @@ const OnboardingScreen = ({ navigation }) => {
         ref={ref}
         onMomentumScrollEnd={updateCurrentSlideIndex}
         data={SLIDES}
-        contentContainerStyle={{ minHeight: Math.max(380, height * 0.65) }}
+        style={{ flex: 1 }}
         horizontal
         showsHorizontalScrollIndicator={false}
         pagingEnabled
@@ -119,7 +119,7 @@ const OnboardingScreen = ({ navigation }) => {
             </Text>
           </TouchableOpacity>
           
-          {currentSlideIndex < SLIDES.length - 1 && (
+          {currentSlideIndex < SLIDES.length - 1 ? (
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={skip}
@@ -127,6 +127,10 @@ const OnboardingScreen = ({ navigation }) => {
             >
               <Text style={styles.skipBtnText}>Skip</Text>
             </TouchableOpacity>
+          ) : (
+            <View style={[styles.skipBtn, { opacity: 0 }]} pointerEvents="none">
+              <Text style={styles.skipBtnText}>Skip</Text>
+            </View>
           )}
         </View>
       </View>
@@ -140,6 +144,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
   },
   slide: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -199,7 +204,7 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginTop: 8,
-    marginBottom: 30,
+    marginBottom: 20,
   },
   btn: {
     backgroundColor: Colors.primary,
@@ -222,6 +227,7 @@ const styles = StyleSheet.create({
   skipBtn: {
     alignItems: 'center',
     paddingVertical: 10,
+    marginBottom: 20,
   },
   skipBtnText: {
     color: '#999',

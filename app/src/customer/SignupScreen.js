@@ -17,14 +17,26 @@ import { setAuthSession } from '../services/authStorage';
 const SignupScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const handleEmailChange = (val) => {
+    setEmail(val);
+    if (val === '') {
+      setEmailError('');
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      setEmailError('Please enter a valid email address');
+    } else {
+      setEmailError('');
+    }
+  };
+
   const handleSignup = async () => {
-    if (!name || !email || !phone || password.length < 6) return;
+    if (!name || !email || !phone || password.length < 6 || emailError) return;
     
     setLoading(true);
     setErrorMsg('');
@@ -52,96 +64,101 @@ const SignupScreen = ({ navigation }) => {
     }
   };
 
+  const isButtonDisabled = !name || !email || !phone || password.length < 6 || !!emailError;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
 
-          <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join Denish and start ordering today!</Text>
-          </View>
-
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="John Doe"
-                placeholderTextColor="#666"
-                value={name}
-                onChangeText={setName}
-              />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.mainContent}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Create Account</Text>
+              <Text style={styles.subtitle}>Join Denish and start ordering today!</Text>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email Address</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="example@mail.com"
-                placeholderTextColor="#666"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone Number</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="08012345678"
-                placeholderTextColor="#666"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.passwordContainer}>
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Full Name</Text>
                 <TextInput
-                  style={styles.passwordInput}
-                  placeholder="At least 6 characters"
+                  style={styles.input}
+                  placeholder="John Doe"
                   placeholderTextColor="#666"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
+                  value={name}
+                  onChangeText={setName}
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons 
-                    name={showPassword ? "eye" : "eye-off"} 
-                    size={22} 
-                    color="#999" 
-                  />
-                </TouchableOpacity>
               </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email Address</Text>
+                <TextInput
+                  style={[styles.input, emailError ? { borderColor: 'red' } : null]}
+                  placeholder="example@mail.com"
+                  placeholderTextColor="#666"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={handleEmailChange}
+                />
+                {emailError ? <Text style={styles.fieldErrorText}>{emailError}</Text> : null}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Phone Number</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="08012345678"
+                  placeholderTextColor="#666"
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={setPhone}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Password</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="At least 6 characters"
+                    placeholderTextColor="#666"
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Ionicons 
+                      name={showPassword ? "eye" : "eye-off"} 
+                      size={22} 
+                      color="#999" 
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+
+              <TouchableOpacity 
+                style={[styles.button, isButtonDisabled && styles.buttonDisabled]}
+                onPress={handleSignup}
+                disabled={loading || isButtonDisabled}
+              >
+                {loading ? (
+                  <AnimatedLoadingText text="Creating account" style={styles.buttonText} />
+                ) : (
+                  <Text style={styles.buttonText}>Sign Up</Text>
+                )}
+              </TouchableOpacity>
             </View>
-
-            {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
-
-            <TouchableOpacity 
-              style={[styles.button, (!name || !email || !phone || password.length < 6) && styles.buttonDisabled]}
-              onPress={handleSignup}
-              disabled={loading || !name || !email || !phone || password.length < 6}
-            >
-              {loading ? (
-                <AnimatedLoadingText text="Creating account" style={styles.buttonText} />
-              ) : (
-                <Text style={styles.buttonText}>Sign Up</Text>
-              )}
-            </TouchableOpacity>
           </View>
 
           <View style={styles.footer}>
@@ -162,11 +179,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   scrollContent: {
-    padding: 24,
-    paddingTop: 40,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    flexGrow: 1,
+    justifyContent: 'space-between',
+  },
+  mainContent: {
+    flex: 1,
+    justifyContent: 'center',
   },
   backButton: {
-    marginBottom: 30,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   header: {
     marginBottom: 32,
@@ -237,7 +262,9 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 30,
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginBottom: 20,
   },
   footerText: {
     color: '#666',
@@ -245,6 +272,11 @@ const styles = StyleSheet.create({
   linkText: {
     color: Colors.primary,
     fontWeight: 'bold',
+  },
+  fieldErrorText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: 4,
   },
 });
 

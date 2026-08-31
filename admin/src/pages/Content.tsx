@@ -159,6 +159,8 @@ function SystemContentEditor() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(false);
 
+  const apiBase = (import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api") + "/admin";
+
   useEffect(() => {
     fetchContent(selectedKey);
   }, [selectedKey]);
@@ -166,7 +168,7 @@ function SystemContentEditor() {
   const fetchContent = async (key: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:3000/api/admin/content/${key}`);
+      const res = await fetch(`${apiBase}/content/${key}`);
       const data = await res.json();
       if (data.success) {
         setTitle(data.data.title || "");
@@ -184,7 +186,7 @@ function SystemContentEditor() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`http://localhost:3000/api/admin/content/${selectedKey}`, {
+      await fetch(`${apiBase}/content/${selectedKey}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, content, contactEmail, contactPhone }),
@@ -345,23 +347,39 @@ export default function ContentManagementPage() {
   }, [storeBanners, storePromotions]);
 
   const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
+  const [bannerToDelete, setBannerToDelete] = useState<string | null>(null);
 
 
   const {
     addBannerOnServer,
     updateBannerOnServer,
+    deleteBannerOnServer,
+    uploadImageOnServer,
     addPromotionOnServer,
     updatePromotionOnServer,
   } = useAdminStore();
 
   const handleSaveBanner = async () => {
+    let imageUrl = "/images/free_delivery.png";
+    
+    // Upload file if new one is selected
+    if (selectedFile) {
+      const uploadedUrl = await uploadImageOnServer(selectedFile);
+      if (uploadedUrl) {
+        imageUrl = uploadedUrl;
+      }
+    } else if (editingBannerId) {
+      const existing = banners.find((b) => b.id === editingBannerId);
+      if (existing) imageUrl = existing.image;
+    }
+
     if (editingBannerId) {
       // Update existing banner
       const bannerData = {
         title: bannerTitle,
         description: bannerDescription,
         dateRange: startDate && endDate ? `${startDate} → ${endDate}` : undefined,
-        // image handled normally
+        image: imageUrl,
       };
       await updateBannerOnServer(editingBannerId, bannerData);
 
@@ -376,7 +394,7 @@ export default function ContentManagementPage() {
                 startDate && endDate
                   ? `${startDate} → ${endDate}`
                   : b.dateRange,
-              image: selectedFile ? URL.createObjectURL(selectedFile) : b.image,
+              image: imageUrl,
             };
           }
           return b;
@@ -384,11 +402,6 @@ export default function ContentManagementPage() {
       );
       setToastMessage("Banner Edited");
     } else {
-      // Create a temporary URL for the selected file if it exists
-      const imageUrl = selectedFile
-        ? URL.createObjectURL(selectedFile)
-        : "/images/free_delivery.png";
-
       const newBannerData = {
         title: bannerTitle || "New Banner",
         description: bannerDescription || "Description goes here...",
@@ -459,7 +472,7 @@ export default function ContentManagementPage() {
   };
 
   const handleDeleteBanner = (id: string) => {
-    setBanners(banners.filter((b) => b.id !== id));
+    setBannerToDelete(id);
   };
 
   const handleSavePromotion = async () => {
@@ -533,14 +546,19 @@ export default function ContentManagementPage() {
     setPromotions(promotions.filter((p) => p.id !== id));
   };
 
-  const handleToggleStatus = (id: string) => {
+  const handleToggleStatus = async (id: string) => {
+    const banner = banners.find((b) => b.id === id);
+    if (!banner) return;
+    const newStatus = banner.status === "active" ? "inactive" : "active";
+    
     setBanners(
       banners.map((b) =>
         b.id === id
-          ? { ...b, status: b.status === "active" ? "inactive" : "active" }
+          ? { ...b, status: newStatus }
           : b,
       ),
     );
+    await updateBannerOnServer(id, { status: newStatus });
   };
 
   return (
@@ -1125,6 +1143,51 @@ export default function ContentManagementPage() {
                     ? "Save Changes"
                     : "Create Promotion"}
               </button>
+            </div>
+          </div>
+        </div>
+      {/* Delete Confirmation Modal */}
+      {bannerToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-[400px] w-full p-6 shadow-xl border border-[#EAEAEA] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              {/* Alert Icon */}
+              <div className="w-[56px] h-[56px] bg-[#FEF2F2] rounded-full flex items-center justify-center text-[#EF4343]">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+
+              {/* Title & Desc */}
+              <div>
+                <h3 className="text-[18px] font-bold text-[#191C1C] mb-2">Delete Banner?</h3>
+                <p className="text-[14px] text-[#747475] leading-relaxed">
+                  Are you sure you want to delete this banner? This action cannot be undone and it will be removed from the mobile app immediately.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setBannerToDelete(null)}
+                  className="flex-1 h-[46px] border border-[#EAEAEA] rounded-[10px] text-[14px] font-bold text-[#747475] hover:bg-gray-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const id = bannerToDelete;
+                    setBannerToDelete(null);
+                    setBanners(banners.filter((b) => b.id !== id));
+                    await deleteBannerOnServer(id);
+                  }}
+                  className="flex-1 h-[46px] bg-[#EF4343] text-white rounded-[10px] text-[14px] font-bold hover:bg-[#D32F2F] transition-all"
+                >
+                  Yes, Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>
