@@ -168,7 +168,8 @@ const VendorEditProfileScreen = ({ route, navigation }) => {
                   updated[index] = { ...updated[index], hours: text };
                   setFormData(updated);
                 }}
-                placeholder="e.g. 08:00 - 17:00"
+                placeholder="HH:MM - HH:MM (e.g. 08:00 - 17:00) or Closed"
+                placeholderTextColor="#94A3B8"
               />
             </View>
           ))}

@@ -224,7 +224,7 @@ const VendorProfileScreen = ({ navigation }) => {
           ].map((item, idx, arr) => (
             <View key={item.label} style={[styles.detailRow, idx === arr.length - 1 && { borderBottomWidth: 0 }]}>
               <Text style={styles.detailLabel}>{item.label}</Text>
-              <Text style={styles.detailValue}>{item.value}</Text>
+              <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="tail">{item.value}</Text>
             </View>
           ))}
         </View>

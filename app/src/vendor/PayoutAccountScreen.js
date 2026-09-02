@@ -160,10 +160,16 @@ const PayoutAccountScreen = ({ navigation }) => {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Account name</Text>
             <View style={[styles.input, styles.disabledInput]}>
-              <Text style={[styles.inputText, !formData.accountName && { color: '#999' }]}>
+              <Text 
+                style={[styles.inputText, styles.accountNameText, !formData.accountName && { color: '#999' }]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {formData.accountName || 'Enter account number to verify...'}
               </Text>
-              {formData.accountName && <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />}
+              {formData.accountName ? (
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" style={styles.checkIcon} />
+              ) : null}
             </View>
           </View>
 
@@ -318,6 +324,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderColor: '#E9ECEF',
+    overflow: 'hidden',
+  },
+  accountNameText: {
+    flex: 1,
+    marginRight: 8,
+  },
+  checkIcon: {
+    flexShrink: 0,
   },
   modalOverlay: {
     flex: 1,

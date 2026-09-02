@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getVendorDashboard, updateVendorProfile, updateVendorOrderStatus, requestVendorPayout, getVendorTransactions } = require('../controllers/vendorController');
+const { 
+  getVendorDashboard, updateVendorProfile, updateVendorOrderStatus, 
+  requestVendorPayout, getVendorTransactions,
+  getVendorNotifications, markVendorNotificationRead, markAllVendorNotificationsRead 
+} = require('../controllers/vendorController');
 const { getVendorOrders } = require('../controllers/orderController');
 const { getVendorMenu, toggleMenuItem, addMenuItem, updateMenuItem } = require('../controllers/menuController');
 const { upload } = require('../config/cloudinary');
@@ -15,6 +19,11 @@ router.post('/menu', addMenuItem);
 router.put('/menu/:id', updateMenuItem);
 router.put('/menu/:id/toggle', toggleMenuItem);
 router.get('/transactions', getVendorTransactions);
+
+// Notification routes
+router.get('/notifications', getVendorNotifications);
+router.patch('/notifications/read-all', markAllVendorNotificationsRead);
+router.patch('/notifications/:id/read', markVendorNotificationRead);
 
 router.post('/upload-item-image', upload.single('image'), (req, res) => {
   try {

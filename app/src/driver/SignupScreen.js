@@ -115,16 +115,20 @@ const DriverSignupScreen = ({ navigation }) => {
                 <TextInput
                   style={styles.passwordInput}
                   placeholder="At least 6 characters"
-                  placeholderTextColor="#999"
+                  placeholderTextColor="#94A3B8"
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  autoComplete="password"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                   <Ionicons 
-                    name={showPassword ? "eye" : "eye-off"} 
+                    name={showPassword ? "eye-outline" : "eye-off-outline"} 
                     size={22} 
-                    color="#999" 
+                    color="#64748B" 
                   />
                 </TouchableOpacity>
               </View>

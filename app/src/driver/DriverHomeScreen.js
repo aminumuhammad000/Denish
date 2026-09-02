@@ -22,6 +22,7 @@ import {
   getDriverEarnings,
   updateOrderStatus,
   fetchIncomingCall,
+  getDriverNotifications,
 } from '../services/api';
 import { getAuthSession } from '../services/authStorage';
 
@@ -62,6 +63,7 @@ const DriverHomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [acceptingId, setAcceptingId] = useState(null);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
   React.useEffect(() => {
     let intervalId = null;
@@ -102,10 +104,11 @@ const DriverHomeScreen = ({ navigation }) => {
     else setLoading(true);
 
     try {
-      const [profRes, delRes, earnRes] = await Promise.allSettled([
+      const [profRes, delRes, earnRes, notifRes] = await Promise.allSettled([
         getDriverProfile(),
         getDriverDeliveries(),
         getDriverEarnings(),
+        getDriverNotifications(),
       ]);
 
       if (profRes.status === 'fulfilled' && profRes.value?.success) {
@@ -118,6 +121,13 @@ const DriverHomeScreen = ({ navigation }) => {
 
       if (earnRes.status === 'fulfilled' && earnRes.value?.success) {
         setEarnings(earnRes.value.data);
+      }
+
+      if (notifRes.status === 'fulfilled' && notifRes.value?.success && Array.isArray(notifRes.value.data)) {
+        const unread = notifRes.value.data.filter(n => !n.read).length;
+        setUnreadNotifCount(unread);
+      } else {
+        setUnreadNotifCount(0);
       }
     } catch (err) {
       console.error('Fetch dashboard error:', err);
@@ -233,7 +243,7 @@ const DriverHomeScreen = ({ navigation }) => {
                 onPress={() => navigation.navigate('Notifications')}
               >
                 <Ionicons name="notifications-outline" size={24} color="#FFF" />
-                <View style={styles.notifBadge} />
+                {unreadNotifCount > 0 && <View style={styles.notifBadge} />}
               </TouchableOpacity>
             </View>
 

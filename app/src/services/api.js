@@ -669,7 +669,90 @@ export const getDriverDeliveries = async () => {
   }
 };
 
-// ─── Driver Notifications ────────────────────────────────────────────────────
+// ─── Driver & App Notifications ──────────────────────────────────────────────
+
+export const getAppNotifications = async (preferredRole) => {
+  try {
+    let role = preferredRole;
+    if (!role) {
+      const session = await getAuthSession();
+      role = session?.role || 'driver';
+    }
+    let endpoint = '/driver/notifications';
+    if (role === 'customer') endpoint = '/customer/notifications';
+    else if (role === 'vendor') endpoint = '/vendor/notifications';
+
+    try {
+      const response = await api.get(endpoint);
+      if (response.data && response.data.success !== false) {
+        return response.data;
+      }
+    } catch (e) {
+      if (endpoint !== '/driver/notifications') {
+        const fallback = await api.get('/driver/notifications');
+        return fallback.data;
+      }
+    }
+    return { success: true, data: [] };
+  } catch (error) {
+    console.error('API getAppNotifications error:', error);
+    return { success: false, data: [] };
+  }
+};
+
+export const markAppNotificationRead = async (id, preferredRole) => {
+  try {
+    let role = preferredRole;
+    if (!role) {
+      const session = await getAuthSession();
+      role = session?.role || 'driver';
+    }
+    let endpoint = `/driver/notifications/${id}/read`;
+    if (role === 'customer') endpoint = `/customer/notifications/${id}/read`;
+    else if (role === 'vendor') endpoint = `/vendor/notifications/${id}/read`;
+
+    try {
+      const response = await api.patch(endpoint);
+      return response.data;
+    } catch (e) {
+      if (endpoint !== `/driver/notifications/${id}/read`) {
+        const fallback = await api.patch(`/driver/notifications/${id}/read`);
+        return fallback.data;
+      }
+    }
+    return { success: false };
+  } catch (error) {
+    console.error('API markAppNotificationRead error:', error);
+    return { success: false };
+  }
+};
+
+export const markAllAppNotificationsRead = async (preferredRole) => {
+  try {
+    let role = preferredRole;
+    if (!role) {
+      const session = await getAuthSession();
+      role = session?.role || 'driver';
+    }
+    let endpoint = '/driver/notifications/read-all';
+    if (role === 'customer') endpoint = '/customer/notifications/read-all';
+    else if (role === 'vendor') endpoint = '/vendor/notifications/read-all';
+
+    try {
+      const response = await api.patch(endpoint);
+      return response.data;
+    } catch (e) {
+      if (endpoint !== '/driver/notifications/read-all') {
+        const fallback = await api.patch('/driver/notifications/read-all');
+        return fallback.data;
+      }
+    }
+    return { success: false };
+  } catch (error) {
+    console.error('API markAllAppNotificationsRead error:', error);
+    return { success: false };
+  }
+};
 
 export const getDriverNotifications = async () => {
   try {
@@ -677,7 +760,7 @@ export const getDriverNotifications = async () => {
     return response.data;
   } catch (error) {
     console.error('API getDriverNotifications error:', error);
-    throw error;
+    return { success: false, data: [] };
   }
 };
 
@@ -687,7 +770,7 @@ export const markDriverNotificationRead = async (id) => {
     return response.data;
   } catch (error) {
     console.error('API markDriverNotificationRead error:', error);
-    throw error;
+    return { success: false };
   }
 };
 
@@ -697,7 +780,7 @@ export const markAllDriverNotificationsRead = async () => {
     return response.data;
   } catch (error) {
     console.error('API markAllDriverNotificationsRead error:', error);
-    throw error;
+    return { success: false };
   }
 };
 

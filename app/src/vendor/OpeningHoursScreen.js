@@ -9,6 +9,7 @@ import {
   Modal,
   FlatList,
   TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -89,10 +90,49 @@ const OpeningHoursScreen = ({ navigation }) => {
     setModalVisible(true);
   };
 
-  const handleCustomSubmit = () => {
-    if (customTime.length >= 4) {
-      selectTime(customTime);
+  const handleCustomTimeChange = (text) => {
+    // Allow user to delete backwards
+    if (text.length < customTime.length) {
+      setCustomTime(text);
+      return;
     }
+
+    // Keep only digits and colon
+    const cleaned = text.replace(/[^0-9:]/g, '');
+
+    // Auto-insert colon if typing without one (e.g. "083" -> "08:3" or "08" -> "08:")
+    if (cleaned.length === 2 && !cleaned.includes(':') && customTime.length < 2) {
+      setCustomTime(cleaned + ':');
+    } else if (cleaned.length === 3 && !cleaned.includes(':')) {
+      setCustomTime(cleaned.slice(0, 2) + ':' + cleaned.slice(2));
+    } else if (cleaned.length === 4 && !cleaned.includes(':')) {
+      setCustomTime(cleaned.slice(0, 2) + ':' + cleaned.slice(2));
+    } else {
+      setCustomTime(cleaned.slice(0, 5));
+    }
+  };
+
+  const handleCustomSubmit = () => {
+    let time = customTime.trim();
+    if (!time) return;
+
+    // If user typed 4 digits without colon (e.g. 0830), auto-format to 08:30
+    if (/^\d{4}$/.test(time)) {
+      time = `${time.slice(0, 2)}:${time.slice(2)}`;
+    }
+
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+    if (!timeRegex.test(time)) {
+      Alert.alert(
+        'Time Format',
+        'Please enter a valid time with a colon between numbers (e.g., 08:30 or 22:00).'
+      );
+      return;
+    }
+
+    const [h, m] = time.split(':');
+    const normalized = `${h.padStart(2, '0')}:${m}`;
+    selectTime(normalized);
   };
 
   const selectTime = (time) => {
@@ -163,13 +203,22 @@ const OpeningHoursScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
+            {/* Helpful instruction hint */}
+            <View style={styles.hintRow}>
+              <Ionicons name="information-circle-outline" size={15} color="#64748B" />
+              <Text style={styles.hintText}>
+                Enter time with a colon (e.g. 08:30) or pick below:
+              </Text>
+            </View>
+
             {/* Manual Entry */}
             <View style={styles.customEntryRow}>
               <TextInput
                 style={styles.customInput}
-                placeholder="Custom (e.g. 08:30)"
+                placeholder="08:30 (add colon : between numbers)"
+                placeholderTextColor="#94A3B8"
                 value={customTime}
-                onChangeText={setCustomTime}
+                onChangeText={handleCustomTimeChange}
                 maxLength={5}
                 keyboardType="numbers-and-punctuation"
               />
@@ -180,6 +229,10 @@ const OpeningHoursScreen = ({ navigation }) => {
               >
                 <Text style={styles.customAddBtnText}>Set</Text>
               </TouchableOpacity>
+            </View>
+
+            <View style={styles.listSectionHeader}>
+              <Text style={styles.listSectionTitle}>Or select a standard time</Text>
             </View>
 
             <FlatList
@@ -325,20 +378,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  hintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
   customEntryRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 12,
     alignItems: 'center',
   },
   customInput: {
     flex: 1,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#CCC',
+    borderColor: '#CBD5E1',
     borderRadius: 8,
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 14,
+    color: '#0F172A',
   },
   customAddBtn: {
     backgroundColor: Colors.primary,
@@ -349,6 +415,19 @@ const styles = StyleSheet.create({
   customAddBtnText: {
     color: '#FFF',
     fontWeight: 'bold',
+  },
+  listSectionHeader: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 4,
+  },
+  listSectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });
 

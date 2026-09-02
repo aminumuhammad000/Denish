@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
-import { getVendorDashboardData, updateVendorProfile, updateVendorOrderStatus, fetchIncomingCall } from '../../services/api';
+import { getVendorDashboardData, updateVendorProfile, updateVendorOrderStatus, fetchIncomingCall, getAppNotifications } from '../../services/api';
 import { getAuthSession } from '../../services/authStorage';
 
 const statusColor = { new: '#FF8C00', preparing: '#27AE60' };
@@ -20,6 +20,7 @@ const VendorHomeScreen = ({ navigation }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
   useEffect(() => {
     let intervalId = null;
@@ -58,10 +59,20 @@ const VendorHomeScreen = ({ navigation }) => {
   const fetchDashboard = useCallback(async (isRef = false) => {
     if (isRef) setRefreshing(true);
     try {
-      const response = await getVendorDashboardData();
-      if (response && response.success) {
-        setData(response.data);
-        setIsOpen(response.data.storeOpen);
+      const [dashRes, notifRes] = await Promise.allSettled([
+        getVendorDashboardData(),
+        getAppNotifications('vendor'),
+      ]);
+
+      if (dashRes.status === 'fulfilled' && dashRes.value && dashRes.value.success) {
+        setData(dashRes.value.data);
+        setIsOpen(dashRes.value.data.storeOpen);
+      }
+
+      if (notifRes.status === 'fulfilled' && notifRes.value?.success && Array.isArray(notifRes.value.data)) {
+        setUnreadNotifCount(notifRes.value.data.filter(n => !n.read).length);
+      } else {
+        setUnreadNotifCount(0);
       }
     } catch (err) {
       console.error(err);
@@ -190,6 +201,7 @@ const VendorHomeScreen = ({ navigation }) => {
                 onPress={() => navigation.navigate('Notifications')}
               >
                 <Ionicons name="notifications-outline" size={22} color="#fff" />
+                {unreadNotifCount > 0 && <View style={styles.notifBadge} />}
               </TouchableOpacity>
             </View>
 
@@ -435,6 +447,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#FF8C00',
   },
   storeCard: {
     backgroundColor: '#fff',

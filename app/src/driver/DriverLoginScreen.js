@@ -100,7 +100,10 @@ const DriverLoginScreen = ({ navigation }) => {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="driver@denish.com"
+                placeholderTextColor="#94A3B8"
+                keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 
@@ -116,14 +119,23 @@ const DriverLoginScreen = ({ navigation }) => {
                   style={styles.passwordInput}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="••••••"
+                  placeholder="Enter password"
+                  placeholderTextColor="#94A3B8"
                   secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  autoComplete="password"
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <TouchableOpacity 
+                  onPress={() => setShowPassword(!showPassword)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.eyeBtn}
+                >
                   <Ionicons 
-                    name={showPassword ? "eye" : "eye-off"} 
+                    name={showPassword ? "eye-outline" : "eye-off-outline"} 
                     size={20} 
-                    color="#999" 
+                    color="#64748B" 
                   />
                 </TouchableOpacity>
               </View>
@@ -201,6 +213,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
+    color: '#334155',
   },
   forgotPassword: {
     fontSize: 12,
@@ -210,24 +223,31 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: '#FAFBFB',
     borderWidth: 1,
-    borderColor: '#EEE',
+    borderColor: '#E2E8F0',
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
+    color: '#0F172A',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FAFBFB',
     borderWidth: 1,
-    borderColor: '#EEE',
+    borderColor: '#E2E8F0',
     borderRadius: 8,
-    paddingRight: 12,
+    paddingRight: 10,
   },
   passwordInput: {
     flex: 1,
     padding: 12,
     fontSize: 14,
+    color: '#0F172A',
+  },
+  eyeBtn: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorText: {
     color: '#FF3B30',

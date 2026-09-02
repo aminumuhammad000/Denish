@@ -18,7 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getRestaurants, getCustomerProfile, fetchIncomingCall } from '../services/api';
+import { getRestaurants, getCustomerProfile, fetchIncomingCall, getAppNotifications } from '../services/api';
 import { getAuthSession } from '../services/authStorage';
 import CustomerBottomTab from './components/CustomerBottomTab';
 import { useCart } from '../context/CartContext';
@@ -82,6 +82,20 @@ const CustomerHomeScreen = ({ navigation }) => {
   const { cartItems } = useCart();
   const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const [loading, setLoading] = useState(true);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+
+  const checkUnreadNotifs = useCallback(async () => {
+    try {
+      const res = await getAppNotifications('customer');
+      if (res?.success && Array.isArray(res.data)) {
+        setUnreadNotifCount(res.data.filter(n => !n.read).length);
+      } else {
+        setUnreadNotifCount(0);
+      }
+    } catch (e) {
+      setUnreadNotifCount(0);
+    }
+  }, []);
 
   React.useEffect(() => {
     let intervalId = null;
@@ -126,9 +140,10 @@ const CustomerHomeScreen = ({ navigation }) => {
           navigation.reset({ index: 0, routes: [{ name: 'RoleSelection' }] });
           return;
         }
+        checkUnreadNotifs();
       });
       return () => { isSubscribed = false; };
-    }, [navigation])
+    }, [navigation, checkUnreadNotifs])
   );
 
   React.useEffect(() => {
@@ -189,6 +204,7 @@ const CustomerHomeScreen = ({ navigation }) => {
               <View style={styles.headerActions}>
                 <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.roundBtn}>
                   <Ionicons name="notifications-outline" size={22} color="#FFF" />
+                  {unreadNotifCount > 0 && <View style={styles.notifBadge} />}
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigation.navigate('ChatList')} style={styles.roundBtn}>
                   <Ionicons name="chatbubble-ellipses-outline" size={22} color="#FFF" />
@@ -508,6 +524,17 @@ const styles = StyleSheet.create({
   roundBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
   badge: { position: 'absolute', top: 0, right: 0, backgroundColor: 'red', width: 14, height: 14, borderRadius: 7, justifyContent: 'center', alignItems: 'center' },
   badgeText: { color: '#FFF', fontSize: 9, fontWeight: 'bold' },
+  notifBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#FF7D01',
+  },
   
   searchBox: { 
     backgroundColor: '#FFF', 

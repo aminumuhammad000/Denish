@@ -599,6 +599,65 @@ const flutterwaveWebhook = async (req, res) => {
   }
 };
 
+// ─── GET Customer Notifications ──────────────────────────────────────────────
+const getCustomerNotifications = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const notifications = await Notification.find({
+      $or: [
+        { recipient: { $in: ['customer', 'all'] } },
+        { recipient: { $exists: false } },
+        { recipient: null }
+      ]
+    }).sort({ createdAt: -1 }).limit(50);
+
+    res.status(200).json({ success: true, data: notifications });
+  } catch (error) {
+    console.error('getCustomerNotifications error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── MARK Single Customer Notification as Read ───────────────────────────────
+const markCustomerNotificationRead = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const { id } = req.params;
+    const mongoose = require('mongoose');
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      await Notification.findByIdAndUpdate(id, { read: true });
+    } else {
+      await Notification.updateOne({ _id: id }, { read: true });
+    }
+    res.status(200).json({ success: true, message: 'Notification marked as read' });
+  } catch (error) {
+    console.error('markCustomerNotificationRead error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── MARK ALL Customer Notifications as Read ─────────────────────────────────
+const markAllCustomerNotificationsRead = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    await Notification.updateMany(
+      { 
+        $or: [
+          { recipient: { $in: ['customer', 'all'] } },
+          { recipient: { $exists: false } },
+          { recipient: null }
+        ],
+        read: false 
+      },
+      { read: true }
+    );
+    res.status(200).json({ success: true, message: 'All notifications marked as read' });
+  } catch (error) {
+    console.error('markAllCustomerNotificationsRead error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getRestaurants,
   getRestaurantDetails,
@@ -621,5 +680,8 @@ module.exports = {
   respondCall,
   initializeFlutterwavePayment,
   verifyFlutterwavePayment,
-  flutterwaveWebhook
+  flutterwaveWebhook,
+  getCustomerNotifications,
+  markCustomerNotificationRead,
+  markAllCustomerNotificationsRead
 };

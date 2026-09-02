@@ -179,7 +179,8 @@ const getDriverEarnings = async (req, res) => {
       weekEarned,
       monthEarned,
       weeklyData,
-      recentTransactions: allTxns
+      recentTransactions: allTxns,
+      bank: driver.bank || null,
     };
 
     res.status(200).json({ success: true, data: earningsData });
@@ -192,8 +193,6 @@ const getDriverEarnings = async (req, res) => {
 // ─── WITHDRAW Earnings ────────────────────────────────────────────────────────
 const withdrawEarnings = async (req, res) => {
   try {
-    const axios = require('axios');
-    const Transaction = require('../models/Transaction');
     const rawAmount = req.body.amount;
     const amount = typeof rawAmount === 'number' ? rawAmount : parseFloat(String(rawAmount || '').replace(/[^0-9.]/g, ''));
 
@@ -208,41 +207,20 @@ const withdrawEarnings = async (req, res) => {
       return res.status(400).json({ success: false, error: `Insufficient balance. Available: ₦${balance.toLocaleString()}` });
     }
 
-    const bankCode = driver.bank?.bankCode || driver.bank?.code || '044';
+    const { resolveBankCode, initiatePayoutTransfer } = require('../utils/payoutService');
+    const bankName = driver.bank?.name || 'GTBank';
     const accountNumber = driver.bank?.accountNumber || '0123456789';
-    const reference = `TRF_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const bankCode = resolveBankCode(bankName, driver.bank?.bankCode || driver.bank?.code);
+    const reference = `DRV_TRF_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
-    let flwTransferSuccess = false;
-    let flwMessage = 'Withdrawal initiated successfully';
-
-    try {
-      const authHeader = await getFlutterwaveAuthHeader();
-      const flwRes = await axios.post(
-        'https://api.flutterwave.com/v3/transfers',
-        {
-          account_bank: bankCode,
-          account_number: accountNumber,
-          amount: amount,
-          narration: `Denish Driver Payout to ${driver.name}`,
-          currency: 'NGN',
-          reference: reference,
-        },
-        {
-          headers: {
-            Authorization: authHeader,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (flwRes.data && (flwRes.data.status === 'success' || flwRes.data.status === 'NEW')) {
-        flwTransferSuccess = true;
-        flwMessage = flwRes.data.message || 'Flutterwave transfer initiated';
-      }
-    } catch (flwErr) {
-      console.error('Flutterwave transfer error:', flwErr.response?.data || flwErr.message);
-      flwMessage = flwErr.response?.data?.message || 'Transfer processed via local payout pipeline';
-    }
+    const flwTransfer = await initiatePayoutTransfer({
+      accountBank: bankCode,
+      accountNumber: accountNumber,
+      amount: amount,
+      narration: `Denish Driver Payout to ${driver.name}`,
+      reference: reference,
+      recipientName: driver.bank?.accountName || driver.name,
+    });
 
     // Deduct balance in DB
     const newBalance = Math.max(0, balance - amount);
@@ -254,21 +232,41 @@ const withdrawEarnings = async (req, res) => {
     await driver.save();
 
     // Create Transaction Log in MongoDB
-    await Transaction.create({
+    const Transaction = require('../models/Transaction');
+    const transaction = await Transaction.create({
       type: 'Driver Payout',
       from: 'Denish Platform Wallet',
-      to: `${driver.name} (${driver.bank?.name || 'Bank'} - ${accountNumber})`,
+      to: `${driver.name} (${bankName} - ${accountNumber})`,
       amount: amount,
       method: 'Bank Transfer',
-      status: 'Completed',
+      status: flwTransfer.status || 'Completed',
       reference: reference,
     });
 
+    // Create in-app Notification
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        title: 'Withdrawal Initiated 🎉',
+        message: `Your withdrawal of ₦${amount.toLocaleString()} to ${bankName} (${accountNumber}) has been submitted. Reference: ${reference}`,
+        type: 'payout',
+        recipient: 'driver',
+        read: false,
+      });
+    } catch (notifErr) {
+      console.warn('Driver payout notification notice:', notifErr.message);
+    }
+
     res.status(200).json({
       success: true,
-      message: `₦${amount.toLocaleString()} payout initiated to ${driver.bank?.name || 'Bank'} (${accountNumber}).`,
+      message: `₦${amount.toLocaleString()} payout initiated to ${bankName} (${accountNumber}).`,
       newBalance: driver.earnings.availableBalance,
       reference,
+      mode: flwTransfer.mode,
+      data: {
+        transaction,
+        availableBalance: newBalance,
+      }
     });
   } catch (error) {
     console.error('withdrawEarnings error:', error);
@@ -319,6 +317,7 @@ const getDriverDeliveries = async (req, res) => {
       _id: o._id.toString(),
       restaurant: o.vendorId?.businessName || o.vendorName || 'Spice Avenue',
       customer: o.customerName || 'Customer',
+      dropoffAddress: o.deliveryAddress || o.address || 'Customer Address',
       amount: o.deliveryFee || 850,
       totalAmount: o.totalAmount || o.total || 5700,
       date: new Date(o.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ', ' + new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

@@ -76,8 +76,8 @@ const RequestPayoutScreen = ({ navigation, route }) => {
             {/* Bank Info Box */}
             <View style={styles.bankBox}>
               <Text style={styles.bankLabel}>Payout to</Text>
-              <Text style={styles.bankName}>{bankName}</Text>
-              <Text style={styles.bankMeta}>{acctNum} | {acctName}</Text>
+              <Text style={styles.bankName} numberOfLines={1} ellipsizeMode="tail">{bankName}</Text>
+              <Text style={styles.bankMeta} numberOfLines={1} ellipsizeMode="tail">{acctNum} | {acctName}</Text>
             </View>
 
             {/* Amount */}
@@ -93,6 +93,24 @@ const RequestPayoutScreen = ({ navigation, route }) => {
               Available balance: N{availableBalance.toLocaleString()}
             </Text>
 
+            {/* Quick Select Chips */}
+            <View style={styles.quickSelect}>
+              {['5000', '10000', '50000', 'All'].map(val => (
+                <TouchableOpacity
+                  key={val}
+                  style={styles.chip}
+                  onPress={() => {
+                    if (val === 'All') setAmount(String(availableBalance || ''));
+                    else setAmount(val);
+                  }}
+                >
+                  <Text style={styles.chipText}>
+                    {val === 'All' ? 'All' : `₦${parseInt(val).toLocaleString()}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             {/* Confirm */}
             <TouchableOpacity
               style={[styles.confirmBtn, submitting && { opacity: 0.7 }]}
@@ -100,7 +118,7 @@ const RequestPayoutScreen = ({ navigation, route }) => {
               disabled={submitting}
             >
               <Text style={styles.confirmBtnText}>
-                {submitting ? 'Processing...' : 'Confirm'}
+                {submitting ? 'Processing Payout...' : 'Confirm Payout'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -163,7 +181,26 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     backgroundColor: '#FFF',
   },
-  balanceHint: { fontSize: 11, color: '#BBB', marginBottom: 24 },
+  balanceHint: { fontSize: 11, color: '#BBB', marginBottom: 16 },
+  quickSelect: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 24,
+  },
+  chip: {
+    flex: 1,
+    paddingVertical: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
 
   confirmBtn: {
     backgroundColor: '#FF8C00',

@@ -1,6 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { getRestaurants, getRestaurantDetails, placeOrder, getCustomerProfile, updateCustomerProfile, getCustomerOrders, search, addAddress, addPaymentMethod, deleteAddress, deletePaymentMethod, getOrderTracking, getChatThreads, getMessages, sendMessage, initiateCall, getIncomingCall, getCallStatus, respondCall, initializeFlutterwavePayment, verifyFlutterwavePayment, flutterwaveWebhook } = require('../controllers/customerController');
+const { 
+  getRestaurants, getRestaurantDetails, placeOrder, getCustomerProfile, 
+  updateCustomerProfile, getCustomerOrders, search, addAddress, 
+  addPaymentMethod, deleteAddress, deletePaymentMethod, getOrderTracking, 
+  getChatThreads, getMessages, sendMessage, initiateCall, getIncomingCall, 
+  getCallStatus, respondCall, initializeFlutterwavePayment, 
+  verifyFlutterwavePayment, flutterwaveWebhook,
+  getCustomerNotifications, markCustomerNotificationRead, markAllCustomerNotificationsRead
+} = require('../controllers/customerController');
 const { upload } = require('../config/cloudinary');
 
 router.get('/restaurants', getRestaurants);
@@ -15,6 +23,11 @@ router.post('/add-payment-method', addPaymentMethod);
 router.delete('/payment-method/:paymentId', deletePaymentMethod);
 router.get('/order/:id/tracking', getOrderTracking);
 router.get('/orders', getCustomerOrders);
+
+// Notification routes
+router.get('/notifications', getCustomerNotifications);
+router.patch('/notifications/read-all', markAllCustomerNotificationsRead);
+router.patch('/notifications/:id/read', markCustomerNotificationRead);
 
 router.get('/chats', getChatThreads);
 router.get('/messages', getMessages);

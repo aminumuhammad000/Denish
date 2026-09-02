@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,9 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/Colors';
 import {
-  getDriverNotifications,
-  markDriverNotificationRead,
-  markAllDriverNotificationsRead,
+  getAppNotifications,
+  markAppNotificationRead,
+  markAllAppNotificationsRead,
 } from '../services/api';
 
 // ─── Helper: relative time ────────────────────────────────────────────────────
@@ -91,12 +91,15 @@ const NotificationsScreen = ({ navigation }) => {
   const [refreshing, setRefreshing]     = useState(false);
   const [error, setError]               = useState('');
 
+  const unreadCountRef = useRef(0);
+  unreadCountRef.current = notifications.filter(n => !n.read).length;
+
   const fetchNotifications = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError('');
     try {
-      const res = await getDriverNotifications();
+      const res = await getAppNotifications();
       if (res?.success && Array.isArray(res.data)) {
         setNotifications(res.data);
       } else {
@@ -114,6 +117,15 @@ const NotificationsScreen = ({ navigation }) => {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  useEffect(() => {
+    return () => {
+      // When the user leaves the notifications screen, automatically mark unread as read
+      if (unreadCountRef.current > 0) {
+        markAllAppNotificationsRead().catch(() => {});
+      }
+    };
+  }, []);
+
   const handleMarkRead = async (item) => {
     const itemId = item._id || item.id;
     if (item.read || !itemId) return;
@@ -122,7 +134,7 @@ const NotificationsScreen = ({ navigation }) => {
       prev.map(n => (n._id === itemId || n.id === itemId) ? { ...n, read: true } : n)
     );
     try {
-      await markDriverNotificationRead(itemId);
+      await markAppNotificationRead(itemId);
     } catch (e) {
       // Revert on failure
       setNotifications(prev =>
@@ -137,7 +149,7 @@ const NotificationsScreen = ({ navigation }) => {
     // Optimistically update UI
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     try {
-      const res = await markAllDriverNotificationsRead();
+      const res = await markAllAppNotificationsRead();
       if (!res || !res.success) {
         throw new Error('Failed to mark all as read');
       }

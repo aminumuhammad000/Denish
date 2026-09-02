@@ -14,6 +14,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -64,7 +65,7 @@ const TransactionItem = ({ type, date, amount, status, isWithdrawal = false }) =
   );
 };
 
-const WithdrawModal = ({ visible, onClose, balance, onWithdraw }) => {
+const WithdrawModal = ({ visible, onClose, balance, bank, onWithdraw }) => {
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -100,7 +101,11 @@ const WithdrawModal = ({ visible, onClose, balance, onWithdraw }) => {
 
           <View style={styles.modalTitleContainer}>
             <Text style={styles.modalTitle}>Withdraw earnings</Text>
-            <Text style={styles.modalSubtitle}>Funds will be sent to GTBank 0219832185</Text>
+            <Text style={styles.modalSubtitle} numberOfLines={1} ellipsizeMode="tail">
+              {bank?.accountNumber 
+                ? `Funds will be sent to ${bank.name || 'Bank'} (${bank.accountNumber})`
+                : 'Funds will be sent to your registered payout account'}
+            </Text>
           </View>
 
           <View style={styles.modalContent}>
@@ -146,9 +151,11 @@ const DriverEarningsScreen = ({ navigation }) => {
   const [realEarnings, setRealEarnings] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
-    fetchEarnings();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchEarnings();
+    }, [])
+  );
 
   const fetchEarnings = async () => {
     try {
@@ -318,6 +325,7 @@ const DriverEarningsScreen = ({ navigation }) => {
         visible={modalVisible} 
         onClose={() => setModalVisible(false)} 
         balance={`₦${(realEarnings?.availableBalance || 0).toLocaleString()}`}
+        bank={realEarnings?.bank}
         onWithdraw={handleWithdrawSuccess}
       />
     </SafeAreaView>

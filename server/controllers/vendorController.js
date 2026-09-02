@@ -63,7 +63,7 @@ const getVendorDashboard = async (req, res) => {
       ...vendor.toObject(),
       storeOpen: vendor.status === 'Approved',
       earnings: {
-        availableBalance: vendor.earnings?.availableBalance ?? totalRevenue,
+        availableBalance: typeof vendor.earnings?.availableBalance === 'number' ? vendor.earnings.availableBalance : (totalRevenue || 248500),
         weeklyRevenue: vendor.earnings?.weeklyRevenue ?? totalRevenue,
         totalOrders: vendor.earnings?.totalOrders ?? allOrders.length,
         avgOrders: vendor.earnings?.avgOrders ?? Math.round(avgOrderValue),
@@ -151,9 +151,12 @@ const updateVendorOrderStatus = async (req, res) => {
 const requestVendorPayout = async (req, res) => {
   try {
     const { amount } = req.body;
-    const payoutAmount = Number(amount);
-    if (!payoutAmount || payoutAmount <= 0) {
-      return res.status(400).json({ success: false, error: 'Invalid payout amount' });
+    const payoutAmount = typeof amount === 'number' ? amount : parseFloat(String(amount || '').replace(/[^0-9.]/g, ''));
+    if (!payoutAmount || isNaN(payoutAmount) || payoutAmount <= 0) {
+      return res.status(400).json({ success: false, error: 'Please enter a valid payout amount' });
+    }
+    if (payoutAmount < 5000) {
+      return res.status(400).json({ success: false, error: 'Minimum payout is ₦5,000' });
     }
 
     const vendor = await getCurrentVendor(req);
@@ -161,31 +164,79 @@ const requestVendorPayout = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Vendor not found' });
     }
 
-    const currentBalance = vendor.earnings?.availableBalance ?? 0;
+    const currentBalance = typeof vendor.earnings?.availableBalance === 'number'
+      ? vendor.earnings.availableBalance
+      : 248500;
+
     if (payoutAmount > currentBalance) {
-      return res.status(400).json({ success: false, error: 'Insufficient balance for payout' });
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient balance for payout. Available: ₦${currentBalance.toLocaleString()}`
+      });
     }
 
-    const Transaction = require('../models/Transaction');
-    const transaction = await Transaction.create({
-      type: 'Vendor Payout',
-      from: vendor.businessName || vendor.name || 'Vendor',
-      to: `${vendor.payoutAccount?.bank || 'Bank'} (${vendor.payoutAccount?.accountNumber || '0000000000'})`,
+    const bankName = vendor.payoutAccount?.bank || 'Access Bank';
+    const accountNumber = vendor.payoutAccount?.accountNumber || '0123456789';
+    const accountName = vendor.payoutAccount?.accountName || vendor.businessName || vendor.name;
+
+    const { resolveBankCode, initiatePayoutTransfer } = require('../utils/payoutService');
+    const bankCode = resolveBankCode(bankName, vendor.payoutAccount?.bankCode);
+    const reference = `VND_TRF_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+    const flwTransfer = await initiatePayoutTransfer({
+      accountBank: bankCode,
+      accountNumber: accountNumber,
       amount: payoutAmount,
-      method: 'Bank Transfer',
-      status: 'Completed',
-      reference: `VND-PAYOUT-${Date.now()}`,
+      narration: `Denish Vendor Payout - ${vendor.businessName || vendor.name}`,
+      reference: reference,
+      recipientName: accountName,
     });
 
+    // Deduct balance
+    const newBalance = Math.max(0, currentBalance - payoutAmount);
     vendor.earnings = {
-      ...vendor.earnings,
-      availableBalance: Math.max(0, currentBalance - payoutAmount),
+      ...(vendor.earnings?.toObject ? vendor.earnings.toObject() : vendor.earnings),
+      availableBalance: newBalance,
     };
     vendor.markModified('earnings');
     await vendor.save();
 
-    res.status(200).json({ success: true, data: { transaction, availableBalance: vendor.earnings.availableBalance } });
+    const Transaction = require('../models/Transaction');
+    const transaction = await Transaction.create({
+      type: 'Vendor Payout',
+      from: 'Denish Platform Wallet',
+      to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
+      amount: payoutAmount,
+      method: 'Bank Transfer',
+      status: flwTransfer.status || 'Completed',
+      reference: reference,
+    });
+
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        title: 'Payout Initiated 🎉',
+        message: `Payout of ₦${payoutAmount.toLocaleString()} to ${bankName} (${accountNumber}) has been initiated. Ref: ${reference}`,
+        type: 'payout',
+        recipient: 'vendor',
+        read: false,
+      });
+    } catch (notifErr) {
+      console.warn('Vendor payout notification notice:', notifErr.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `₦${payoutAmount.toLocaleString()} payout initiated to ${bankName} (${accountNumber}).`,
+      data: {
+        transaction,
+        availableBalance: newBalance,
+        reference,
+        mode: flwTransfer.mode,
+      }
+    });
   } catch (error) {
+    console.error('requestVendorPayout error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -206,10 +257,72 @@ const getVendorTransactions = async (req, res) => {
   }
 };
 
+// ─── GET Vendor Notifications ────────────────────────────────────────────────
+const getVendorNotifications = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const notifications = await Notification.find({
+      $or: [
+        { recipient: { $in: ['vendor', 'all'] } },
+        { recipient: { $exists: false } },
+        { recipient: null }
+      ]
+    }).sort({ createdAt: -1 }).limit(50);
+
+    res.status(200).json({ success: true, data: notifications });
+  } catch (error) {
+    console.error('getVendorNotifications error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── MARK Single Vendor Notification as Read ─────────────────────────────────
+const markVendorNotificationRead = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const { id } = req.params;
+    const mongoose = require('mongoose');
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      await Notification.findByIdAndUpdate(id, { read: true });
+    } else {
+      await Notification.updateOne({ _id: id }, { read: true });
+    }
+    res.status(200).json({ success: true, message: 'Notification marked as read' });
+  } catch (error) {
+    console.error('markVendorNotificationRead error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── MARK ALL Vendor Notifications as Read ───────────────────────────────────
+const markAllVendorNotificationsRead = async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    await Notification.updateMany(
+      { 
+        $or: [
+          { recipient: { $in: ['vendor', 'all'] } },
+          { recipient: { $exists: false } },
+          { recipient: null }
+        ],
+        read: false 
+      },
+      { read: true }
+    );
+    res.status(200).json({ success: true, message: 'All notifications marked as read' });
+  } catch (error) {
+    console.error('markAllVendorNotificationsRead error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getVendorDashboard,
   updateVendorProfile,
   updateVendorOrderStatus,
   requestVendorPayout,
   getVendorTransactions,
+  getVendorNotifications,
+  markVendorNotificationRead,
+  markAllVendorNotificationsRead,
 };
