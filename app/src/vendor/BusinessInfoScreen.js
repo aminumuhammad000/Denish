@@ -32,8 +32,8 @@ const FOOD_CATEGORIES = [
 const BusinessInfoScreen = ({ navigation }) => {
   const { onboardingData, updateOnboardingData } = useOnboarding();
   const [formData, setFormData] = useState({
-    businessName: onboardingData.businessName || '',
-    category: onboardingData.category || '',
+    businessName: onboardingData.businessName || onboardingData.name || '',
+    category: onboardingData.category || 'Local Nigerian Dishes',
     phone: onboardingData.phone || '',
     email: onboardingData.email || '',
     address: onboardingData.address || '',

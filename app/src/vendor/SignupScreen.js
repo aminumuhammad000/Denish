@@ -15,8 +15,10 @@ import AnimatedLoadingText from '../components/AnimatedLoadingText';
 import { vendorSignup, googleAuthApi } from '../services/api';
 import { setAuthSession } from '../services/authStorage';
 import { signInWithGoogle } from '../services/googleAuth';
+import { useOnboarding } from '../context/OnboardingContext';
 
 const SignupScreen = ({ navigation }) => {
+  const { updateOnboardingData } = useOnboarding();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -37,11 +39,36 @@ const SignupScreen = ({ navigation }) => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const response = await vendorSignup(name, email, phone, password);
+      const response = await vendorSignup(name.trim(), email.trim(), phone.trim(), password);
       if (response && response.success) {
+        const vendorData = response.vendor || {
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          businessName: name.trim(),
+          category: 'Local dishes'
+        };
+
+        // Immediately save authenticated session so all subsequent API calls are tied to this new vendor
+        await setAuthSession({
+          role: 'vendor',
+          token: response.token,
+          vendor: vendorData,
+          screen: 'Step1'
+        });
+
+        // Seed onboarding context with vendor signup information
+        updateOnboardingData({
+          name: name.trim(),
+          businessName: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          category: 'Local dishes'
+        });
+
         navigation.navigate('Step1'); // Move to next wizard step
       } else {
-        setErrorMsg(response.error || 'Registration failed');
+        setErrorMsg(response?.error || 'Registration failed');
       }
     } catch (err) {
       const serverMsg = err.response?.data?.error;

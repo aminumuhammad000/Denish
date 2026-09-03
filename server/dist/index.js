@@ -356,33 +356,25 @@ var require_Vendor = __commonJS({
       phone: { type: String },
       password: { type: String },
       // In real app, hash this
-      businessName: { type: String },
+      businessName: { type: String, default: "" },
       category: { type: String, default: "Local dishes" },
-      address: { type: String, default: "14 Secretariat Avenue, Ikeja, Lagos" },
-      about: { type: String, default: "Authentic Nigerian home-style cooking made fresh daily." },
-      logoUrl: { type: String },
-      coverUrl: { type: String },
+      address: { type: String, default: "" },
+      about: { type: String, default: "" },
+      logoUrl: { type: String, default: "" },
+      coverUrl: { type: String, default: "" },
       openingHours: {
         type: Array,
-        default: [
-          { day: "Monday", hours: "0800 - 1700" },
-          { day: "Tuesday", hours: "0800 - 1700" },
-          { day: "Wednesday", hours: "0800 - 1700" },
-          { day: "Thursday", hours: "0800 - 1700" },
-          { day: "Friday", hours: "0800 - 1700" },
-          { day: "Saturday", hours: "Closed" },
-          { day: "Sunday", hours: "Closed" }
-        ]
+        default: []
       },
       payoutAccount: {
-        bank: { type: String, default: "Access Bank" },
-        bankCode: { type: String, default: "044" },
-        accountName: { type: String, default: "Mama's Kitchen Ltd" },
-        accountNumber: { type: String, default: "636363633663" }
+        bank: { type: String, default: "" },
+        bankCode: { type: String, default: "" },
+        accountName: { type: String, default: "" },
+        accountNumber: { type: String, default: "" }
       },
       deliveryLocations: {
         type: [String],
-        default: ["Victoria Island", "Ikoyi", "Lekki Phase 1", "Ajah"]
+        default: []
       },
       notifications: {
         newOrders: { type: Boolean, default: true },
@@ -784,6 +776,18 @@ var require_vendorController = __commonJS({
         const vendor = await Vendor.findOne({ email: userEmail });
         if (vendor) return vendor;
       }
+      if (req.body && req.body.email) {
+        const vendor = await Vendor.findOne({ email: req.body.email });
+        if (vendor) return vendor;
+      }
+      if (req.body && req.body.vendorId && mongoose.Types.ObjectId.isValid(req.body.vendorId)) {
+        const vendor = await Vendor.findById(req.body.vendorId);
+        if (vendor) return vendor;
+      }
+      if (req.query && req.query.email) {
+        const vendor = await Vendor.findOne({ email: req.query.email });
+        if (vendor) return vendor;
+      }
       return await Vendor.findOne();
     };
     var getVendorDashboard = async (req, res) => {
@@ -876,9 +880,18 @@ var require_vendorController = __commonJS({
         if (!vendor) {
           return res.status(404).json({ success: false, error: "Vendor not found" });
         }
+        if (req.body.openingHours && !Array.isArray(req.body.openingHours) && typeof req.body.openingHours === "object") {
+          req.body.openingHours = Object.keys(req.body.openingHours).map((day) => {
+            const h = req.body.openingHours[day];
+            return {
+              day,
+              hours: h?.isOpen ? `${h.openAt || "08:00"} - ${h.closeAt || "22:00"}` : "Closed"
+            };
+          });
+        }
         Object.assign(vendor, req.body);
         await vendor.save();
-        res.status(200).json({ success: true, data: vendor });
+        res.status(200).json({ success: true, data: vendor, vendor });
       } catch (error) {
         console.error("Error in updateVendorProfile:", error);
         res.status(500).json({ success: false, error: error.message });
@@ -1558,7 +1571,19 @@ var require_authController = __commonJS({
         if (existingPhone) {
           return res.status(400).json({ success: false, error: "Phone number already in use" });
         }
-        const vendor = await Vendor.create({ name, email, phone, password });
+        const vendor = await Vendor.create({
+          name,
+          email,
+          phone,
+          password,
+          businessName: name,
+          category: "Local dishes",
+          address: "",
+          about: "",
+          logoUrl: "",
+          coverUrl: "",
+          status: "Pending"
+        });
         sendWelcomeEmail(email, name).catch((err) => console.error("Error sending welcome email to vendor:", err));
         res.status(201).json({ success: true, token: "fake-jwt-token-for-" + vendor._id, vendor });
       } catch (error) {
@@ -2076,6 +2101,20 @@ var require_customerController = __commonJS({
       try {
         const customer = await getCurrentCustomer(req);
         if (!customer) return res.status(404).json({ success: false, error: "Customer not found" });
+        const expiry = req.body.expiry || req.body.sub && req.body.sub.replace(/Expires\s*/i, "");
+        if (expiry) {
+          const cleanExpiry = String(expiry).replace(/\D/g, "");
+          if (cleanExpiry.length === 4) {
+            const expMonth = parseInt(cleanExpiry.slice(0, 2), 10);
+            const expYear = parseInt(cleanExpiry.slice(2), 10);
+            const now = /* @__PURE__ */ new Date();
+            const currentYear = parseInt(now.getFullYear().toString().slice(-2), 10);
+            const currentMonth = now.getMonth() + 1;
+            if (expYear < currentYear || expYear === currentYear && expMonth < currentMonth) {
+              return res.status(400).json({ success: false, error: "This ATM card has expired and cannot be added." });
+            }
+          }
+        }
         customer.paymentMethods.push(req.body);
         await customer.save();
         res.status(200).json({ success: true, data: customer });

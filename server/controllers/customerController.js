@@ -174,6 +174,23 @@ const addPaymentMethod = async (req, res) => {
   try {
     const customer = await getCurrentCustomer(req);
     if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+    
+    // Validate card expiry
+    const expiry = req.body.expiry || (req.body.sub && req.body.sub.replace(/Expires\s*/i, ''));
+    if (expiry) {
+      const cleanExpiry = String(expiry).replace(/\D/g, '');
+      if (cleanExpiry.length === 4) {
+        const expMonth = parseInt(cleanExpiry.slice(0, 2), 10);
+        const expYear = parseInt(cleanExpiry.slice(2), 10);
+        const now = new Date();
+        const currentYear = parseInt(now.getFullYear().toString().slice(-2), 10);
+        const currentMonth = now.getMonth() + 1;
+        if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
+          return res.status(400).json({ success: false, error: 'This ATM card has expired and cannot be added.' });
+        }
+      }
+    }
+
     customer.paymentMethods.push(req.body);
     await customer.save();
     res.status(200).json({ success: true, data: customer });

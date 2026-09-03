@@ -42,7 +42,19 @@ const vendorSignup = async (req, res) => {
        return res.status(400).json({ success: false, error: 'Phone number already in use' });
     }
 
-    const vendor = await Vendor.create({ name, email, phone, password });
+    const vendor = await Vendor.create({ 
+      name, 
+      email, 
+      phone, 
+      password,
+      businessName: name,
+      category: 'Local dishes',
+      address: '',
+      about: '',
+      logoUrl: '',
+      coverUrl: '',
+      status: 'Pending'
+    });
     
     // Send welcome email in the background
     sendWelcomeEmail(email, name).catch(err => console.error('Error sending welcome email to vendor:', err));

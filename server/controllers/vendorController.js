@@ -13,6 +13,18 @@ const getCurrentVendor = async (req) => {
     const vendor = await Vendor.findOne({ email: userEmail });
     if (vendor) return vendor;
   }
+  if (req.body && req.body.email) {
+    const vendor = await Vendor.findOne({ email: req.body.email });
+    if (vendor) return vendor;
+  }
+  if (req.body && req.body.vendorId && mongoose.Types.ObjectId.isValid(req.body.vendorId)) {
+    const vendor = await Vendor.findById(req.body.vendorId);
+    if (vendor) return vendor;
+  }
+  if (req.query && req.query.email) {
+    const vendor = await Vendor.findOne({ email: req.query.email });
+    if (vendor) return vendor;
+  }
   return await Vendor.findOne();
 };
 
@@ -117,9 +129,20 @@ const updateVendorProfile = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Vendor not found' });
     }
 
+    // Format openingHours if it was submitted as an object map
+    if (req.body.openingHours && !Array.isArray(req.body.openingHours) && typeof req.body.openingHours === 'object') {
+      req.body.openingHours = Object.keys(req.body.openingHours).map(day => {
+        const h = req.body.openingHours[day];
+        return {
+          day,
+          hours: h?.isOpen ? `${h.openAt || '08:00'} - ${h.closeAt || '22:00'}` : 'Closed'
+        };
+      });
+    }
+
     Object.assign(vendor, req.body);
     await vendor.save();
-    res.status(200).json({ success: true, data: vendor });
+    res.status(200).json({ success: true, data: vendor, vendor });
   } catch (error) {
     console.error('Error in updateVendorProfile:', error);
     res.status(500).json({ success: false, error: error.message });

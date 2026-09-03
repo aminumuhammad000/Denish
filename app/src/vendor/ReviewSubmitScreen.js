@@ -13,6 +13,7 @@ import AnimatedLoadingText from '../components/AnimatedLoadingText';
 
 import { updateVendorProfile } from '../services/api';
 import { useOnboarding } from '../context/OnboardingContext';
+import { getAuthSession, setAuthSession } from '../services/authStorage';
 
 const SectionHeader = ({ title, navigation, target }) => (
   <View style={styles.sectionHeader}>
@@ -39,6 +40,16 @@ const ReviewSubmitScreen = ({ navigation }) => {
     setLoading(true);
     setErrorMsg('');
     try {
+      const formattedOpeningHours = Array.isArray(onboardingData.openingHours)
+        ? onboardingData.openingHours
+        : Object.keys(onboardingData.openingHours || {}).map(day => {
+            const h = onboardingData.openingHours[day];
+            return {
+              day,
+              hours: h?.isOpen ? `${h.openAt || '08:00'} - ${h.closeAt || '22:00'}` : 'Closed'
+            };
+          });
+
       // Send the actual collected data to the backend
       const response = await updateVendorProfile({
         email: onboardingData.email,
@@ -49,7 +60,7 @@ const ReviewSubmitScreen = ({ navigation }) => {
         about: onboardingData.about,
         logoUrl: onboardingData.logoUrl,
         coverUrl: onboardingData.coverUrl,
-        openingHours: onboardingData.openingHours,
+        openingHours: formattedOpeningHours,
         payoutAccount: {
           bank: onboardingData.bank,
           bankCode: onboardingData.bankCode,
@@ -58,9 +69,35 @@ const ReviewSubmitScreen = ({ navigation }) => {
         },
       });
       if (response && response.success) {
+        const savedVendor = response.data || response.vendor;
+        const currentSession = await getAuthSession();
+        if (currentSession) {
+          await setAuthSession({
+            ...currentSession,
+            vendor: savedVendor || {
+              ...currentSession.vendor,
+              businessName: onboardingData.businessName,
+              address: onboardingData.address,
+              phone: onboardingData.phone,
+              category: onboardingData.category,
+              about: onboardingData.about,
+              logoUrl: onboardingData.logoUrl,
+              coverUrl: onboardingData.coverUrl,
+              openingHours: formattedOpeningHours,
+              payoutAccount: {
+                bank: onboardingData.bank,
+                bankCode: onboardingData.bankCode,
+                accountName: onboardingData.accountName,
+                accountNumber: onboardingData.accountNumber,
+              }
+            },
+            screen: 'Dashboard'
+          });
+        }
+
         navigation.reset({
           index: 0,
-          routes: [{ name: 'Login' }],
+          routes: [{ name: 'Dashboard' }],
         });
       } else {
         setErrorMsg(response?.error || 'Failed to update profile');

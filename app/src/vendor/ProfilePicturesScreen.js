@@ -16,9 +16,13 @@ import { uploadVendorImages } from '../services/api';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
 import { useOnboarding } from '../context/OnboardingContext';
 
-const UploadBox = ({ label, height, image, onPress }) => (
+const DEFAULT_COVER = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80';
+const DEFAULT_LOGO = 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&q=80';
+
+const UploadBox = ({ label, hint, height, image, onPress }) => (
   <View style={styles.uploadContainer}>
     <Text style={styles.uploadLabel}>{label}</Text>
+    {hint ? <Text style={styles.uploadHint}>{hint}</Text> : null}
     <TouchableOpacity 
       style={[styles.dashBox, { height }, image && { borderStyle: 'solid', padding: 0, overflow: 'hidden' }]} 
       onPress={onPress}
@@ -28,7 +32,7 @@ const UploadBox = ({ label, height, image, onPress }) => (
       ) : (
         <>
           <Ionicons name="cloud-upload-outline" size={32} color={Colors.primary} />
-          <Text style={styles.uploadText}>Tap to upload (max 5MB)</Text>
+          <Text style={styles.uploadText}>Tap to upload photo (max 5MB)</Text>
         </>
       )}
       {image && (
@@ -51,41 +55,68 @@ const ProfilePicturesScreen = ({ navigation }) => {
       if (Platform.OS !== 'web') {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          alert('Sorry, we need camera roll permissions to make this work!');
+          // Non-blocking permission alert
         }
       }
     })();
   }, []);
 
   const pickImage = async (type) => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: type === 'cover' ? [16, 9] : [1, 1],
-      quality: 0.8,
-    });
+    try {
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: type === 'cover' ? [16, 9] : [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled) {
-      if (type === 'cover') setCoverImage(result.assets[0].uri);
-      else setProfileImage(result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        if (type === 'cover') setCoverImage(result.assets[0].uri);
+        else setProfileImage(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.warn('Image pick error:', e);
     }
+  };
+
+  const handleUseDefaults = () => {
+    setCoverImage(DEFAULT_COVER);
+    setProfileImage(DEFAULT_LOGO);
   };
 
   const handleContinue = async () => {
     setLoading(true);
     try {
-      const result = await uploadVendorImages(profileImage, coverImage);
-      if (result.success) {
-        updateOnboardingData({ 
-          logoUrl: result.logoUrl, 
-          coverUrl: result.coverUrl 
-        });
-        navigation.navigate('Step4');
-      } else {
-        alert('Upload failed: ' + (result.error || 'Unknown error'));
+      let finalCover = coverImage || DEFAULT_COVER;
+      let finalLogo = profileImage || DEFAULT_LOGO;
+
+      // Only upload if local file URI
+      const isLocalCover = finalCover && !finalCover.startsWith('http');
+      const isLocalLogo = finalLogo && !finalLogo.startsWith('http');
+
+      if (isLocalCover || isLocalLogo) {
+        const result = await uploadVendorImages(
+          isLocalLogo ? finalLogo : null, 
+          isLocalCover ? finalCover : null
+        );
+        if (result.success) {
+          if (result.logoUrl) finalLogo = result.logoUrl;
+          if (result.coverUrl) finalCover = result.coverUrl;
+        }
       }
+
+      updateOnboardingData({ 
+        logoUrl: finalLogo, 
+        coverUrl: finalCover 
+      });
+      navigation.navigate('Step4');
     } catch (error) {
-      alert('Network error during upload. Please check your connection.');
+      console.warn('Upload error, continuing with available images:', error);
+      updateOnboardingData({ 
+        logoUrl: profileImage || DEFAULT_LOGO, 
+        coverUrl: coverImage || DEFAULT_COVER 
+      });
+      navigation.navigate('Step4');
     } finally {
       setLoading(false);
     }
@@ -97,27 +128,39 @@ const ProfilePicturesScreen = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Upload cover and profile pictures</Text>
-          <Text style={styles.subtitle}>Clear photos help you stand out.</Text>
+          <Text style={styles.subtitle}>These photos represent your brand to hungry customers.</Text>
         </View>
 
         <UploadBox 
-          label="Cover picture" 
+          label="Cover picture (Storefront Banner)" 
+          hint="Wide header photo (16:9) displayed at the top of your restaurant page."
           height={160} 
           image={coverImage} 
           onPress={() => pickImage('cover')} 
         />
         <View style={{ height: 24 }} />
         <UploadBox 
-          label="Profile picture (Logo)" 
-          height={220} 
+          label="Profile picture (Business Logo)" 
+          hint="Square avatar (1:1) displayed in search results, orders, and restaurant listings."
+          height={200} 
           image={profileImage} 
           onPress={() => pickImage('profile')} 
         />
 
+        {(!coverImage || !profileImage) && (
+          <TouchableOpacity 
+            style={styles.defaultBtn} 
+            onPress={handleUseDefaults}
+          >
+            <Ionicons name="sparkles-outline" size={16} color={Colors.primary} />
+            <Text style={styles.defaultBtnText}>Use Default Food Brand Photos</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity 
-          style={[styles.button, (!coverImage || !profileImage || loading) && { opacity: 0.5 }]}
+          style={[styles.button, loading && { opacity: 0.7 }]}
           onPress={handleContinue}
-          disabled={!coverImage || !profileImage || loading}
+          disabled={loading}
         >
           {loading ? (
             <AnimatedLoadingText text="Uploading images" />
@@ -156,8 +199,31 @@ const styles = StyleSheet.create({
   },
   uploadLabel: {
     fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  uploadHint: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  defaultBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  defaultBtnText: {
+    color: Colors.primary,
     fontWeight: '600',
-    color: '#333',
+    fontSize: 14,
   },
   dashBox: {
     borderWidth: 1,

@@ -22,10 +22,30 @@ const CheckoutScreen = ({ navigation }) => {
   const [selectedPaymentId, setSelectedPaymentId] = useState('flutterwave');
   const [profile, setProfile] = useState(null);
   
+  const isCardExpired = (expiryStr) => {
+    if (!expiryStr) return false;
+    const cleanExpiry = String(expiryStr).replace(/\D/g, '');
+    if (cleanExpiry.length !== 4) return false;
+    const expMonth = parseInt(cleanExpiry.slice(0, 2), 10);
+    const expYear = parseInt(cleanExpiry.slice(2), 10);
+    if (isNaN(expMonth) || isNaN(expYear)) return false;
+    const now = new Date();
+    const currentYear = parseInt(now.getFullYear().toString().slice(-2), 10);
+    const currentMonth = now.getMonth() + 1;
+    return expYear < currentYear || (expYear === currentYear && expMonth < currentMonth);
+  };
+
+  const getCardBrand = (num) => {
+    const clean = num.replace(/\D/g, '');
+    if (clean.startsWith('4')) return 'Visa';
+    if (/^5[1-5]/.test(clean) || /^2[2-7]/.test(clean)) return 'Mastercard';
+    if (/^50[6-7]|^650/.test(clean)) return 'Verve';
+    return 'Card';
+  };
+
   const [addresses, setAddresses] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([
-    { id: 'flutterwave', type: 'card', title: 'Flutterwave Checkout (Card / Transfer / USSD)', sub: 'Pay securely via Flutterwave', icon: 'card-outline' },
-    { id: 'cash', type: 'cash', title: 'Cash on delivery', sub: 'Pay with cash upon delivery', icon: 'cash-outline' }
+    { id: 'flutterwave', type: 'card', title: 'Flutterwave Checkout (Card / Transfer / USSD)', sub: 'Pay securely via Flutterwave', icon: 'card-outline' }
   ]);
 
   // Modal States
@@ -78,16 +98,19 @@ const CheckoutScreen = ({ navigation }) => {
         if (addrList.length > 0) setSelectedAddressId(addrList[0].id || addrList[0]._id);
 
         const flwOption = { id: 'flutterwave', type: 'card', title: 'Flutterwave Checkout (Card / Transfer / USSD)', sub: 'Pay securely via Flutterwave', icon: 'card-outline' };
-        const cashOption = { id: 'cash', type: 'cash', title: 'Cash on delivery', sub: 'Pay with cash upon delivery', icon: 'cash-outline' };
 
         if (profileData.paymentMethods && profileData.paymentMethods.length > 0) {
           const remotePayments = profileData.paymentMethods.map(p => ({
             ...p,
-            id: p.id || p._id
+            id: p.id || p._id,
+            title: p.title || `${p.cardType || 'Card'} ●●●● ${p.last4 || '••••'}`,
+            sub: p.expiry ? `Expires ${p.expiry}` : (p.sub || 'Saved Card'),
+            expiry: p.expiry,
+            icon: 'card-outline'
           }));
-          setPaymentMethods([flwOption, ...remotePayments, cashOption]);
+          setPaymentMethods([flwOption, ...remotePayments]);
         } else {
-          setPaymentMethods([flwOption, cashOption]);
+          setPaymentMethods([flwOption]);
         }
       }
     } catch (err) {
@@ -107,37 +130,56 @@ const CheckoutScreen = ({ navigation }) => {
         setSelectedAddressId(newId);
         setAddressValue('');
       } else {
-        const { number, expiry } = cardDetails;
+        const { number, expiry, cvv } = cardDetails;
         const cleanNum = number.replace(/\D/g, '');
-        if (!cleanNum || cleanNum.length < 13 || cleanNum.length > 16) {
-          throw new Error('Please enter a valid card number (13 to 16 digits)');
+        if (!cleanNum || cleanNum.length < 13 || cleanNum.length > 19) {
+          throw new Error('Please enter a valid card number (13 to 19 digits)');
         }
         const cleanExpiry = expiry.replace(/\D/g, '');
         if (!cleanExpiry || cleanExpiry.length !== 4) {
           throw new Error('Please enter a valid expiry date (MM/YY)');
         }
-        const month = parseInt(cleanExpiry.slice(0, 2), 10);
-        if (month < 1 || month > 12) {
+        const expMonth = parseInt(cleanExpiry.slice(0, 2), 10);
+        const expYear = parseInt(cleanExpiry.slice(2), 10);
+        if (expMonth < 1 || expMonth > 12) {
           throw new Error('Please enter a valid month (01-12)');
         }
+        
+        // Strict card expiration validation
+        const now = new Date();
+        const currentYear = parseInt(now.getFullYear().toString().slice(-2), 10);
+        const currentMonth = now.getMonth() + 1;
+        if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
+          throw new Error('This ATM card has expired. Please use a valid, active card.');
+        }
+
+        const cleanCvv = cvv.replace(/\D/g, '');
+        if (!cleanCvv || cleanCvv.length < 3 || cleanCvv.length > 4) {
+          throw new Error('Please enter a valid 3 or 4 digit CVV');
+        }
+
         const formattedExpiry = `${cleanExpiry.slice(0, 2)}/${cleanExpiry.slice(2)}`;
         const last4 = cleanNum.slice(-4);
+        const cardBrand = getCardBrand(cleanNum);
         const newId = `card-${Date.now()}`;
         const newPay = { 
           id: newId, 
           type: 'card', 
-          title: `Visa ●●●● ${last4}`, 
+          cardType: cardBrand,
+          last4,
+          expiry: formattedExpiry,
+          title: `${cardBrand} ●●●● ${last4}`, 
           sub: `Expires ${formattedExpiry}`, 
           icon: 'card-outline' 
         };
         await savePaymentMethod(newPay);
-        setPaymentMethods([newPay, ...paymentMethods]);
+        setPaymentMethods(prev => [newPay, ...prev]);
         setSelectedPaymentId(newId);
         setCardDetails({ number: '', expiry: '', cvv: '' });
       }
       setShowModal(false);
     } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to save details');
+      Alert.alert('Card Error', err.message || 'Failed to save details');
     } finally {
       setModalLoading(false);
     }
@@ -150,8 +192,21 @@ const CheckoutScreen = ({ navigation }) => {
   const total = subtotal + deliveryFee + serviceFee;
 
   const handlePlaceOrder = async () => {
-    if (addresses.length === 0) {
-      Alert.alert('Error', 'Please add a delivery address first');
+    if (!cartItems || cartItems.length === 0) {
+      Alert.alert('Empty Cart', 'Please add items to your cart before placing an order');
+      return;
+    }
+
+    const selectedAddrObj = addresses.find(a => (a.id || a._id) === selectedAddressId) || addresses[0];
+    if (!selectedAddrObj || !selectedAddrObj.addr) {
+      Alert.alert('Address Required', 'Please add or select a delivery address first');
+      return;
+    }
+
+    // Check if the chosen payment method is an expired card
+    const selectedMethod = paymentMethods.find(m => (m.id || m._id) === selectedPaymentId);
+    if (selectedMethod && isCardExpired(selectedMethod.expiry || selectedMethod.sub)) {
+      Alert.alert('Card Expired', 'The selected card has expired. Please select another payment method or add a valid card.');
       return;
     }
     
@@ -172,23 +227,22 @@ const CheckoutScreen = ({ navigation }) => {
           };
         }),
         totalAmount: total,
-        deliveryAddress: addresses.find(a => (a.id || a._id) === selectedAddressId)?.addr || addresses[0]?.addr || 'Primary Address',
-        customerName: profile?.name || "Usman Umar",
+        deliveryAddress: selectedAddrObj.addr,
+        customerName: profile?.name || "Customer",
         customerPhone: profile?.phone || "08123456789"
       };
 
-      // Handle Live Flutterwave Online Checkout View
-      if (selectedPaymentId !== 'cash') {
+      // Handle Flutterwave Hosted Checkout
+      if (selectedPaymentId === 'flutterwave') {
         const flwRes = await initFlutterwaveCheckout({
           amount: total,
-          email: profile?.email || 'usman@denish.com',
-          name: profile?.name || 'Usman Umar',
+          email: profile?.email || 'customer@denishng.com',
+          name: profile?.name || 'Denish Customer',
           phone: profile?.phone || '08123456789',
-          orderId: 'ORD-005'
+          orderId: `ORD-${Math.floor(1000 + Math.random() * 9000)}`
         });
 
         if (flwRes.success && flwRes.data?.link) {
-          // Open live browser for customer to complete payment
           try {
             await WebBrowser.openBrowserAsync(flwRes.data.link);
           } catch (e) {
@@ -205,21 +259,26 @@ const CheckoutScreen = ({ navigation }) => {
         }
       }
 
+      // Place the verified order
       const res = await placeCustomerOrder(orderPayload);
-      if (res.success) {
+      if (res && res.success) {
         clearCart();
-        Alert.alert('Payment Successful 🎉', 'Your Flutterwave payment was verified and order placed successfully!', [
+        const createdOrderId = res.data?._id || res.data?.orderId || res.data?.id || 'ORD-NEW';
+        Alert.alert('Order Placed Successfully 🎉', 'Your payment was successful and your order has been confirmed!', [
           {
             text: 'Track Order',
-            onPress: () => navigation.navigate('TrackOrder', { orderId: res.data._id || res.data.orderId })
+            onPress: () => navigation.navigate('TrackOrder', { orderId: createdOrderId })
           }
         ]);
+        if (Platform.OS === 'web') {
+          navigation.navigate('TrackOrder', { orderId: createdOrderId });
+        }
       } else {
-        throw new Error(res.message || 'Failed to place order');
+        throw new Error(res?.message || res?.error || 'Failed to place order');
       }
     } catch (err) {
       console.error('Place order error:', err);
-      Alert.alert('Checkout Error', err.message || 'Something went wrong');
+      Alert.alert('Checkout Error', err.message || 'Something went wrong while placing order');
     } finally {
       setLoading(false);
     }
@@ -276,22 +335,43 @@ const CheckoutScreen = ({ navigation }) => {
           <Text style={styles.sectionLabel}>Payment method</Text>
         </View>
         <View style={styles.card}>
-          {paymentMethods.map((method) => (
-            <TouchableOpacity 
-              key={method.id || method._id}
-              style={[styles.payOption, selectedPaymentId === (method.id || method._id) && styles.selectedItem]}
-              onPress={() => setSelectedPaymentId(method.id || method._id)}
-            >
-              <Ionicons name={method.icon} size={20} color={Colors.primary} />
-              <View style={styles.payInfo}>
-                <Text style={styles.payTitle}>{method.title}</Text>
-                {method.sub ? <Text style={styles.paySub}>{method.sub}</Text> : null}
-              </View>
-              <View style={[styles.radio, selectedPaymentId === (method.id || method._id) && styles.radioActive]}>
-                {selectedPaymentId === (method.id || method._id) && <View style={styles.radioInner} />}
-              </View>
-            </TouchableOpacity>
-          ))}
+          {paymentMethods.map((method) => {
+            const methodId = method.id || method._id;
+            const expired = isCardExpired(method.expiry || method.sub);
+            return (
+              <TouchableOpacity 
+                key={methodId}
+                style={[
+                  styles.payOption, 
+                  selectedPaymentId === methodId && styles.selectedItem,
+                  expired && { opacity: 0.6, backgroundColor: '#FFF5F5' }
+                ]}
+                onPress={() => {
+                  if (expired) {
+                    Alert.alert('Card Expired', 'This card has expired and cannot be used. Please choose another payment method or add an active card.');
+                    return;
+                  }
+                  setSelectedPaymentId(methodId);
+                }}
+              >
+                <Ionicons name={method.icon} size={20} color={expired ? '#E53E3E' : Colors.primary} />
+                <View style={styles.payInfo}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[styles.payTitle, expired && { color: '#E53E3E' }]}>{method.title}</Text>
+                    {expired && (
+                      <View style={{ backgroundColor: '#FED7D7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 10, color: '#C53030', fontWeight: '700' }}>Expired</Text>
+                      </View>
+                    )}
+                  </View>
+                  {method.sub ? <Text style={[styles.paySub, expired && { color: '#E53E3E' }]}>{method.sub}</Text> : null}
+                </View>
+                <View style={[styles.radio, selectedPaymentId === methodId && styles.radioActive, expired && { borderColor: '#E2E8F0' }]}>
+                  {selectedPaymentId === methodId && !expired && <View style={styles.radioInner} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
           <TouchableOpacity style={styles.addBtn} onPress={() => { setCardDetails({ number: '', expiry: '', cvv: '' }); setModalType('payment'); setShowModal(true); }}>
             <Text style={styles.addBtnText}>+ Add new card</Text>
           </TouchableOpacity>

@@ -5,33 +5,25 @@ const vendorSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   phone: { type: String },
   password: { type: String }, // In real app, hash this
-  businessName: { type: String },
+  businessName: { type: String, default: '' },
   category: { type: String, default: 'Local dishes' },
-  address: { type: String, default: '14 Secretariat Avenue, Ikeja, Lagos' },
-  about: { type: String, default: 'Authentic Nigerian home-style cooking made fresh daily.' },
-  logoUrl: { type: String },
-  coverUrl: { type: String },
+  address: { type: String, default: '' },
+  about: { type: String, default: '' },
+  logoUrl: { type: String, default: '' },
+  coverUrl: { type: String, default: '' },
   openingHours: {
      type: Array,
-     default: [
-       { day: 'Monday', hours: '0800 - 1700' },
-       { day: 'Tuesday', hours: '0800 - 1700' },
-       { day: 'Wednesday', hours: '0800 - 1700' },
-       { day: 'Thursday', hours: '0800 - 1700' },
-       { day: 'Friday', hours: '0800 - 1700' },
-       { day: 'Saturday', hours: 'Closed' },
-       { day: 'Sunday', hours: 'Closed' },
-     ]
+     default: []
   },
   payoutAccount: {
-     bank: { type: String, default: 'Access Bank' },
-     bankCode: { type: String, default: '044' },
-     accountName: { type: String, default: "Mama's Kitchen Ltd" },
-     accountNumber: { type: String, default: '636363633663' }
+     bank: { type: String, default: '' },
+     bankCode: { type: String, default: '' },
+     accountName: { type: String, default: '' },
+     accountNumber: { type: String, default: '' }
   },
   deliveryLocations: {
      type: [String],
-     default: ['Victoria Island', 'Ikoyi', 'Lekki Phase 1', 'Ajah']
+     default: []
   },
   notifications: {
      newOrders: { type: Boolean, default: true },

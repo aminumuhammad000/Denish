@@ -228,8 +228,11 @@ const CustomerProfileScreen = ({ navigation }) => {
         </View>
         <View style={styles.card}>
           <View style={styles.paymentRow}>
-            <MaterialCommunityIcons name="cash" size={24} color="#333" />
-            <Text style={[styles.paymentName, { marginLeft: 15 }]}>Cash on delivery</Text>
+            <MaterialCommunityIcons name="credit-card-fast-outline" size={24} color="#FF8C00" />
+            <View style={{ flex: 1, marginLeft: 15 }}>
+              <Text style={styles.paymentName}>Flutterwave Checkout</Text>
+              <Text style={styles.paymentMeta}>Online Card, Bank Transfer & USSD</Text>
+            </View>
           </View>
           {profile?.paymentMethods && profile.paymentMethods.map((pay, index) => (
             <React.Fragment key={pay._id || index}>
@@ -576,7 +579,7 @@ const CustomerProfileScreen = ({ navigation }) => {
                 const currentYear = parseInt(new Date().getFullYear().toString().slice(-2), 10);
                 const currentMonth = new Date().getMonth() + 1;
                 if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
-                  Alert.alert('Error', 'This card has already expired.');
+                  Alert.alert('Card Expired', 'This ATM card has expired. Please use a valid, active card.');
                   return;
                 }
 
