@@ -33,7 +33,10 @@ const {
   markAllNotificationsAsRead,
   getSystemContent,
   updateSystemContent,
-  deleteUser
+  deleteUser,
+  getPayoutOverviewAdmin,
+  triggerNightlyVendorPayoutsAdmin,
+  triggerWeeklyRiderPayoutsAdmin
 } = require('../controllers/adminController');
 const { upload } = require('../config/cloudinary');
 const { getVendorMenuById } = require('../controllers/menuController');
@@ -64,6 +67,11 @@ router.put('/order/:id', updateOrder);
 
 router.get('/settings', getSettings);
 router.put('/settings', updateSettings);
+
+// Payout Management routes
+router.get('/payouts/status', getPayoutOverviewAdmin);
+router.post('/payouts/process-nightly-vendors', triggerNightlyVendorPayoutsAdmin);
+router.post('/payouts/process-weekly-riders', triggerWeeklyRiderPayoutsAdmin);
 
 router.get('/banners', getBanners);
 router.post('/banners', addBanner);

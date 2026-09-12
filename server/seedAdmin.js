@@ -80,9 +80,7 @@ channels including Cards, Bank Transfers, Digital Wallets, and Cash
 on Delivery (COD).
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
-Settlement Cycle: Payouts to Vendors and Riders are processed
-according to the designated settlement cycle (T+X schedule) directly
-to their designated bank accounts.
+Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.
 Fees: Delivery fees, service fees, and platform fees are calculated
 and displayed to users prior to order confirmation.
 

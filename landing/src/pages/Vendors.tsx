@@ -37,7 +37,7 @@ const vendorFeatures = [
   },
   {
     title: "Secure Payouts",
-    description: "Weekly settlements straight to your bank account. No surprises.",
+    description: "Nightly settlements straight to your bank account. No surprises.",
     icon: "/images/Everything_you_need_to_grow_online_Images/SecurePayouts.svg",
   },
 ];
@@ -74,7 +74,7 @@ const vendorTestimonials = [
     initials: "BH",
   },
   {
-    quote: "The dashboard gives us real-time insights we never had before. Managing orders is seamless, and the weekly settlements are a huge plus.",
+    quote: "The dashboard gives us real-time insights we never had before. Managing orders is seamless, and the nightly settlements are a huge plus.",
     name: "Mama's Kitchen",
     location: "Kano",
     initials: "MK",

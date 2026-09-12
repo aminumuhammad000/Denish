@@ -214,6 +214,39 @@ export default function PaymentsPage() {
             </div>
           </div>
 
+          {/* Automated Payout Schedules Status Banner */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-white p-4 rounded-[12px] border border-[#EAEAEA] shadow-sm">
+            <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#FFF9F2] border border-[#FFE7CC]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#FE7200]/10 flex items-center justify-center text-[20px]">
+                  🌙
+                </div>
+                <div>
+                  <h4 className="text-[14px] font-semibold text-[#191C1C]">Vendor Nightly Payouts</h4>
+                  <p className="text-[12px] text-[#747475]">Processed every night at 11:00 PM (WAT)</p>
+                </div>
+              </div>
+              <span className="text-[12px] font-bold text-[#FE7200] bg-white px-2.5 py-1 rounded-full border border-[#FFD9B3]">
+                Daily Nightly
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#F2FBF7] border border-[#D5F3E7]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#29A378]/10 flex items-center justify-center text-[20px]">
+                  🛵
+                </div>
+                <div>
+                  <h4 className="text-[14px] font-semibold text-[#191C1C]">Rider Weekly Payouts</h4>
+                  <p className="text-[12px] text-[#747475]">Processed Sundays at 11:59 PM (WAT)</p>
+                </div>
+              </div>
+              <span className="text-[12px] font-bold text-[#29A378] bg-white px-2.5 py-1 rounded-full border border-[#BDEBD7]">
+                Weekly
+              </span>
+            </div>
+          </div>
+
           {/* Filters */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full pb-1">
             {['All Transactions', 'Vendor Payouts', 'Driver Payouts'].map((tab) => (

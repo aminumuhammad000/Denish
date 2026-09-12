@@ -71,7 +71,7 @@ const RequestPayoutScreen = ({ navigation, route }) => {
 
             {/* Title */}
             <Text style={styles.title}>Request payout</Text>
-            <Text style={styles.subtitle}>Funds will be sent within 24h</Text>
+            <Text style={styles.subtitle}>Payouts automatically settle nightly at 11:00 PM</Text>
 
             {/* Bank Info Box */}
             <View style={styles.bankBox}>

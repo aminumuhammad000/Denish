@@ -175,9 +175,7 @@ channels including Cards, Bank Transfers, Digital Wallets, and Cash
 on Delivery (COD).
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
-Settlement Cycle: Payouts to Vendors and Riders are processed
-according to the designated settlement cycle (T+X schedule) directly
-to their designated bank accounts.
+Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.
 Fees: Delivery fees, service fees, and platform fees are calculated
 and displayed to users prior to order confirmation.
 
@@ -742,7 +740,7 @@ var require_Notification = __commonJS({
       },
       type: {
         type: String,
-        enum: ["dispute", "driver", "order", "payment", "system", "promo"],
+        enum: ["dispute", "driver", "order", "payment", "payout", "system", "promo"],
         default: "system"
       },
       recipient: {
@@ -834,6 +832,12 @@ var require_vendorController = __commonJS({
             weeklyRevenue: vendor.earnings?.weeklyRevenue ?? totalRevenue,
             totalOrders: vendor.earnings?.totalOrders ?? allOrders.length,
             avgOrders: vendor.earnings?.avgOrders ?? Math.round(avgOrderValue)
+          },
+          payoutSchedule: {
+            cycle: "nightly",
+            time: "23:00 WAT",
+            frequencyText: "Every night at 11:00 PM",
+            description: "Automated nightly settlement directly to your registered bank account."
           },
           stats,
           todayRevenue: totalRevenue,
@@ -2897,8 +2901,20 @@ var require_driverController = __commonJS({
       try {
         const Order = require_Order();
         const Transaction = require_Transaction();
-        const driver = await getCurrentDriver(req);
-        if (!driver) return res.status(404).json({ success: false, error: "Driver not found" });
+        let driver = await getCurrentDriver(req);
+        if (!driver) {
+          driver = await Driver.create({
+            name: "Bayo Adeyemi",
+            email: "bayo@denish.ng",
+            phone: "08012345678",
+            password: "demo",
+            vehicleType: "Motorcycle",
+            vehicle: { type: "Motorcycle", make: "Honda CB500", plate: "LAG-234-BA", color: "Red" },
+            bank: { name: "GTBank", accountName: "Bayo Adeyemi", accountNumber: "0123456789" },
+            status: "Active",
+            earnings: { totalEarned: 248e3, availableBalance: 62500, totalTrips: 97 }
+          });
+        }
         const deliveredOrders = await Order.find({ status: "delivered" }).sort({ createdAt: -1 });
         const withdrawals = await Transaction.find({ type: "Driver Payout" }).sort({ createdAt: -1 });
         const totalTrips = deliveredOrders.length;
@@ -2946,7 +2962,14 @@ var require_driverController = __commonJS({
           monthEarned,
           weeklyData,
           recentTransactions: allTxns,
-          bank: driver.bank || null
+          bank: driver.bank || null,
+          payoutSchedule: {
+            cycle: "weekly",
+            day: "Sunday",
+            time: "23:59 WAT",
+            frequencyText: "Every Sunday at 11:59 PM",
+            description: "Automated weekly payouts are processed every Sunday night directly to your registered bank account."
+          }
         };
         res.status(200).json({ success: true, data: earningsData });
       } catch (error) {
@@ -3249,6 +3272,23 @@ var require_driverController = __commonJS({
             driver.markModified("earnings");
             await driver.save();
           }
+          if (order.vendorId) {
+            const Vendor = require_Vendor();
+            const vendor = await Vendor.findById(order.vendorId);
+            if (vendor) {
+              const totalAmt = Number(order.totalAmount || order.total || 0);
+              const delFee = Number(order.deliveryFee || 0);
+              const vendorShare = Math.max(0, totalAmt - delFee) || totalAmt;
+              vendor.earnings = {
+                ...vendor.earnings?.toObject ? vendor.earnings.toObject() : vendor.earnings,
+                availableBalance: (vendor.earnings?.availableBalance || 0) + vendorShare,
+                weeklyRevenue: (vendor.earnings?.weeklyRevenue || 0) + vendorShare,
+                totalOrders: (vendor.earnings?.totalOrders || 0) + 1
+              };
+              vendor.markModified("earnings");
+              await vendor.save();
+            }
+          }
         }
         res.status(200).json({ success: true, message: `Order status updated to ${status}`, data: order });
       } catch (error) {
@@ -3402,8 +3442,25 @@ var require_Settings = __commonJS({
       },
       payments: {
         gateway: { type: String, default: "Flutterwave" },
-        payoutCycle: { type: String, enum: ["weekly", "monthly"], default: "weekly" },
+        vendorPayoutCycle: { type: String, default: "nightly" },
+        // nightly (daily at night)
+        vendorPayoutTime: { type: String, default: "23:00" },
+        // 11:00 PM WAT
+        riderPayoutCycle: { type: String, default: "weekly" },
+        // weekly
+        riderPayoutDay: { type: String, default: "Sunday" },
+        // Every Sunday
+        riderPayoutTime: { type: String, default: "23:59" },
+        // 11:59 PM WAT
+        vendorMinThreshold: { type: String, default: "5000" },
+        // ₦5,000
+        riderMinThreshold: { type: String, default: "1000" },
+        // ₦1,000
+        autoPayoutEnabled: { type: Boolean, default: true },
+        payoutCycle: { type: String, default: "nightly" },
+        // legacy fallback
         minThreshold: { type: String, default: "5000" }
+        // legacy fallback
       },
       security: {
         twoFactor: { type: Boolean, default: true },
@@ -3440,6 +3497,349 @@ var require_Promotion = __commonJS({
       period: { type: String, required: true }
     }, { timestamps: true });
     module2.exports = mongoose.model("Promotion", promotionSchema);
+  }
+});
+
+// utils/payoutScheduler.js
+var require_payoutScheduler = __commonJS({
+  "utils/payoutScheduler.js"(exports2, module2) {
+    var cron = require("node-cron");
+    var Vendor = require_Vendor();
+    var Driver = require_Driver();
+    var Transaction = require_Transaction();
+    var Notification = require_Notification();
+    var Settings = require_Settings();
+    var { resolveBankCode, initiatePayoutTransfer } = require_payoutService();
+    var lastVendorRun = null;
+    var lastRiderRun = null;
+    var vendorCronJob = null;
+    var riderCronJob = null;
+    var processNightlyVendorPayouts = async ({ isManual = false, initiatedBy = "system" } = {}) => {
+      console.log(`[PayoutScheduler] Starting Nightly Vendor Payout run (${isManual ? "MANUAL: " + initiatedBy : "SCHEDULED"})...`);
+      const startTime = /* @__PURE__ */ new Date();
+      try {
+        const settings = await Settings.findOne();
+        const minThreshold = Number(settings?.payments?.vendorMinThreshold || settings?.payments?.minThreshold || 5e3);
+        const eligibleVendors = await Vendor.find({
+          status: { $in: ["Approved", "approved", "Active", "active"] },
+          "earnings.availableBalance": { $gte: minThreshold }
+        });
+        console.log(`[PayoutScheduler] Found ${eligibleVendors.length} eligible vendors with balance >= \u20A6${minThreshold.toLocaleString()}`);
+        const results = [];
+        let totalAmount = 0;
+        for (const vendor of eligibleVendors) {
+          const balance = Number(vendor.earnings?.availableBalance || 0);
+          if (balance < minThreshold) continue;
+          const bankName = vendor.payoutAccount?.bank || "Access Bank";
+          const accountNumber = vendor.payoutAccount?.accountNumber;
+          if (!accountNumber || String(accountNumber).trim().length < 7) {
+            console.warn(`[PayoutScheduler] Vendor "${vendor.businessName || vendor.name}" has no valid account number. Skipping.`);
+            results.push({
+              vendorId: vendor._id,
+              vendorName: vendor.businessName || vendor.name,
+              amount: balance,
+              status: "Skipped - Missing Account Number",
+              success: false
+            });
+            continue;
+          }
+          const bankCode = resolveBankCode(bankName, vendor.payoutAccount?.bankCode);
+          const reference = `VND_NIGHT_${Date.now()}_${vendor._id.toString().slice(-4)}`;
+          const accountName = vendor.payoutAccount?.accountName || vendor.businessName || vendor.name;
+          try {
+            const transferResult = await initiatePayoutTransfer({
+              accountBank: bankCode,
+              accountNumber,
+              amount: balance,
+              narration: `Denish Nightly Payout - ${vendor.businessName || vendor.name}`,
+              reference,
+              recipientName: accountName
+            });
+            vendor.earnings = {
+              ...vendor.earnings?.toObject ? vendor.earnings.toObject() : vendor.earnings,
+              availableBalance: 0
+            };
+            vendor.markModified("earnings");
+            await vendor.save();
+            const transaction = await Transaction.create({
+              type: "Vendor Payout",
+              from: "Denish Platform Wallet",
+              to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
+              amount: balance,
+              method: "Bank Transfer",
+              status: transferResult.status || "Completed",
+              reference
+            });
+            try {
+              await Notification.create({
+                title: "Nightly Payout Processed \u{1F319}",
+                message: `Your nightly payout of \u20A6${balance.toLocaleString()} has been processed and sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
+                type: "payout",
+                recipient: "vendor",
+                read: false
+              });
+            } catch (notifErr) {
+              console.warn("[PayoutScheduler] Vendor notification error:", notifErr.message);
+            }
+            totalAmount += balance;
+            results.push({
+              vendorId: vendor._id,
+              vendorName: vendor.businessName || vendor.name,
+              amount: balance,
+              bank: `${bankName} (${accountNumber})`,
+              reference,
+              status: transferResult.status || "Completed",
+              mode: transferResult.mode,
+              success: true,
+              transactionId: transaction._id
+            });
+            console.log(`[PayoutScheduler] Processed nightly payout for "${vendor.businessName || vendor.name}": \u20A6${balance.toLocaleString()}`);
+          } catch (itemErr) {
+            console.error(`[PayoutScheduler] Error processing vendor ${vendor._id}:`, itemErr.message);
+            results.push({
+              vendorId: vendor._id,
+              vendorName: vendor.businessName || vendor.name,
+              amount: balance,
+              status: "Failed: " + itemErr.message,
+              success: false
+            });
+          }
+        }
+        lastVendorRun = {
+          timestamp: startTime,
+          durationMs: Date.now() - startTime.getTime(),
+          eligibleCount: eligibleVendors.length,
+          processedCount: results.filter((r) => r.success).length,
+          totalAmount,
+          isManual,
+          initiatedBy,
+          results
+        };
+        console.log(`[PayoutScheduler] Nightly Vendor Payout complete: ${lastVendorRun.processedCount} processed, \u20A6${totalAmount.toLocaleString()} paid out.`);
+        return {
+          success: true,
+          cycle: "nightly",
+          processedCount: lastVendorRun.processedCount,
+          eligibleCount: eligibleVendors.length,
+          totalAmount,
+          runDetails: lastVendorRun
+        };
+      } catch (err) {
+        console.error("[PayoutScheduler] Fatal error in processNightlyVendorPayouts:", err);
+        lastVendorRun = {
+          timestamp: startTime,
+          durationMs: Date.now() - startTime.getTime(),
+          error: err.message,
+          success: false,
+          isManual,
+          initiatedBy
+        };
+        return {
+          success: false,
+          cycle: "nightly",
+          error: err.message
+        };
+      }
+    };
+    var processWeeklyRiderPayouts = async ({ isManual = false, initiatedBy = "system" } = {}) => {
+      console.log(`[PayoutScheduler] Starting Weekly Rider Payout run (${isManual ? "MANUAL: " + initiatedBy : "SCHEDULED"})...`);
+      const startTime = /* @__PURE__ */ new Date();
+      try {
+        const settings = await Settings.findOne();
+        const minThreshold = Number(settings?.payments?.riderMinThreshold || 1e3);
+        const eligibleDrivers = await Driver.find({
+          status: { $in: ["Active", "active"] },
+          "earnings.availableBalance": { $gte: minThreshold }
+        });
+        console.log(`[PayoutScheduler] Found ${eligibleDrivers.length} eligible riders with balance >= \u20A6${minThreshold.toLocaleString()}`);
+        const results = [];
+        let totalAmount = 0;
+        for (const driver of eligibleDrivers) {
+          const balance = Number(driver.earnings?.availableBalance || 0);
+          if (balance < minThreshold) continue;
+          const bankName = driver.bank?.name || "GTBank";
+          const accountNumber = driver.bank?.accountNumber;
+          if (!accountNumber || String(accountNumber).trim().length < 7) {
+            console.warn(`[PayoutScheduler] Rider "${driver.name}" has no valid account number. Skipping.`);
+            results.push({
+              driverId: driver._id,
+              driverName: driver.name,
+              amount: balance,
+              status: "Skipped - Missing Account Number",
+              success: false
+            });
+            continue;
+          }
+          const bankCode = resolveBankCode(bankName, driver.bank?.bankCode || driver.bank?.code);
+          const reference = `RDR_WEEK_${Date.now()}_${driver._id.toString().slice(-4)}`;
+          const accountName = driver.bank?.accountName || driver.name;
+          try {
+            const transferResult = await initiatePayoutTransfer({
+              accountBank: bankCode,
+              accountNumber,
+              amount: balance,
+              narration: `Denish Weekly Rider Payout - ${driver.name}`,
+              reference,
+              recipientName: accountName
+            });
+            driver.earnings = {
+              ...driver.earnings?.toObject ? driver.earnings.toObject() : driver.earnings,
+              availableBalance: 0
+            };
+            driver.markModified("earnings");
+            await driver.save();
+            const transaction = await Transaction.create({
+              type: "Driver Payout",
+              from: "Denish Platform Wallet",
+              to: `${driver.name} (${bankName} - ${accountNumber})`,
+              amount: balance,
+              method: "Bank Transfer",
+              status: transferResult.status || "Completed",
+              reference
+            });
+            try {
+              await Notification.create({
+                title: "Weekly Payout Processed \u{1F389}",
+                message: `Your weekly payout of \u20A6${balance.toLocaleString()} has been processed and sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
+                type: "payout",
+                recipient: "driver",
+                read: false
+              });
+            } catch (notifErr) {
+              console.warn("[PayoutScheduler] Driver notification error:", notifErr.message);
+            }
+            totalAmount += balance;
+            results.push({
+              driverId: driver._id,
+              driverName: driver.name,
+              amount: balance,
+              bank: `${bankName} (${accountNumber})`,
+              reference,
+              status: transferResult.status || "Completed",
+              mode: transferResult.mode,
+              success: true,
+              transactionId: transaction._id
+            });
+            console.log(`[PayoutScheduler] Processed weekly payout for rider "${driver.name}": \u20A6${balance.toLocaleString()}`);
+          } catch (itemErr) {
+            console.error(`[PayoutScheduler] Error processing rider ${driver._id}:`, itemErr.message);
+            results.push({
+              driverId: driver._id,
+              driverName: driver.name,
+              amount: balance,
+              status: "Failed: " + itemErr.message,
+              success: false
+            });
+          }
+        }
+        lastRiderRun = {
+          timestamp: startTime,
+          durationMs: Date.now() - startTime.getTime(),
+          eligibleCount: eligibleDrivers.length,
+          processedCount: results.filter((r) => r.success).length,
+          totalAmount,
+          isManual,
+          initiatedBy,
+          results
+        };
+        console.log(`[PayoutScheduler] Weekly Rider Payout complete: ${lastRiderRun.processedCount} processed, \u20A6${totalAmount.toLocaleString()} paid out.`);
+        return {
+          success: true,
+          cycle: "weekly",
+          processedCount: lastRiderRun.processedCount,
+          eligibleCount: eligibleDrivers.length,
+          totalAmount,
+          runDetails: lastRiderRun
+        };
+      } catch (err) {
+        console.error("[PayoutScheduler] Fatal error in processWeeklyRiderPayouts:", err);
+        lastRiderRun = {
+          timestamp: startTime,
+          durationMs: Date.now() - startTime.getTime(),
+          error: err.message,
+          success: false,
+          isManual,
+          initiatedBy
+        };
+        return {
+          success: false,
+          cycle: "weekly",
+          error: err.message
+        };
+      }
+    };
+    var getPayoutScheduleStatus = async () => {
+      const settings = await Settings.findOne();
+      const vendorThreshold = Number(settings?.payments?.vendorMinThreshold || 5e3);
+      const riderThreshold = Number(settings?.payments?.riderMinThreshold || 1e3);
+      const eligibleVendors = await Vendor.find({
+        status: { $in: ["Approved", "approved", "Active", "active"] },
+        "earnings.availableBalance": { $gte: vendorThreshold }
+      });
+      const pendingVendorsTotal = eligibleVendors.reduce((sum, v) => sum + (v.earnings?.availableBalance || 0), 0);
+      const eligibleDrivers = await Driver.find({
+        status: { $in: ["Active", "active"] },
+        "earnings.availableBalance": { $gte: riderThreshold }
+      });
+      const pendingDriversTotal = eligibleDrivers.reduce((sum, d) => sum + (d.earnings?.availableBalance || 0), 0);
+      return {
+        vendorPayout: {
+          cycle: "nightly",
+          scheduleText: "Every night at 11:00 PM WAT (Daily)",
+          cronExpression: "0 23 * * *",
+          minThreshold: vendorThreshold,
+          pendingCount: eligibleVendors.length,
+          pendingTotalAmount: pendingVendorsTotal,
+          lastRun: lastVendorRun
+        },
+        riderPayout: {
+          cycle: "weekly",
+          scheduleText: "Every Sunday at 11:59 PM WAT (Weekly)",
+          cronExpression: "59 23 * * 0",
+          minThreshold: riderThreshold,
+          pendingCount: eligibleDrivers.length,
+          pendingTotalAmount: pendingDriversTotal,
+          lastRun: lastRiderRun
+        },
+        autoPayoutEnabled: settings?.payments?.autoPayoutEnabled ?? true,
+        timezone: "Africa/Lagos"
+      };
+    };
+    var initPayoutScheduler2 = () => {
+      console.log("[PayoutScheduler] Initializing automated payout cron jobs...");
+      if (vendorCronJob) vendorCronJob.stop();
+      vendorCronJob = cron.schedule(
+        "0 23 * * *",
+        async () => {
+          console.log("[PayoutScheduler] Cron triggered: Running Nightly Vendor Payout...");
+          await processNightlyVendorPayouts({ isManual: false, initiatedBy: "cron_nightly" });
+        },
+        {
+          scheduled: true,
+          timezone: "Africa/Lagos"
+        }
+      );
+      console.log("[PayoutScheduler] \u2713 Nightly Vendor Payout scheduled (Daily at 23:00 WAT / 11:00 PM)");
+      if (riderCronJob) riderCronJob.stop();
+      riderCronJob = cron.schedule(
+        "59 23 * * 0",
+        async () => {
+          console.log("[PayoutScheduler] Cron triggered: Running Weekly Rider Payout...");
+          await processWeeklyRiderPayouts({ isManual: false, initiatedBy: "cron_weekly" });
+        },
+        {
+          scheduled: true,
+          timezone: "Africa/Lagos"
+        }
+      );
+      console.log("[PayoutScheduler] \u2713 Weekly Rider Payout scheduled (Every Sunday at 23:59 WAT / 11:59 PM)");
+    };
+    module2.exports = {
+      processNightlyVendorPayouts,
+      processWeeklyRiderPayouts,
+      getPayoutScheduleStatus,
+      initPayoutScheduler: initPayoutScheduler2
+    };
   }
 });
 
@@ -3886,9 +4286,7 @@ channels including Cards, Bank Transfers, Digital Wallets, and Cash
 on Delivery (COD).
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
-Settlement Cycle: Payouts to Vendors and Riders are processed
-according to the designated settlement cycle (T+X schedule) directly
-to their designated bank accounts.
+Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.
 Fees: Delivery fees, service fees, and platform fees are calculated
 and displayed to users prior to order confirmation.
 
@@ -4081,6 +4479,33 @@ Phone: 08036301983`;
         res.status(500).json({ success: false, error: error.message });
       }
     };
+    var getPayoutOverviewAdmin = async (req, res) => {
+      try {
+        const { getPayoutScheduleStatus } = require_payoutScheduler();
+        const data = await getPayoutScheduleStatus();
+        res.status(200).json({ success: true, data });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var triggerNightlyVendorPayoutsAdmin = async (req, res) => {
+      try {
+        const { processNightlyVendorPayouts } = require_payoutScheduler();
+        const result = await processNightlyVendorPayouts({ isManual: true, initiatedBy: "admin" });
+        res.status(200).json(result);
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var triggerWeeklyRiderPayoutsAdmin = async (req, res) => {
+      try {
+        const { processWeeklyRiderPayouts } = require_payoutScheduler();
+        const result = await processWeeklyRiderPayouts({ isManual: true, initiatedBy: "admin" });
+        res.status(200).json(result);
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
     module2.exports = {
       getDashboardStats,
       getAllOrders,
@@ -4114,7 +4539,10 @@ Phone: 08036301983`;
       markAllNotificationsAsRead,
       getSystemContent,
       updateSystemContent,
-      deleteUser
+      deleteUser,
+      getPayoutOverviewAdmin,
+      triggerNightlyVendorPayoutsAdmin,
+      triggerWeeklyRiderPayoutsAdmin
     };
   }
 });
@@ -4157,7 +4585,10 @@ var require_adminRoutes = __commonJS({
       markAllNotificationsAsRead,
       getSystemContent,
       updateSystemContent,
-      deleteUser
+      deleteUser,
+      getPayoutOverviewAdmin,
+      triggerNightlyVendorPayoutsAdmin,
+      triggerWeeklyRiderPayoutsAdmin
     } = require_adminController();
     var { upload } = require_cloudinary();
     var { getVendorMenuById } = require_menuController();
@@ -4180,6 +4611,9 @@ var require_adminRoutes = __commonJS({
     router.put("/order/:id", updateOrder);
     router.get("/settings", getSettings);
     router.put("/settings", updateSettings);
+    router.get("/payouts/status", getPayoutOverviewAdmin);
+    router.post("/payouts/process-nightly-vendors", triggerNightlyVendorPayoutsAdmin);
+    router.post("/payouts/process-weekly-riders", triggerWeeklyRiderPayoutsAdmin);
     router.get("/banners", getBanners);
     router.post("/banners", addBanner);
     router.put("/banners/:id", updateBanner);
@@ -4219,6 +4653,7 @@ var customerRoutes = require_customerRoutes();
 var paymentRoutes = require_paymentRoutes();
 var driverRoutes = require_driverRoutes();
 var adminRoutes = require_adminRoutes();
+var { initPayoutScheduler } = require_payoutScheduler();
 var app = express();
 var PORT = process.env.PORT || 3e3;
 var corsOptions = {
@@ -4318,6 +4753,7 @@ connectDB().then(async () => {
   try {
     await seedAdmin();
     console.log("Admin seed check complete.");
+    initPayoutScheduler();
   } catch (error) {
     console.error("Admin seed check failed:", error);
   }

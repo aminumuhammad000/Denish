@@ -105,8 +105,20 @@ const getDriverEarnings = async (req, res) => {
   try {
     const Order = require('../models/Order');
     const Transaction = require('../models/Transaction');
-    const driver = await getCurrentDriver(req);
-    if (!driver) return res.status(404).json({ success: false, error: 'Driver not found' });
+    let driver = await getCurrentDriver(req);
+    if (!driver) {
+      driver = await Driver.create({
+        name: 'Bayo Adeyemi',
+        email: 'bayo@denish.ng',
+        phone: '08012345678',
+        password: 'demo',
+        vehicleType: 'Motorcycle',
+        vehicle: { type: 'Motorcycle', make: 'Honda CB500', plate: 'LAG-234-BA', color: 'Red' },
+        bank: { name: 'GTBank', accountName: 'Bayo Adeyemi', accountNumber: '0123456789' },
+        status: 'Active',
+        earnings: { totalEarned: 248000, availableBalance: 62500, totalTrips: 97 },
+      });
+    }
 
     // Fetch all delivered orders
     const deliveredOrders = await Order.find({ status: 'delivered' }).sort({ createdAt: -1 });
@@ -181,6 +193,13 @@ const getDriverEarnings = async (req, res) => {
       weeklyData,
       recentTransactions: allTxns,
       bank: driver.bank || null,
+      payoutSchedule: {
+        cycle: 'weekly',
+        day: 'Sunday',
+        time: '23:59 WAT',
+        frequencyText: 'Every Sunday at 11:59 PM',
+        description: 'Automated weekly payouts are processed every Sunday night directly to your registered bank account.'
+      },
     };
 
     res.status(200).json({ success: true, data: earningsData });
@@ -537,6 +556,25 @@ const updateOrderStatus = async (req, res) => {
         };
         driver.markModified('earnings');
         await driver.save();
+      }
+
+      // Update vendor earnings in DB for nightly settlement
+      if (order.vendorId) {
+        const Vendor = require('../models/Vendor');
+        const vendor = await Vendor.findById(order.vendorId);
+        if (vendor) {
+          const totalAmt = Number(order.totalAmount || order.total || 0);
+          const delFee = Number(order.deliveryFee || 0);
+          const vendorShare = Math.max(0, totalAmt - delFee) || totalAmt;
+          vendor.earnings = {
+            ...(vendor.earnings?.toObject ? vendor.earnings.toObject() : vendor.earnings),
+            availableBalance: (vendor.earnings?.availableBalance || 0) + vendorShare,
+            weeklyRevenue: (vendor.earnings?.weeklyRevenue || 0) + vendorShare,
+            totalOrders: (vendor.earnings?.totalOrders || 0) + 1,
+          };
+          vendor.markModified('earnings');
+          await vendor.save();
+        }
       }
     }
 

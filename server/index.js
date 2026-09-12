@@ -9,6 +9,7 @@ const customerRoutes = require('./routes/customerRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const { initPayoutScheduler } = require('./utils/payoutScheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -118,6 +119,7 @@ connectDB()
     try {
       await seedAdmin();
       console.log('Admin seed check complete.');
+      initPayoutScheduler();
     } catch (error) {
       console.error('Admin seed check failed:', error);
     }

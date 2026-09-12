@@ -472,9 +472,7 @@ channels including Cards, Bank Transfers, Digital Wallets, and Cash
 on Delivery (COD).
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
-Settlement Cycle: Payouts to Vendors and Riders are processed
-according to the designated settlement cycle (T+X schedule) directly
-to their designated bank accounts.
+Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.
 Fees: Delivery fees, service fees, and platform fees are calculated
 and displayed to users prior to order confirmation.
 
@@ -678,6 +676,37 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// ─── Payout Management ────────────────────────────────────────────────────────
+const getPayoutOverviewAdmin = async (req, res) => {
+  try {
+    const { getPayoutScheduleStatus } = require('../utils/payoutScheduler');
+    const data = await getPayoutScheduleStatus();
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const triggerNightlyVendorPayoutsAdmin = async (req, res) => {
+  try {
+    const { processNightlyVendorPayouts } = require('../utils/payoutScheduler');
+    const result = await processNightlyVendorPayouts({ isManual: true, initiatedBy: 'admin' });
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const triggerWeeklyRiderPayoutsAdmin = async (req, res) => {
+  try {
+    const { processWeeklyRiderPayouts } = require('../utils/payoutScheduler');
+    const result = await processWeeklyRiderPayouts({ isManual: true, initiatedBy: 'admin' });
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllOrders,
@@ -711,7 +740,10 @@ module.exports = {
   markAllNotificationsAsRead,
   getSystemContent,
   updateSystemContent,
-  deleteUser
+  deleteUser,
+  getPayoutOverviewAdmin,
+  triggerNightlyVendorPayoutsAdmin,
+  triggerWeeklyRiderPayoutsAdmin
 };
 
 

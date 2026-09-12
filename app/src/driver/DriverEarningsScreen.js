@@ -220,6 +220,12 @@ const DriverEarningsScreen = ({ navigation }) => {
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available balance</Text>
           <Text style={styles.balanceValue}>₦{(realEarnings?.availableBalance || 0).toLocaleString()}</Text>
+          <View style={styles.payoutScheduleRow}>
+            <Ionicons name="time-outline" size={14} color="#FFF" style={{ opacity: 0.9 }} />
+            <Text style={styles.payoutScheduleText}>
+              Weekly Payout: Every Sunday at 11:59 PM
+            </Text>
+          </View>
           <TouchableOpacity style={styles.withdrawBtn} onPress={() => setModalVisible(true)}>
             <Ionicons name="download-outline" size={20} color="#333" />
             <Text style={styles.withdrawText}>Withdraw</Text>
@@ -382,6 +388,22 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontWeight: 'bold',
     marginVertical: 15,
+  },
+  payoutScheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  payoutScheduleText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   withdrawBtn: {
     backgroundColor: '#FFF',

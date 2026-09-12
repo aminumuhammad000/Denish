@@ -36,7 +36,15 @@ interface NotificationsState {
 
 interface PaymentsState {
   gateway: string;
-  payoutCycle: "weekly" | "monthly";
+  vendorPayoutCycle: string;
+  vendorPayoutTime: string;
+  riderPayoutCycle: string;
+  riderPayoutDay: string;
+  riderPayoutTime: string;
+  vendorMinThreshold: string;
+  riderMinThreshold: string;
+  autoPayoutEnabled: boolean;
+  payoutCycle: "weekly" | "monthly" | "nightly";
   minThreshold: string;
 }
 
@@ -94,7 +102,15 @@ const initialSettings: SettingsState = {
   },
   payments: {
     gateway: "Flutterwave",
-    payoutCycle: "weekly",
+    vendorPayoutCycle: "nightly",
+    vendorPayoutTime: "23:00",
+    riderPayoutCycle: "weekly",
+    riderPayoutDay: "Sunday",
+    riderPayoutTime: "23:59",
+    vendorMinThreshold: "5000",
+    riderMinThreshold: "1000",
+    autoPayoutEnabled: true,
+    payoutCycle: "nightly",
     minThreshold: "5000",
   },
   security: {
@@ -237,8 +253,16 @@ const normalizeSettings = (serverSettings?: any): SettingsState => {
     },
     payments: {
       gateway: base.payments?.gateway || initialSettings.payments.gateway,
-      payoutCycle: base.payments?.payoutCycle === "monthly" ? "monthly" : "weekly",
-      minThreshold: String(base.payments?.minThreshold ?? initialSettings.payments.minThreshold),
+      vendorPayoutCycle: base.payments?.vendorPayoutCycle || "nightly",
+      vendorPayoutTime: base.payments?.vendorPayoutTime || "23:00",
+      riderPayoutCycle: base.payments?.riderPayoutCycle || "weekly",
+      riderPayoutDay: base.payments?.riderPayoutDay || "Sunday",
+      riderPayoutTime: base.payments?.riderPayoutTime || "23:59",
+      vendorMinThreshold: String(base.payments?.vendorMinThreshold ?? "5000"),
+      riderMinThreshold: String(base.payments?.riderMinThreshold ?? "1000"),
+      autoPayoutEnabled: base.payments?.autoPayoutEnabled !== false,
+      payoutCycle: base.payments?.payoutCycle === "monthly" ? "monthly" : (base.payments?.payoutCycle === "weekly" ? "weekly" : "nightly"),
+      minThreshold: String(base.payments?.minThreshold ?? "5000"),
     },
     security: {
       twoFactor: Boolean(base.security?.twoFactor ?? initialSettings.security.twoFactor),
@@ -364,9 +388,53 @@ export default function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [processingVendorPayout, setProcessingVendorPayout] = useState(false);
+  const [processingRiderPayout, setProcessingRiderPayout] = useState(false);
 
   const updateSettingsOnServer = useAdminStore((state) => state.updateSettingsOnServer);
   const updateProfileOnServer = useAdminStore((state) => state.updateProfileOnServer);
+
+  const handleTriggerVendorPayout = async () => {
+    setProcessingVendorPayout(true);
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api";
+      const res = await fetch(`${apiBase}/admin/payouts/process-nightly-vendors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Nightly vendor payouts processed! ${data.processedCount} vendor(s) paid (₦${(data.totalAmount || 0).toLocaleString()}).`);
+      } else {
+        toast.error(data.error || "Failed to process nightly vendor payouts");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to trigger vendor payout");
+    } finally {
+      setProcessingVendorPayout(false);
+    }
+  };
+
+  const handleTriggerRiderPayout = async () => {
+    setProcessingRiderPayout(true);
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api";
+      const res = await fetch(`${apiBase}/admin/payouts/process-weekly-riders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Weekly rider payouts processed! ${data.processedCount} rider(s) paid (₦${(data.totalAmount || 0).toLocaleString()}).`);
+      } else {
+        toast.error(data.error || "Failed to process weekly rider payouts");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to trigger rider payout");
+    } finally {
+      setProcessingRiderPayout(false);
+    }
+  };
 
   if (!isMounted) {
     return <AdminPageSkeleton />;
@@ -1117,46 +1185,105 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 max-w-[500px]">
-                <label className="text-[12px] text-[#191C1C]">
-                  Vendor payout cycle
-                </label>
-                <div className="flex w-full h-[48px] bg-[#F4F4F4] rounded-[8px] p-1">
-                  <button
-                    onClick={() =>
-                      handleUpdateDraft("payments", "payoutCycle", "weekly")
-                    }
-                    className={`flex-1 rounded-[6px] text-[14px] font-medium transition-all ${draftSettings.payments.payoutCycle === "weekly" ? "bg-white shadow-sm text-[#191C1C]" : "text-[#747475]"}`}
-                  >
-                    Weekly
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleUpdateDraft("payments", "payoutCycle", "monthly")
-                    }
-                    className={`flex-1 rounded-[6px] text-[14px] font-medium transition-all ${draftSettings.payments.payoutCycle === "monthly" ? "bg-white shadow-sm text-[#191C1C]" : "text-[#747475]"}`}
-                  >
-                    Monthly
-                  </button>
+              {/* Vendor Payout (Nightly) */}
+              <div className="flex flex-col gap-3 p-4 bg-[#FBFBFA] border border-[#EAEAEA] rounded-[10px] max-w-[650px]">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[18px]">🌙</span>
+                    <div>
+                      <h4 className="text-[14px] font-semibold text-[#191C1C]">Vendor Payout Schedule</h4>
+                      <p className="text-[12px] text-[#747475]">Processed automatically every night</p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 bg-[#FFF4E4] text-[#F9811F] text-[12px] font-semibold rounded-full border border-[#FFE2BF]">
+                    Nightly at 11:00 PM
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <label className="text-[12px] text-[#747475]">
+                      Vendor Minimum Threshold (₦)
+                    </label>
+                    <input
+                      type="text"
+                      value={draftSettings.payments.vendorMinThreshold || draftSettings.payments.minThreshold}
+                      onChange={(e) => {
+                        handleUpdateDraft("payments", "vendorMinThreshold", e.target.value);
+                        handleUpdateDraft("payments", "minThreshold", e.target.value);
+                      }}
+                      className="w-full h-[42px] border border-[#EAEAEA] rounded-[8px] px-3 text-[14px] text-[#191C1C] focus:outline-none bg-white"
+                      placeholder="5000"
+                    />
+                  </div>
+                  <div className="self-end sm:self-auto sm:pt-5">
+                    <button
+                      type="button"
+                      disabled={processingVendorPayout}
+                      onClick={handleTriggerVendorPayout}
+                      className="h-[42px] px-4 rounded-[8px] bg-[#FE7200] hover:bg-[#e06500] text-white text-[13px] font-medium transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                    >
+                      {processingVendorPayout ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        "Process Nightly Payout Now"
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 max-w-[500px]">
-                <label className="text-[12px] text-[#191C1C]">
-                  Minimum payout threshold (₦)
-                </label>
-                <input
-                  type="text"
-                  value={draftSettings.payments.minThreshold}
-                  onChange={(e) =>
-                    handleUpdateDraft(
-                      "payments",
-                      "minThreshold",
-                      e.target.value,
-                    )
-                  }
-                  className="w-full h-[48px] border border-[#EAEAEA] rounded-[8px] px-4 text-[14px] text-[#191C1C] focus:outline-none"
-                />
+              {/* Rider Payout (Weekly) */}
+              <div className="flex flex-col gap-3 p-4 bg-[#FBFBFA] border border-[#EAEAEA] rounded-[10px] max-w-[650px]">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[18px]">🛵</span>
+                    <div>
+                      <h4 className="text-[14px] font-semibold text-[#191C1C]">Rider Payout Schedule</h4>
+                      <p className="text-[12px] text-[#747475]">Processed automatically every week</p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 bg-[#EAF6F2] text-[#29A378] text-[12px] font-semibold rounded-full border border-[#D0F0E4]">
+                    Weekly on Sundays 11:59 PM
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <label className="text-[12px] text-[#747475]">
+                      Rider Minimum Threshold (₦)
+                    </label>
+                    <input
+                      type="text"
+                      value={draftSettings.payments.riderMinThreshold || "1000"}
+                      onChange={(e) =>
+                        handleUpdateDraft("payments", "riderMinThreshold", e.target.value)
+                      }
+                      className="w-full h-[42px] border border-[#EAEAEA] rounded-[8px] px-3 text-[14px] text-[#191C1C] focus:outline-none bg-white"
+                      placeholder="1000"
+                    />
+                  </div>
+                  <div className="self-end sm:self-auto sm:pt-5">
+                    <button
+                      type="button"
+                      disabled={processingRiderPayout}
+                      onClick={handleTriggerRiderPayout}
+                      className="h-[42px] px-4 rounded-[8px] bg-[#29A378] hover:bg-[#238b66] text-white text-[13px] font-medium transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                    >
+                      {processingRiderPayout ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        "Process Weekly Payout Now"
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <SaveButton

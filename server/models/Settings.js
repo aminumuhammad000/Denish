@@ -24,8 +24,16 @@ const settingsSchema = new mongoose.Schema({
   },
   payments: {
     gateway: { type: String, default: "Flutterwave" },
-    payoutCycle: { type: String, enum: ["weekly", "monthly"], default: "weekly" },
-    minThreshold: { type: String, default: "5000" },
+    vendorPayoutCycle: { type: String, default: "nightly" }, // nightly (daily at night)
+    vendorPayoutTime: { type: String, default: "23:00" }, // 11:00 PM WAT
+    riderPayoutCycle: { type: String, default: "weekly" }, // weekly
+    riderPayoutDay: { type: String, default: "Sunday" }, // Every Sunday
+    riderPayoutTime: { type: String, default: "23:59" }, // 11:59 PM WAT
+    vendorMinThreshold: { type: String, default: "5000" }, // ₦5,000
+    riderMinThreshold: { type: String, default: "1000" }, // ₦1,000
+    autoPayoutEnabled: { type: Boolean, default: true },
+    payoutCycle: { type: String, default: "nightly" }, // legacy fallback
+    minThreshold: { type: String, default: "5000" }, // legacy fallback
   },
   security: {
     twoFactor: { type: Boolean, default: true },

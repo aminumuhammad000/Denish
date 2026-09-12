@@ -17,7 +17,7 @@ export function VendorRequirementsSection() {
     "Registered business name or CAC certificate",
     "Valid government-issued ID (Owner / Director)",
     "Operational physical address in Nigeria",
-    "Active bank account for weekly payouts",
+    "Active bank account for nightly payouts",
     "Quality product photos & menu list",
     "Health/NAFDAC permit (for food & pharmacy)",
   ];
