@@ -97,6 +97,19 @@ const CustomerHomeScreen = ({ navigation }) => {
     }
   }, []);
 
+  const getTimeBasedGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) {
+      return 'Good morning,';
+    } else if (hour >= 12 && hour < 17) {
+      return 'Good afternoon,';
+    } else if (hour >= 17 && hour < 21) {
+      return 'Good evening,';
+    } else {
+      return 'Good night,';
+    }
+  };
+
   React.useEffect(() => {
     let intervalId = null;
     let isSubscribed = true;
@@ -197,7 +210,7 @@ const CustomerHomeScreen = ({ navigation }) => {
                   style={styles.profilePic}
                 />
                 <View>
-                  <Text style={styles.greeting}>Good afternoon,</Text>
+                  <Text style={styles.greeting}>{getTimeBasedGreeting()}</Text>
                   <Text style={styles.name}>{profile?.name?.split(' ')[0] || 'User'}</Text>
                 </View>
               </TouchableOpacity>
@@ -245,7 +258,11 @@ const CustomerHomeScreen = ({ navigation }) => {
             activeOpacity={1} 
             onPress={() => setAddressModalVisible(false)}
           >
-            <View style={[styles.addressModalContent, isWeb && styles.addressModalContentWeb]}>
+            <View style={[
+              styles.addressModalContent, 
+              isWeb && styles.addressModalContentWeb,
+              { paddingBottom: Math.max(insets.bottom, 24) + 16 }
+            ]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Select Delivery Address</Text>
                 <TouchableOpacity onPress={() => setAddressModalVisible(false)}>
@@ -603,8 +620,8 @@ const styles = StyleSheet.create({
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalOverlayWeb: { justifyContent: 'center', alignItems: 'center', padding: 20 },
-  addressModalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 34 },
-  addressModalContentWeb: { maxWidth: 500, width: '100%', borderRadius: 24, paddingBottom: 20 },
+  addressModalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20 },
+  addressModalContentWeb: { maxWidth: 500, width: '100%', borderRadius: 28, paddingBottom: 24 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#111' },
   addressItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#F0F0F0', backgroundColor: '#FAFAFA' },
@@ -614,8 +631,22 @@ const styles = StyleSheet.create({
   addressFullText: { fontSize: 12, color: '#777', marginTop: 2 },
   tagBadge: { backgroundColor: '#FF7D0120', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   tagText: { color: '#FF7D01', fontSize: 10, fontWeight: '700' },
-  addAddressModalBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary, paddingVertical: 14, borderRadius: 12, marginTop: 12, gap: 6 },
-  addAddressModalBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 }
+  addAddressModalBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: Colors.primary, 
+    paddingVertical: 15, 
+    borderRadius: 14, 
+    marginTop: 14, 
+    gap: 8,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4
+  },
+  addAddressModalBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 }
 });
 
 export default CustomerHomeScreen;

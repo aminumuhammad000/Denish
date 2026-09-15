@@ -29,7 +29,7 @@ const SLIDES = [
   {
     id: '3',
     title: 'Easy and Secure Payment',
-    description: 'Pay your way - cards, wallet, or cash on delivery.',
+    description: 'Pay securely your way - debit cards, bank transfers, or USSD.',
     image: require('../../assets/onboarding/payment.png'),
     buttonLabel: 'Get Started',
   },

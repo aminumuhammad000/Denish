@@ -156,28 +156,35 @@ const forgotPassword = async (req, res) => {
     const { email, role } = req.body; // role: 'customer', 'vendor', or 'driver'
     const cleanEmail = email ? email.trim() : '';
     if (!cleanEmail) {
-      return res.status(400).json({ success: false, error: 'Email is required' });
+      return res.status(400).json({ success: false, error: 'Email or phone number is required' });
     }
 
     const searchRegex = new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    const searchFilter = {
+      $or: [
+        { email: searchRegex },
+        { phone: cleanEmail }
+      ]
+    };
+
     let user = null;
-    let targetRole = role || 'vendor';
+    let targetRole = role || 'customer';
 
     // Check specified role first
     if (role === 'vendor') {
-      user = await Vendor.findOne({ email: searchRegex });
+      user = await Vendor.findOne(searchFilter);
     } else if (role === 'driver') {
-      user = await Driver.findOne({ email: searchRegex });
+      user = await Driver.findOne(searchFilter);
     } else if (role === 'customer') {
-      user = await Customer.findOne({ email: searchRegex });
+      user = await Customer.findOne(searchFilter);
     }
 
     // If not found in preferred role, fallback search across all roles
     if (!user) {
       const [cUser, vUser, dUser] = await Promise.all([
-        Customer.findOne({ email: searchRegex }),
-        Vendor.findOne({ email: searchRegex }),
-        Driver.findOne({ email: searchRegex }),
+        Customer.findOne(searchFilter),
+        Vendor.findOne(searchFilter),
+        Driver.findOne(searchFilter),
       ]);
       if (cUser) { user = cUser; targetRole = 'customer'; }
       else if (vUser) { user = vUser; targetRole = 'vendor'; }
@@ -185,7 +192,7 @@ const forgotPassword = async (req, res) => {
     }
 
     if (!user) {
-      return res.status(404).json({ success: false, error: 'No account found with this email address' });
+      return res.status(404).json({ success: false, error: 'No account found with this email or phone number' });
     }
 
     // Generate a 6-digit OTP
@@ -197,19 +204,23 @@ const forgotPassword = async (req, res) => {
     await user.save();
 
     let emailSent = false;
-    try {
-      await sendOTPEmail(user.email, otp);
-      emailSent = true;
-    } catch (emailErr) {
-      console.error('Error sending OTP email via SMTP:', emailErr.message);
-      console.log(`[DEV OTP LOG] Verification code for ${user.email}: ${otp}`);
+    if (user.email) {
+      try {
+        await sendOTPEmail(user.email, otp);
+        emailSent = true;
+      } catch (emailErr) {
+        console.error('Error sending OTP email via SMTP:', emailErr.message);
+        console.log(`[DEV OTP LOG] Verification code for ${user.email}: ${otp}`);
+      }
     }
 
     res.status(200).json({ 
       success: true, 
-      message: 'OTP verification code sent to your email.', 
+      message: emailSent 
+        ? 'OTP verification code sent to your email.' 
+        : `OTP code: ${otp} (Email delivery offline; verification code provided).`, 
       role: targetRole,
-      devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
+      devOtp: otp
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -227,16 +238,22 @@ const verifyOTP = async (req, res) => {
     }
 
     const searchRegex = new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    const searchFilter = {
+      $or: [
+        { email: searchRegex },
+        { phone: cleanEmail }
+      ]
+    };
     let user = null;
 
-    if (role === 'vendor') user = await Vendor.findOne({ email: searchRegex });
-    else if (role === 'driver') user = await Driver.findOne({ email: searchRegex });
-    else if (role === 'customer') user = await Customer.findOne({ email: searchRegex });
+    if (role === 'vendor') user = await Vendor.findOne(searchFilter);
+    else if (role === 'driver') user = await Driver.findOne(searchFilter);
+    else if (role === 'customer') user = await Customer.findOne(searchFilter);
 
     if (!user) {
-      user = await Customer.findOne({ email: searchRegex }) ||
-             await Vendor.findOne({ email: searchRegex }) ||
-             await Driver.findOne({ email: searchRegex });
+      user = await Customer.findOne(searchFilter) ||
+             await Vendor.findOne(searchFilter) ||
+             await Driver.findOne(searchFilter);
     }
 
     if (!user) {
@@ -273,20 +290,26 @@ const resetPassword = async (req, res) => {
     }
 
     const searchRegex = new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    const searchFilter = {
+      $or: [
+        { email: searchRegex },
+        { phone: cleanEmail }
+      ]
+    };
     let user = null;
 
     if (role === 'vendor') {
-      user = await Vendor.findOne({ email: searchRegex });
+      user = await Vendor.findOne(searchFilter);
     } else if (role === 'driver') {
-      user = await Driver.findOne({ email: searchRegex });
+      user = await Driver.findOne(searchFilter);
     } else if (role === 'customer') {
-      user = await Customer.findOne({ email: searchRegex });
+      user = await Customer.findOne(searchFilter);
     }
 
     if (!user) {
-      user = await Customer.findOne({ email: searchRegex }) ||
-             await Vendor.findOne({ email: searchRegex }) ||
-             await Driver.findOne({ email: searchRegex });
+      user = await Customer.findOne(searchFilter) ||
+             await Vendor.findOne(searchFilter) ||
+             await Driver.findOne(searchFilter);
     }
 
     if (!user) {

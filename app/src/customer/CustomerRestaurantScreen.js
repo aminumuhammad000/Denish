@@ -192,10 +192,19 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalCloseOverlay} onPress={() => setItemModalVisible(false)} />
-          <View style={styles.modalContent}>
-            <View style={styles.modalKnob} />
+          <View style={[styles.modalContent, { maxHeight: height * 0.85 }]}>
+            <View style={styles.modalHeaderRow}>
+              <View style={styles.modalKnob} />
+              <TouchableOpacity 
+                style={styles.modalCloseBtn} 
+                onPress={() => setItemModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={20} color="#666" />
+              </TouchableOpacity>
+            </View>
             
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
               <Image 
                 source={{ uri: selectedItem?.image || 'https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=400' }} 
                 style={styles.modalItemImage} 
@@ -235,17 +244,20 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
                     </TouchableOpacity>
                   </View>
                 </View>
-
-                <TouchableOpacity 
-                  style={styles.modalAddBtn}
-                  onPress={handleAddToCart}
-                >
-                  <Text style={styles.modalAddBtnText}>
-                    Add {itemQuantity} for ₦{(selectedItem?.price * itemQuantity).toLocaleString()}
-                  </Text>
-                </TouchableOpacity>
               </View>
             </ScrollView>
+
+            <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+              <TouchableOpacity 
+                style={styles.modalAddBtn}
+                onPress={handleAddToCart}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalAddBtnText}>
+                  Add {itemQuantity} for ₦{(selectedItem?.price * itemQuantity).toLocaleString()}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -355,20 +367,38 @@ const styles = StyleSheet.create({
   modalCloseOverlay: { ...StyleSheet.absoluteFillObject },
   modalContent: { 
     backgroundColor: '#FFF', 
-    borderTopLeftRadius: 30, 
-    borderTopRightRadius: 30, 
+    borderTopLeftRadius: 28, 
+    borderTopRightRadius: 28, 
     width: '100%',
-    maxHeight: height * 0.75,
     overflow: 'hidden',
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20
+  },
+  modalHeaderRow: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 10,
+    paddingBottom: 6,
   },
   modalKnob: { 
-    width: 35, 
-    height: 4, 
-    borderRadius: 2, 
-    backgroundColor: '#EEE', 
-    alignSelf: 'center', 
-    marginVertical: 10 
+    width: 38, 
+    height: 5, 
+    borderRadius: 3, 
+    backgroundColor: '#DDD', 
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    right: 16,
+    top: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  modalScrollContent: {
+    paddingBottom: 16,
   },
   modalItemImage: { 
     width: '100%', 
@@ -421,14 +451,31 @@ const styles = StyleSheet.create({
   },
   qtyText: { fontSize: 15, fontWeight: 'bold', color: '#1a1a1a', minWidth: 20, textAlign: 'center' },
   
+  modalFooter: {
+    backgroundColor: '#FFF',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 8,
+  },
   modalAddBtn: { 
     backgroundColor: Colors.primary, 
-    padding: 15, 
-    borderRadius: 15, 
+    paddingVertical: 16, 
+    borderRadius: 16, 
     alignItems: 'center', 
-    marginTop: 20,
+    justifyContent: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  modalAddBtnText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
+  modalAddBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 
   bottomBarContainer: { 
     position: 'absolute', 

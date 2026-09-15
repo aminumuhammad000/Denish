@@ -76,8 +76,7 @@ activities that occur under your account.
 
 4. Financial Terms: Payments, Settlement, & Fees
 Accepted Payment Methods: We support multiple payment
-channels including Cards, Bank Transfers, Digital Wallets, and Cash
-on Delivery (COD).
+channels including Debit Cards, Bank Transfers, and Digital Wallets.
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
 Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.
@@ -240,6 +239,34 @@ Phone: 08036301983`;
     );
 
     console.log('Legal and contact contents seeded successfully.');
+
+    const Customer = require('./models/Customer');
+    const existingCustomer = await Customer.findOne({ email: 'customer@denishng.com' });
+    if (!existingCustomer) {
+      await Customer.create({
+        name: 'Emeka Nobis',
+        email: 'customer@denishng.com',
+        phone: '08033030303',
+        password: 'Password@123',
+        loyaltyPoints: 340,
+        address: '12 Marina Road, Lagos Island, Lagos',
+        addresses: [
+          { label: 'Home', addr: '12 Marina Road, Lagos Island, Lagos', tag: 'Default' },
+          { label: 'Office', addr: 'Plot 8, Akin Adesola Street, Victoria Island', tag: 'Office' }
+        ],
+        paymentMethods: [
+          {
+            id: 'card-1',
+            title: 'Visa ● ● ● ● 4242',
+            last4: '4242',
+            cardType: 'Visa',
+            expiry: '09/28',
+            type: 'card'
+          }
+        ]
+      });
+      console.log('Default customer created successfully (customer@denishng.com / Password@123).');
+    }
 
     if (exitOnComplete) process.exit(0);
     return true;

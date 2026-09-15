@@ -88,7 +88,7 @@ const features = [
   {
     title: "Multiple Payment Options",
     description:
-      "Pay securely using debit cards, bank transfers, USSD, or cash on delivery.",
+      "Pay securely using debit cards, bank transfers, or USSD.",
     icon: (
       <img
         src="/images/cardsIcons/pharmacy.svg"

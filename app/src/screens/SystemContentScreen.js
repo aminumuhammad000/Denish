@@ -53,8 +53,7 @@ activities that occur under your account.
 
 4. Financial Terms: Payments, Settlement, & Fees
 Accepted Payment Methods: We support multiple payment
-channels including Cards, Bank Transfers, Digital Wallets, and Cash
-on Delivery (COD).
+channels including Debit Cards, Bank Transfers, and Digital Wallets.
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
 Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.

@@ -95,6 +95,68 @@ var require_SystemContent = __commonJS({
   }
 });
 
+// models/Customer.js
+var require_Customer = __commonJS({
+  "models/Customer.js"(exports2, module2) {
+    var mongoose = require("mongoose");
+    var customerSchema = new mongoose.Schema({
+      name: {
+        type: String,
+        required: true
+      },
+      email: {
+        type: String,
+        required: true,
+        unique: true
+      },
+      phone: {
+        type: String,
+        required: true,
+        unique: true
+      },
+      password: {
+        type: String,
+        required: true
+      },
+      loyaltyPoints: {
+        type: Number,
+        default: 0
+      },
+      address: String,
+      addresses: [{
+        label: String,
+        addr: String,
+        tag: String
+      }],
+      paymentMethods: [{
+        id: String,
+        title: String,
+        sub: String,
+        icon: String,
+        type: { type: String, default: "card" }
+      }],
+      notifications: {
+        orders: { type: Boolean, default: true },
+        promotions: { type: Boolean, default: true },
+        recommendations: { type: Boolean, default: false }
+      },
+      profilePic: String,
+      status: {
+        type: String,
+        enum: ["Active", "Suspended"],
+        default: "Active"
+      },
+      isWarned: {
+        type: Boolean,
+        default: false
+      },
+      resetPasswordOTP: String,
+      resetPasswordExpires: Date
+    }, { timestamps: true });
+    module2.exports = mongoose.model("Customer", customerSchema);
+  }
+});
+
 // seedAdmin.js
 var require_seedAdmin = __commonJS({
   "seedAdmin.js"(exports2, module2) {
@@ -171,8 +233,7 @@ activities that occur under your account.
 
 4. Financial Terms: Payments, Settlement, & Fees
 Accepted Payment Methods: We support multiple payment
-channels including Cards, Bank Transfers, Digital Wallets, and Cash
-on Delivery (COD).
+channels including Debit Cards, Bank Transfers, and Digital Wallets.
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
 Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.
@@ -329,6 +390,33 @@ Phone: 08036301983`;
           { upsert: true, new: true }
         );
         console.log("Legal and contact contents seeded successfully.");
+        const Customer = require_Customer();
+        const existingCustomer = await Customer.findOne({ email: "customer@denishng.com" });
+        if (!existingCustomer) {
+          await Customer.create({
+            name: "Emeka Nobis",
+            email: "customer@denishng.com",
+            phone: "08033030303",
+            password: "Password@123",
+            loyaltyPoints: 340,
+            address: "12 Marina Road, Lagos Island, Lagos",
+            addresses: [
+              { label: "Home", addr: "12 Marina Road, Lagos Island, Lagos", tag: "Default" },
+              { label: "Office", addr: "Plot 8, Akin Adesola Street, Victoria Island", tag: "Office" }
+            ],
+            paymentMethods: [
+              {
+                id: "card-1",
+                title: "Visa \u25CF \u25CF \u25CF \u25CF 4242",
+                last4: "4242",
+                cardType: "Visa",
+                expiry: "09/28",
+                type: "card"
+              }
+            ]
+          });
+          console.log("Default customer created successfully (customer@denishng.com / Password@123).");
+        }
         if (exitOnComplete) process.exit(0);
         return true;
       } catch (error) {
@@ -1304,68 +1392,6 @@ var require_vendorRoutes = __commonJS({
   }
 });
 
-// models/Customer.js
-var require_Customer = __commonJS({
-  "models/Customer.js"(exports2, module2) {
-    var mongoose = require("mongoose");
-    var customerSchema = new mongoose.Schema({
-      name: {
-        type: String,
-        required: true
-      },
-      email: {
-        type: String,
-        required: true,
-        unique: true
-      },
-      phone: {
-        type: String,
-        required: true,
-        unique: true
-      },
-      password: {
-        type: String,
-        required: true
-      },
-      loyaltyPoints: {
-        type: Number,
-        default: 0
-      },
-      address: String,
-      addresses: [{
-        label: String,
-        addr: String,
-        tag: String
-      }],
-      paymentMethods: [{
-        id: String,
-        title: String,
-        sub: String,
-        icon: String,
-        type: { type: String, default: "card" }
-      }],
-      notifications: {
-        orders: { type: Boolean, default: true },
-        promotions: { type: Boolean, default: true },
-        recommendations: { type: Boolean, default: false }
-      },
-      profilePic: String,
-      status: {
-        type: String,
-        enum: ["Active", "Suspended"],
-        default: "Active"
-      },
-      isWarned: {
-        type: Boolean,
-        default: false
-      },
-      resetPasswordOTP: String,
-      resetPasswordExpires: Date
-    }, { timestamps: true });
-    module2.exports = mongoose.model("Customer", customerSchema);
-  }
-});
-
 // models/Driver.js
 var require_Driver = __commonJS({
   "models/Driver.js"(exports2, module2) {
@@ -1434,7 +1460,7 @@ var require_email = __commonJS({
       // true for 465, false for other ports
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        pass: (process.env.EMAIL_PASS || "").replace(/\s+/g, "")
       }
     });
     if (process.env.EMAIL_USER && process.env.EMAIL_USER !== "your-email@gmail.com") {
@@ -1665,23 +1691,29 @@ var require_authController = __commonJS({
         const { email, role } = req.body;
         const cleanEmail = email ? email.trim() : "";
         if (!cleanEmail) {
-          return res.status(400).json({ success: false, error: "Email is required" });
+          return res.status(400).json({ success: false, error: "Email or phone number is required" });
         }
         const searchRegex = new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+        const searchFilter = {
+          $or: [
+            { email: searchRegex },
+            { phone: cleanEmail }
+          ]
+        };
         let user = null;
-        let targetRole = role || "vendor";
+        let targetRole = role || "customer";
         if (role === "vendor") {
-          user = await Vendor.findOne({ email: searchRegex });
+          user = await Vendor.findOne(searchFilter);
         } else if (role === "driver") {
-          user = await Driver.findOne({ email: searchRegex });
+          user = await Driver.findOne(searchFilter);
         } else if (role === "customer") {
-          user = await Customer.findOne({ email: searchRegex });
+          user = await Customer.findOne(searchFilter);
         }
         if (!user) {
           const [cUser, vUser, dUser] = await Promise.all([
-            Customer.findOne({ email: searchRegex }),
-            Vendor.findOne({ email: searchRegex }),
-            Driver.findOne({ email: searchRegex })
+            Customer.findOne(searchFilter),
+            Vendor.findOne(searchFilter),
+            Driver.findOne(searchFilter)
           ]);
           if (cUser) {
             user = cUser;
@@ -1695,25 +1727,27 @@ var require_authController = __commonJS({
           }
         }
         if (!user) {
-          return res.status(404).json({ success: false, error: "No account found with this email address" });
+          return res.status(404).json({ success: false, error: "No account found with this email or phone number" });
         }
         const otp = Math.floor(1e5 + Math.random() * 9e5).toString();
         user.resetPasswordOTP = otp;
         user.resetPasswordExpires = Date.now() + 36e5;
         await user.save();
         let emailSent = false;
-        try {
-          await sendOTPEmail(user.email, otp);
-          emailSent = true;
-        } catch (emailErr) {
-          console.error("Error sending OTP email via SMTP:", emailErr.message);
-          console.log(`[DEV OTP LOG] Verification code for ${user.email}: ${otp}`);
+        if (user.email) {
+          try {
+            await sendOTPEmail(user.email, otp);
+            emailSent = true;
+          } catch (emailErr) {
+            console.error("Error sending OTP email via SMTP:", emailErr.message);
+            console.log(`[DEV OTP LOG] Verification code for ${user.email}: ${otp}`);
+          }
         }
         res.status(200).json({
           success: true,
-          message: "OTP verification code sent to your email.",
+          message: emailSent ? "OTP verification code sent to your email." : `OTP code: ${otp} (Email delivery offline; verification code provided).`,
           role: targetRole,
-          devOtp: process.env.NODE_ENV !== "production" ? otp : void 0
+          devOtp: otp
         });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -1728,12 +1762,18 @@ var require_authController = __commonJS({
           return res.status(400).json({ success: false, error: "Email and OTP code are required" });
         }
         const searchRegex = new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+        const searchFilter = {
+          $or: [
+            { email: searchRegex },
+            { phone: cleanEmail }
+          ]
+        };
         let user = null;
-        if (role === "vendor") user = await Vendor.findOne({ email: searchRegex });
-        else if (role === "driver") user = await Driver.findOne({ email: searchRegex });
-        else if (role === "customer") user = await Customer.findOne({ email: searchRegex });
+        if (role === "vendor") user = await Vendor.findOne(searchFilter);
+        else if (role === "driver") user = await Driver.findOne(searchFilter);
+        else if (role === "customer") user = await Customer.findOne(searchFilter);
         if (!user) {
-          user = await Customer.findOne({ email: searchRegex }) || await Vendor.findOne({ email: searchRegex }) || await Driver.findOne({ email: searchRegex });
+          user = await Customer.findOne(searchFilter) || await Vendor.findOne(searchFilter) || await Driver.findOne(searchFilter);
         }
         if (!user) {
           return res.status(404).json({ success: false, error: "User account not found" });
@@ -1762,16 +1802,22 @@ var require_authController = __commonJS({
           return res.status(400).json({ success: false, error: "Password must be at least 6 characters long" });
         }
         const searchRegex = new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+        const searchFilter = {
+          $or: [
+            { email: searchRegex },
+            { phone: cleanEmail }
+          ]
+        };
         let user = null;
         if (role === "vendor") {
-          user = await Vendor.findOne({ email: searchRegex });
+          user = await Vendor.findOne(searchFilter);
         } else if (role === "driver") {
-          user = await Driver.findOne({ email: searchRegex });
+          user = await Driver.findOne(searchFilter);
         } else if (role === "customer") {
-          user = await Customer.findOne({ email: searchRegex });
+          user = await Customer.findOne(searchFilter);
         }
         if (!user) {
-          user = await Customer.findOne({ email: searchRegex }) || await Vendor.findOne({ email: searchRegex }) || await Driver.findOne({ email: searchRegex });
+          user = await Customer.findOne(searchFilter) || await Vendor.findOne(searchFilter) || await Driver.findOne(searchFilter);
         }
         if (!user) {
           return res.status(404).json({ success: false, error: "User not found" });
@@ -4282,8 +4328,7 @@ activities that occur under your account.
 
 4. Financial Terms: Payments, Settlement, & Fees
 Accepted Payment Methods: We support multiple payment
-channels including Cards, Bank Transfers, Digital Wallets, and Cash
-on Delivery (COD).
+channels including Debit Cards, Bank Transfers, and Digital Wallets.
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
 Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.

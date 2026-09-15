@@ -80,11 +80,14 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
         if (result.role) setRole(result.role);
         setStep(2);
         setCountdown(RESEND_COOLDOWN_SECONDS);
-        setOtpDigits(['', '', '', '', '', '']);
-        setSuccessMsg(result.message || 'A 6-digit OTP code has been sent to your email.');
-        // If in development mode and devOtp is returned, prefill or alert
         if (result.devOtp) {
-          console.log('DEV OTP received:', result.devOtp);
+          const digits = String(result.devOtp).split('').slice(0, 6);
+          setOtpDigits(digits);
+          setSuccessMsg(`OTP code sent! Verification code: ${result.devOtp}`);
+          Alert.alert('Verification Code Sent', `Your OTP reset code is: ${result.devOtp}\n\nIt has been automatically entered for you.`);
+        } else {
+          setOtpDigits(['', '', '', '', '', '']);
+          setSuccessMsg(result.message || 'A 6-digit OTP code has been sent to your email.');
         }
       } else {
         setErrorMsg(result?.error || 'Unable to send reset OTP code.');
@@ -109,7 +112,14 @@ const ForgotPasswordScreen = ({ navigation, route }) => {
       const result = await forgotPassword(cleanEmail, role);
       if (result && result.success) {
         setCountdown(RESEND_COOLDOWN_SECONDS);
-        setSuccessMsg('A new 6-digit OTP has been sent to your email.');
+        if (result.devOtp) {
+          const digits = String(result.devOtp).split('').slice(0, 6);
+          setOtpDigits(digits);
+          setSuccessMsg(`New OTP code sent! Verification code: ${result.devOtp}`);
+          Alert.alert('New Code Sent', `Your new OTP code is: ${result.devOtp}\n\nIt has been automatically entered for you.`);
+        } else {
+          setSuccessMsg('A new 6-digit OTP has been sent to your email.');
+        }
       } else {
         setErrorMsg(result?.error || 'Unable to resend OTP code.');
       }

@@ -234,7 +234,9 @@ const CustomerProfileScreen = ({ navigation }) => {
               <Text style={styles.paymentMeta}>Online Card, Bank Transfer & USSD</Text>
             </View>
           </View>
-          {profile?.paymentMethods && profile.paymentMethods.map((pay, index) => (
+          {profile?.paymentMethods && profile.paymentMethods
+            .filter(pay => pay?.type !== 'cash' && !pay?.title?.toLowerCase?.().includes('cash') && !pay?.cardType?.toLowerCase?.().includes('cash'))
+            .map((pay, index) => (
             <React.Fragment key={pay._id || index}>
               <View style={styles.divider} />
               <View style={styles.paymentRow}>
