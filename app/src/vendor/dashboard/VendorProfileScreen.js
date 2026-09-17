@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
-  Image, Dimensions, Switch, ActivityIndicator, Alert
+  Image, Dimensions, Switch, ActivityIndicator, Alert, Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -264,12 +264,33 @@ const VendorProfileScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={async () => {
-          await clearAuthSession();
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'RoleSelection' }],
-          });
+        <TouchableOpacity style={styles.logoutBtn} onPress={() => {
+          const doLogout = async () => {
+            await clearAuthSession();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'RoleSelection' }],
+            });
+          };
+
+          if (Platform.OS === 'web') {
+            if (typeof window !== 'undefined' && window.confirm('Are you sure you want to log out of your vendor account?')) {
+              doLogout();
+            }
+          } else {
+            Alert.alert(
+              'Logout',
+              'Are you sure you want to log out of your vendor account?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Logout',
+                  style: 'destructive',
+                  onPress: doLogout,
+                },
+              ]
+            );
+          }
         }}>
           <View style={styles.logoutContent}>
             <Ionicons name="log-out-outline" size={18} color="#E74C3C" />

@@ -1,8 +1,7 @@
 
 
-import { X, Star } from "lucide-react";
-;
-import { useEffect, useRef } from "react";
+import { X, Star, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 interface Vendor {
   id: string;
@@ -20,11 +19,21 @@ interface VendorDetailsModalProps {
   vendor: Vendor | null;
   onClose: () => void;
   onSuspend?: () => void;
+  onApprove?: () => void;
+  onDelete?: () => void;
   onViewMenu?: () => void;
 }
 
-export function VendorDetailsModal({ vendor, onClose, onSuspend, onViewMenu }: VendorDetailsModalProps) {
+export function VendorDetailsModal({
+  vendor,
+  onClose,
+  onSuspend,
+  onApprove,
+  onDelete,
+  onViewMenu,
+}: VendorDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -112,32 +121,83 @@ export function VendorDetailsModal({ vendor, onClose, onSuspend, onViewMenu }: V
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-[12px] pt-2">
+          <div className="flex items-center gap-[10px] pt-2">
             <button
               onClick={onViewMenu}
-              className="flex-1 h-[42px] bg-[#207951] text-white rounded-[8px] text-[14px] font-medium hover:bg-[#1a6342] transition-all"
+              className="flex-1 h-[42px] bg-[#207951] text-white rounded-[8px] text-[14px] font-medium hover:bg-[#1a6342] transition-all cursor-pointer"
             >
               View Menu
             </button>
-            <button 
-              onClick={onSuspend}
-              className={`w-[120px] h-[42px] border rounded-[8px] text-[14px] font-medium transition-all ${
-                vendor.status.toLowerCase() === "pending"
-                  ? "border-[#FE7200] text-[#FE7200] hover:bg-[#FFF4E4]"
-                  : vendor.status.toLowerCase() === "suspended"
+            {vendor.status.toLowerCase() === "pending" ? (
+              <button
+                onClick={onApprove || onSuspend}
+                className="flex-1 h-[42px] bg-[#29A378] text-white rounded-[8px] text-[14px] font-medium hover:bg-[#207951] transition-all cursor-pointer"
+              >
+                Approve Vendor
+              </button>
+            ) : (
+              <button
+                onClick={onSuspend}
+                className={`flex-1 h-[42px] border rounded-[8px] text-[14px] font-medium transition-all cursor-pointer ${
+                  vendor.status.toLowerCase() === "suspended"
                     ? "border-[#29A378] text-[#29A378] hover:bg-[#F0FBF4]"
                     : "border-[#E14343] text-[#E14343] hover:bg-red-50"
-              }`}
-            >
-              {vendor.status.toLowerCase() === "pending"
-                ? "Approve"
-                : vendor.status.toLowerCase() === "suspended"
-                  ? "Unsuspend"
-                  : "Suspend"}
-            </button>
+                }`}
+              >
+                {vendor.status.toLowerCase() === "suspended" ? "Unsuspend" : "Suspend"}
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="h-[42px] px-3.5 border border-[#E14343] text-[#E14343] hover:bg-red-50 rounded-[8px] text-[14px] font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                title="Delete Vendor"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-[400px] w-full p-6 shadow-xl border border-[#EAEAEA] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-[56px] h-[56px] bg-[#FEF2F2] rounded-full flex items-center justify-center text-[#EF4343]">
+                <Trash2 className="w-7 h-7" />
+              </div>
+
+              <div>
+                <h3 className="text-[18px] font-bold text-[#191C1C] mb-2">Delete Vendor?</h3>
+                <p className="text-[14px] text-[#747475] leading-relaxed">
+                  Are you sure you want to permanently delete <strong className="text-[#191C1C]">{vendor.name}</strong>? This action cannot be undone and will delete the vendor profile and all related menu items.
+                </p>
+              </div>
+
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 h-[46px] border border-[#EAEAEA] rounded-[10px] text-[14px] font-bold text-[#747475] hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    if (onDelete) onDelete();
+                  }}
+                  className="flex-1 h-[46px] bg-[#EF4343] text-white rounded-[10px] text-[14px] font-bold hover:bg-[#D32F2F] transition-all cursor-pointer"
+                >
+                  Yes, Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

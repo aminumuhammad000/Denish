@@ -24,7 +24,7 @@ export interface Driver {
   deliveries: number;
   rating: number;
   completion: string;
-  status: "Online" | "Delivering" | "Offline";
+  status: "Online" | "Delivering" | "Offline" | "Pending" | "Active" | "Suspended" | string;
   earnings: string;
   isWarned?: boolean;
   isSuspended?: boolean;
@@ -196,10 +196,16 @@ interface AdminState {
 
   updateVendorOnServer: (id: string, updatedData: Partial<Vendor>) => Promise<void>;
   updateVendorStatusOnServer: (id: string, status: string) => Promise<void>;
+  approveVendorOnServer: (id: string) => Promise<boolean>;
+  deleteVendorOnServer: (id: string) => Promise<boolean>;
 
   updateDriverStatusOnServer: (id: string, status: string, extra?: Partial<Driver>) => Promise<void>;
+  approveDriverOnServer: (id: string) => Promise<boolean>;
+  deleteDriverOnServer: (id: string) => Promise<boolean>;
+
   updateUserStatusOnServer: (id: string, status: string, extra?: Partial<User>) => Promise<void>;
-  deleteUserOnServer: (id: string, role: string) => Promise<void>;
+  deleteUserOnServer: (id: string, role?: string) => Promise<boolean>;
+  deleteCustomerOnServer: (id: string) => Promise<boolean>;
   updateDisputeStatusOnServer: (id: string, status: string) => Promise<void>;
   addTransactionOnServer: (transaction: Transaction) => Promise<void>;
   updateOrderOnServer: (id: string, updatedData: Partial<Order>) => Promise<void>;
@@ -210,7 +216,7 @@ interface AdminState {
   addPromotionOnServer: (promoData: any) => Promise<void>;
   updatePromotionOnServer: (id: string, promoData: any) => Promise<void>;
   deletePromotionOnServer: (id: string) => Promise<void>;
-  updateProfileOnServer: (profileData: any) => Promise<void>;
+  updateProfileOnServer: (profileData: any) => Promise<{ success: boolean; error?: string }>;
   uploadImageOnServer: (file: File) => Promise<string | null>;
   admin: { name: string; email: string; image: string } | null;
   fetchAdminProfile: () => Promise<void>;
@@ -323,12 +329,15 @@ export const useAdminStore = create<AdminState>()(
               location: d.location || "Lagos",
               address: d.address || d.location || "N/A",
               phone: d.phone,
-              vehicle: d.vehicleType || "Motorcycle",
+              email: d.email || "",
+              vehicle: d.vehicleType || (typeof d.vehicle === 'object' ? d.vehicle?.type : d.vehicle) || "Motorcycle",
               deliveries: d.earnings?.totalTrips || d.deliveriesCount || 0,
               rating: d.rating || 0,
               completion: "100%",
               status: d.status || "Offline",
               earnings: "₦" + extractNumber(d.earnings).toLocaleString(),
+              isWarned: !!d.isWarned,
+              isSuspended: !!d.isSuspended,
             }));
             set({ drivers: formattedDrivers });
           }
@@ -447,12 +456,15 @@ export const useAdminStore = create<AdminState>()(
               location: d.location || "Lagos",
               address: d.address || d.location || "N/A",
               phone: d.phone,
-              vehicle: d.vehicleType || "Motorcycle",
+              email: d.email || "",
+              vehicle: d.vehicleType || (typeof d.vehicle === 'object' ? d.vehicle?.type : d.vehicle) || "Motorcycle",
               deliveries: d.earnings?.totalTrips || d.deliveriesCount || 0,
               rating: d.rating || 0,
               completion: "100%",
               status: d.status || "Offline",
               earnings: "₦" + extractNumber(d.earnings).toLocaleString(),
+              isWarned: !!d.isWarned,
+              isSuspended: !!d.isSuspended,
             }));
 
             // Format vendors
@@ -519,6 +531,47 @@ export const useAdminStore = create<AdminState>()(
           console.error("Failed to update vendor status:", error);
         }
       },
+      approveVendorOnServer: async (id: string) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/vendors/${id}/approve`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+          });
+          if (response.ok) {
+            set((state) => ({
+              vendors: state.vendors.map((v) =>
+                v.id === id ? { ...v, status: "approved" as const } : v,
+              ),
+              users: state.users.map((u) =>
+                u.id === id ? { ...u, status: "Active" as const } : u,
+              ),
+            }));
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error("Failed to approve vendor:", error);
+          return false;
+        }
+      },
+      deleteVendorOnServer: async (id: string) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/vendors/${id}`, {
+            method: "DELETE",
+          });
+          if (response.ok) {
+            set((state) => ({
+              vendors: state.vendors.filter((v) => v.id !== id),
+              users: state.users.filter((u) => u.id !== id),
+            }));
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error("Failed to delete vendor:", error);
+          return false;
+        }
+      },
       updateDriverStatusOnServer: async (id, status, extra = {}) => {
         try {
           const payload: any = { status };
@@ -535,6 +588,47 @@ export const useAdminStore = create<AdminState>()(
           }
         } catch (error) {
           console.error("Failed to update driver status:", error);
+        }
+      },
+      approveDriverOnServer: async (id: string) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/drivers/${id}/approve`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+          });
+          if (response.ok) {
+            set((state) => ({
+              drivers: state.drivers.map((d) =>
+                d.id === id ? { ...d, status: "Online" as const, isSuspended: false } : d,
+              ),
+              users: state.users.map((u) =>
+                u.id === id ? { ...u, status: "Active" as const } : u,
+              ),
+            }));
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error("Failed to approve driver:", error);
+          return false;
+        }
+      },
+      deleteDriverOnServer: async (id: string) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/drivers/${id}`, {
+            method: "DELETE",
+          });
+          if (response.ok) {
+            set((state) => ({
+              drivers: state.drivers.filter((d) => d.id !== id),
+              users: state.users.filter((u) => u.id !== id),
+            }));
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error("Failed to delete driver:", error);
+          return false;
         }
       },
       updateUserStatusOnServer: async (id: string, status: string, extra: Partial<User> = {}) => {
@@ -558,24 +652,53 @@ export const useAdminStore = create<AdminState>()(
           console.error("Error updating user status:", error);
         }
       },
-      deleteUserOnServer: async (id: string, role: string) => {
+      deleteUserOnServer: async (id: string, role: string = "Customer") => {
         try {
           const response = await fetch(`${API_BASE_URL}/users/${id}?role=${role}`, {
             method: "DELETE",
           });
           if (response.ok) {
             set((state) => {
-              if (role === "Vendor") {
-                return { vendors: state.vendors.filter((v) => v.id !== id) };
-              } else if (role === "Driver") {
-                return { drivers: state.drivers.filter((d) => d.id !== id) };
+              const lowerRole = (role || "").toLowerCase();
+              if (lowerRole === "vendor") {
+                return {
+                  vendors: state.vendors.filter((v) => v.id !== id),
+                  users: state.users.filter((u) => u.id !== id),
+                };
+              } else if (lowerRole === "driver") {
+                return {
+                  drivers: state.drivers.filter((d) => d.id !== id),
+                  users: state.users.filter((u) => u.id !== id),
+                };
               } else {
-                return { users: state.users.filter((u) => u.id !== id) };
+                return {
+                  users: state.users.filter((u) => u.id !== id),
+                };
               }
             });
+            return true;
           }
+          return false;
         } catch (error) {
           console.error("Error deleting user:", error);
+          return false;
+        }
+      },
+      deleteCustomerOnServer: async (id: string) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/customers/${id}`, {
+            method: "DELETE",
+          });
+          if (response.ok) {
+            set((state) => ({
+              users: state.users.filter((u) => u.id !== id),
+            }));
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error("Failed to delete customer:", error);
+          return false;
         }
       },
       updateVendorOnServer: async (id: string, updatedData: Partial<Vendor>) => {
@@ -743,20 +866,28 @@ export const useAdminStore = create<AdminState>()(
           console.error("Error deleting promotion:", error);
         }
       },
-      updateProfileOnServer: async (profileData: any) => {
+      updateProfileOnServer: async (profileData: any): Promise<{ success: boolean; error?: string }> => {
         try {
           const response = await fetch(`${API_BASE_URL}/profile`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(profileData),
           });
-          if (response.ok) {
+          const data = await response.json().catch(() => ({}));
+          if (response.ok && data.success) {
             // Refetch data to sync
             get().fetchAdminProfile();
             get().fetchAllData();
+            return { success: true };
+          } else {
+            return { 
+              success: false, 
+              error: data.message || data.error || "Failed to update profile" 
+            };
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error updating profile:", error);
+          return { success: false, error: error.message || "Failed to update profile" };
         }
       },
       uploadImageOnServer: async (file: File): Promise<string | null> => {

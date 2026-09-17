@@ -324,6 +324,24 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ success: false, error: 'OTP code has expired. Please request a new one.' });
     }
 
+    // Ensure the new password is different from the current password
+    let isSamePassword = false;
+    if (user.password) {
+      if (user.password === cleanPassword) {
+        isSamePassword = true;
+      } else if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
+        const bcrypt = require('bcryptjs');
+        isSamePassword = await bcrypt.compare(cleanPassword, user.password);
+      }
+    }
+
+    if (isSamePassword) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'New password must be different from your current password' 
+      });
+    }
+
     user.password = cleanPassword;
     user.resetPasswordOTP = undefined;
     user.resetPasswordExpires = undefined;

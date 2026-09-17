@@ -1,6 +1,6 @@
 
 
-import { X, Star, Phone } from "lucide-react";
+import { X, Star, Phone, Check, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -23,7 +23,7 @@ interface Driver {
   deliveries: number;
   rating: number;
   completion: string;
-  status: "Online" | "Delivering" | "Offline";
+  status: "Online" | "Delivering" | "Offline" | "Pending" | "Active" | "Suspended" | string;
   earnings: string;
   isWarned?: boolean;
   isSuspended?: boolean;
@@ -33,17 +33,22 @@ interface DriverDetailsModalProps {
   driver: Driver | null;
   onClose: () => void;
   onUpdateDriver?: (updatedDriver: Driver) => void;
+  onApprove?: (driver: Driver) => void;
+  onDelete?: (driver: Driver) => void;
 }
 
 export function DriverDetailsModal({
   driver,
   onClose,
   onUpdateDriver,
+  onApprove,
+  onDelete,
 }: DriverDetailsModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [activeDay, setActiveDay] = useState("Wed");
   const [isWarned, setIsWarned] = useState(driver?.isWarned || false);
   const [isSuspended, setIsSuspended] = useState(driver?.isSuspended || false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (driver) {
@@ -317,71 +322,137 @@ export function DriverDetailsModal({
           <div className="flex items-center justify-between gap-[clamp(8px,1.2vh,12px)] pt-[clamp(10px,1.5vh,16px)] border-t border-transparent">
             <button
               onClick={handleContact}
-              className="flex-[1.5] flex items-center justify-center gap-3 h-[clamp(36px,4.7vh,48px)] bg-[#29A378] text-white rounded-[8px] text-[clamp(13px,1.6vh,16px)] font-medium hover:bg-[#207951] transition-all"
+              className="flex-1 flex items-center justify-center gap-2 h-[clamp(36px,4.7vh,48px)] bg-[#207951] text-white rounded-[8px] text-[clamp(13px,1.6vh,15px)] font-medium hover:bg-[#1a6342] transition-all cursor-pointer"
             >
-              <Phone className="w-[clamp(16px,2vh,20px)] h-[clamp(16px,2vh,20px)]" />
+              <Phone className="w-[clamp(16px,2vh,18px)] h-[clamp(16px,2vh,18px)]" />
               Contact
             </button>
-            <button
-              onClick={() => {
-                const nextState = !isWarned;
-                setIsWarned(nextState);
-                if (onUpdateDriver && driver) {
-                  onUpdateDriver({ ...driver, isWarned: nextState });
-                }
-                if (nextState) {
-                  toast.warning(`Warning sent to ${driver.name}`, {
-                    description:
-                      "The driver will receive a formal notification.",
-                  });
-                } else {
-                  toast.info(`Warning retracted for ${driver.name}`);
-                }
-              }}
-              className={`flex-1 flex items-center justify-center gap-2 h-[clamp(36px,4.7vh,48px)] border rounded-[8px] text-[clamp(13px,1.6vh,16px)] font-medium transition-all ${
-                isWarned
-                  ? "bg-[#F9A825] border-[#F9A825] text-white"
-                  : "border-[#F9A825] text-[#F9A825] hover:bg-yellow-50"
-              }`}
-            >
-              <span
-                className={`flex items-center justify-center w-[clamp(16px,2vh,20px)] h-[clamp(16px,2vh,20px)] rounded-full border text-[clamp(10px,1.2vh,12px)] font-bold ${
-                  isWarned
-                    ? "border-white text-white"
-                    : "border-[#F9A825] text-[#F9A825]"
-                }`}
+
+            {driver.status === "Pending" ? (
+              <button
+                onClick={() => {
+                  if (onApprove && driver) {
+                    onApprove(driver);
+                  }
+                }}
+                className="flex-[1.5] flex items-center justify-center gap-2 h-[clamp(36px,4.7vh,48px)] bg-[#29A378] text-white rounded-[8px] text-[clamp(13px,1.6vh,15px)] font-semibold hover:bg-[#207951] transition-all cursor-pointer shadow-sm"
               >
-                i
-              </span>
-              {isWarned ? "Unwarn" : "Warn"}
-            </button>
-            <button
-              onClick={() => {
-                const nextState = !isSuspended;
-                setIsSuspended(nextState);
-                if (onUpdateDriver && driver) {
-                  onUpdateDriver({ ...driver, isSuspended: nextState });
-                }
-                if (nextState) {
-                  toast.error(`${driver.name} has been suspended`, {
-                    description:
-                      "The account has been restricted until further review.",
-                  });
-                } else {
-                  toast.success(`${driver.name}'s account has been restored`);
-                }
-              }}
-              className={`flex-1 h-[clamp(36px,4.7vh,48px)] border rounded-[8px] text-[clamp(13px,1.6vh,16px)] font-medium transition-all ${
-                isSuspended
-                  ? "bg-[#E14343] border-[#E14343] text-white"
-                  : "border-[#E14343] text-[#E14343] hover:bg-red-50"
-              }`}
-            >
-              {isSuspended ? "Unsuspend" : "Suspend"}
-            </button>
+                <Check className="w-[clamp(16px,2vh,18px)] h-[clamp(16px,2vh,18px)]" />
+                Approve Driver
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    const nextState = !isWarned;
+                    setIsWarned(nextState);
+                    if (onUpdateDriver && driver) {
+                      onUpdateDriver({ ...driver, isWarned: nextState });
+                    }
+                    if (nextState) {
+                      toast.warning(`Warning sent to ${driver.name}`, {
+                        description:
+                          "The driver will receive a formal notification.",
+                      });
+                    } else {
+                      toast.info(`Warning retracted for ${driver.name}`);
+                    }
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 h-[clamp(36px,4.7vh,48px)] border rounded-[8px] text-[clamp(12px,1.5vh,14px)] font-medium transition-all cursor-pointer ${
+                    isWarned
+                      ? "bg-[#F9A825] border-[#F9A825] text-white"
+                      : "border-[#F9A825] text-[#F9A825] hover:bg-yellow-50"
+                  }`}
+                >
+                  <span
+                    className={`flex items-center justify-center w-[16px] h-[16px] rounded-full border text-[10px] font-bold ${
+                      isWarned
+                        ? "border-white text-white"
+                        : "border-[#F9A825] text-[#F9A825]"
+                    }`}
+                  >
+                    i
+                  </span>
+                  {isWarned ? "Unwarn" : "Warn"}
+                </button>
+                <button
+                  onClick={() => {
+                    const nextState = !isSuspended;
+                    setIsSuspended(nextState);
+                    if (onUpdateDriver && driver) {
+                      onUpdateDriver({ ...driver, isSuspended: nextState });
+                    }
+                    if (nextState) {
+                      toast.error(`${driver.name} has been suspended`, {
+                        description:
+                          "The account has been restricted until further review.",
+                      });
+                    } else {
+                      toast.success(`${driver.name}'s account has been restored`);
+                    }
+                  }}
+                  className={`flex-1 h-[clamp(36px,4.7vh,48px)] border rounded-[8px] text-[clamp(12px,1.5vh,14px)] font-medium transition-all cursor-pointer ${
+                    isSuspended
+                      ? "bg-[#E14343] border-[#E14343] text-white"
+                      : "border-[#E14343] text-[#E14343] hover:bg-red-50"
+                  }`}
+                >
+                  {isSuspended ? "Unsuspend" : "Suspend"}
+                </button>
+              </>
+            )}
+
+            {onDelete && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="h-[clamp(36px,4.7vh,48px)] px-3 border border-[#E14343] text-[#E14343] hover:bg-red-50 rounded-[8px] text-[clamp(12px,1.5vh,14px)] font-medium flex items-center justify-center gap-1 transition-all cursor-pointer"
+                title="Delete Driver"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Delete Driver Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-[400px] w-full p-6 shadow-xl border border-[#EAEAEA] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-[56px] h-[56px] bg-[#FEF2F2] rounded-full flex items-center justify-center text-[#EF4343]">
+                <Trash2 className="w-7 h-7" />
+              </div>
+
+              <div>
+                <h3 className="text-[18px] font-bold text-[#191C1C] mb-2">Delete Driver?</h3>
+                <p className="text-[14px] text-[#747475] leading-relaxed">
+                  Are you sure you want to permanently delete <strong className="text-[#191C1C]">{driver.name}</strong>? This action cannot be undone and will remove all driver documents and delivery records.
+                </p>
+              </div>
+
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 h-[46px] border border-[#EAEAEA] rounded-[10px] text-[14px] font-bold text-[#747475] hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    if (onDelete && driver) onDelete(driver);
+                  }}
+                  className="flex-1 h-[46px] bg-[#EF4343] text-white rounded-[10px] text-[14px] font-bold hover:bg-[#D32F2F] transition-all cursor-pointer"
+                >
+                  Yes, Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

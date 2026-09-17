@@ -1,7 +1,8 @@
 
 
-import { Search, Star, Eye, Download } from "lucide-react";
+import { Search, Star, Eye, Download, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { UserDetailsModal } from "@/components/admin/UserDetailsModal";
 import { AdminPageSkeleton } from "@/components/layout/AdminPageSkeleton";
 import { exportToCSV } from "@/lib/exportUtils";
@@ -25,6 +26,7 @@ export default function UserManagementPage() {
   const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const vendors = useAdminStore((state) => state.vendors);
   const drivers = useAdminStore((state) => state.drivers);
+  const deleteUserOnServer = useAdminStore((state) => state.deleteUserOnServer);
 
   const usersList: User[] = [
     ...baseUsers.map((u) => ({ ...u, role: "Customer" as const })),
@@ -61,6 +63,22 @@ export default function UserManagementPage() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    const u = userToDelete;
+    setUserToDelete(null);
+    if (selectedUser?.id === u.id) {
+      setSelectedUser(null);
+    }
+    const success = await deleteUserOnServer(u.id, u.role);
+    if (success) {
+      toast.success(`${u.role} account deleted successfully`);
+    } else {
+      toast.error(`Failed to delete ${u.role.toLowerCase()}`);
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -352,18 +370,28 @@ export default function UserManagementPage() {
                         </span>
                       </td>
                       <td className="px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,1vw,0.75rem)]">
-                        <div className="flex justify-center">
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedUser(user);
                             }}
-                            className="flex items-center gap-2 px-3 py-1.5 border border-[#EAEAEA] rounded-[6px] hover:bg-[#F8FAF9] transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 border border-[#EAEAEA] rounded-[6px] hover:bg-[#F8FAF9] transition-all cursor-pointer"
                           >
                             <Eye className="w-4 h-4 text-[#747475]" />
                             <span className="text-[14px] font-medium text-[#212121]">
                               View
                             </span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setUserToDelete(user);
+                            }}
+                            className="p-1.5 border border-[#EAEAEA] rounded-[6px] text-[#E14343] hover:bg-red-50 hover:border-red-200 transition-all cursor-pointer"
+                            title={`Delete ${user.role}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -449,16 +477,28 @@ export default function UserManagementPage() {
                       <p className="text-[13px] text-[#212121] break-words">
                         {user.lastActive}
                       </p>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedUser(user);
-                        }}
-                        className="flex items-center gap-2 px-3 py-1.5 border border-[#EAEAEA] rounded-[6px] hover:bg-[#F8FAF9] transition-all cursor-pointer"
-                      >
-                        <Eye className="w-4 h-4 text-[#747475]" />
-                        <span className="text-[13px] font-medium text-[#212121]">View</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedUser(user);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 border border-[#EAEAEA] rounded-[6px] hover:bg-[#F8FAF9] transition-all cursor-pointer"
+                        >
+                          <Eye className="w-4 h-4 text-[#747475]" />
+                          <span className="text-[13px] font-medium text-[#212121]">View</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setUserToDelete(user);
+                          }}
+                          className="p-1.5 border border-[#EAEAEA] rounded-[6px] text-[#E14343] hover:bg-red-50 hover:border-red-200 transition-all cursor-pointer"
+                          title={`Delete ${user.role}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -475,6 +515,41 @@ export default function UserManagementPage() {
           onClose={() => setSelectedUser(null)}
           onUpdateUser={handleUpdateUser}
         />
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-[400px] w-full p-6 shadow-xl border border-[#EAEAEA] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-[56px] h-[56px] bg-[#FEF2F2] rounded-full flex items-center justify-center text-[#EF4343]">
+                <Trash2 className="w-7 h-7" />
+              </div>
+
+              <div>
+                <h3 className="text-[18px] font-bold text-[#191C1C] mb-2">Delete {userToDelete.role}?</h3>
+                <p className="text-[14px] text-[#747475] leading-relaxed">
+                  Are you sure you want to permanently delete <strong className="text-[#191C1C]">{userToDelete.name}</strong>'s account? This action cannot be undone and all associated records will be removed.
+                </p>
+              </div>
+
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setUserToDelete(null)}
+                  className="flex-1 h-[46px] border border-[#EAEAEA] rounded-[10px] text-[14px] font-bold text-[#747475] hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDeleteUser}
+                  className="flex-1 h-[46px] bg-[#EF4343] text-white rounded-[10px] text-[14px] font-bold hover:bg-[#D32F2F] transition-all cursor-pointer"
+                >
+                  Yes, Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

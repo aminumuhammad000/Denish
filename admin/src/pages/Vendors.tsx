@@ -1,6 +1,6 @@
 
 
-import { Search, Star, Eye, Check, X, Download } from "lucide-react";
+import { Search, Star, Eye, Check, X, Download, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { VendorDetailsModal } from "@/components/admin/VendorDetailsModal";
@@ -19,10 +19,13 @@ export default function VendorsPage() {
   const [isMounted, setIsMounted] = useState(false);
   const vendorList = useAdminStore((state) => state.vendors);
   const updateVendorStatusOnServer = useAdminStore((state) => state.updateVendorStatusOnServer);
+  const approveVendorOnServer = useAdminStore((state) => state.approveVendorOnServer);
+  const deleteVendorOnServer = useAdminStore((state) => state.deleteVendorOnServer);
   const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [vendorToDelete, setVendorToDelete] = useState<Vendor | null>(null);
   const [toastMessage, setToastMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
   const [menuVendor, setMenuVendor] = useState<Vendor | null>(null);
@@ -39,6 +42,33 @@ export default function VendorsPage() {
   if (!isMounted) {
     return <AdminPageSkeleton />;
   }
+
+  const handleApproveVendor = async (vendorId: string) => {
+    const success = await approveVendorOnServer(vendorId);
+    if (success) {
+      toast.success("Vendor approved successfully");
+      if (selectedVendor && selectedVendor.id === vendorId) {
+        setSelectedVendor({ ...selectedVendor, status: "approved" });
+      }
+    } else {
+      toast.error("Failed to approve vendor");
+    }
+  };
+
+  const handleConfirmDeleteVendor = async () => {
+    if (!vendorToDelete) return;
+    const v = vendorToDelete;
+    setVendorToDelete(null);
+    if (selectedVendor?.id === v.id) {
+      setSelectedVendor(null);
+    }
+    const success = await deleteVendorOnServer(v.id);
+    if (success) {
+      toast.success(`${v.name} deleted successfully`);
+    } else {
+      toast.error("Failed to delete vendor");
+    }
+  };
 
   const toggleVendorStatus = async (vendorId: string, currentStatus: string) => {
     let newStatus = "approved";
@@ -99,6 +129,7 @@ export default function VendorsPage() {
   // Dynamic calculations based on state
   const totalVendors = vendorList.length;
   const activeVendors = vendorList.filter(v => v.status === "approved").length;
+  const pendingVendors = vendorList.filter(v => v.status === "pending").length;
   
   const totalRevenue = (() => {
     const sum = vendorList.reduce((acc, v) => {
@@ -121,12 +152,6 @@ export default function VendorsPage() {
       return "₦" + (sum / 1000).toFixed(0) + "k";
     }
     return "₦" + sum.toLocaleString();
-  })();
-
-  const averageRating = (() => {
-    if (vendorList.length === 0) return "0.0";
-    const sum = vendorList.reduce((acc, v) => acc + v.rating, 0);
-    return (sum / vendorList.length).toFixed(1);
   })();
 
   const filteredVendors = vendorList.filter((v) => {
@@ -191,17 +216,15 @@ export default function VendorsPage() {
             </div>
             <div className="bg-white p-[18px] rounded-[12px] border border-[#FAFAFA] shadow-sm">
               <p className="text-[#848484] text-[12px] font-medium mb-1">
-                Total Revenue
+                Pending Approval
               </p>
-              <h3 className="text-[32px] font-semibold text-[#FE7200]">
-                {totalRevenue}
-              </h3>
+              <h3 className="text-[32px] font-semibold text-[#FE7200]">{pendingVendors}</h3>
             </div>
             <div className="bg-white p-[18px] rounded-[12px] border border-[#FAFAFA] shadow-sm">
               <p className="text-[#848484] text-[12px] font-medium mb-1">
-                Average Rating
+                Total Revenue
               </p>
-              <h3 className="text-[32px] font-semibold text-[#F9A825]">{averageRating}</h3>
+              <h3 className="text-[32px] font-semibold text-[#212121]">{totalRevenue}</h3>
             </div>
           </div>
 
@@ -305,31 +328,44 @@ export default function VendorsPage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-[clamp(6px,1vw,12px)] mt-auto">
+                  <div className="flex items-center gap-[clamp(4px,1vw,8px)] mt-auto">
                     <button
                       onClick={() => setSelectedVendor(vendor)}
-                      className="flex-1 flex items-center justify-center gap-[4px] h-[clamp(32px,3vw,42px)] border border-[#EAEAEA] rounded-[8px] text-[clamp(11px,1.5vw,14px)] font-medium text-[#212121] bg-[#F8F8F8] hover:bg-[#F0F0F0] transition-all cursor-pointer"
+                      className="flex-1 flex items-center justify-center gap-[4px] h-[clamp(32px,3vw,40px)] border border-[#EAEAEA] rounded-[8px] text-[clamp(11px,1.4vw,13px)] font-medium text-[#212121] bg-[#F8F8F8] hover:bg-[#F0F0F0] transition-all cursor-pointer"
                     >
-                      <Eye className="w-[clamp(12px,1.5vw,16px)] h-[clamp(12px,1.5vw,16px)] text-[#747475]" />
+                      <Eye className="w-[14px] h-[14px] text-[#747475]" />
                       View
                     </button>
-                    <button
-                      onClick={() => toggleVendorStatus(vendor.id, vendor.status)}
-                      className={`flex-1 max-w-[92px] px-1 md:px-0 flex items-center justify-center h-[clamp(32px,3vw,42px)] border rounded-[8px] text-[clamp(10px,1.5vw,14px)] font-semibold transition-all bg-[#F8F8F8] cursor-pointer ${
-                        vendor.status.toLowerCase() === "pending"
-                          ? "border-[#FE7200] text-[#FE7200] hover:bg-[#FFF4E4]"
-                          : vendor.status.toLowerCase() === "suspended"
+                    {vendor.status.toLowerCase() === "pending" ? (
+                      <button
+                        onClick={() => handleApproveVendor(vendor.id)}
+                        className="flex-1 flex items-center justify-center gap-[4px] h-[clamp(32px,3vw,40px)] bg-[#29A378] text-white hover:bg-[#207951] rounded-[8px] text-[clamp(11px,1.4vw,13px)] font-semibold transition-all cursor-pointer"
+                      >
+                        <Check className="w-[14px] h-[14px]" />
+                        Approve
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => toggleVendorStatus(vendor.id, vendor.status)}
+                        className={`flex-1 flex items-center justify-center h-[clamp(32px,3vw,40px)] border rounded-[8px] text-[clamp(10px,1.4vw,12px)] font-semibold transition-all bg-[#F8F8F8] cursor-pointer ${
+                          vendor.status.toLowerCase() === "suspended"
                             ? "border-[#29A378] text-[#29A378] hover:bg-[#F0FBF4]"
                             : "border-[#E14343] text-red-500 hover:bg-red-50"
-                      }`}
-                    >
-                      <span className="truncate text-[12px]">
-                        {vendor.status.toLowerCase() === "pending"
-                          ? "Approve"
-                          : vendor.status.toLowerCase() === "suspended"
+                        }`}
+                      >
+                        <span className="truncate">
+                          {vendor.status.toLowerCase() === "suspended"
                             ? "Unsuspend"
                             : "Suspend"}
-                      </span>
+                        </span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setVendorToDelete(vendor)}
+                      className="w-[36px] h-[clamp(32px,3vw,40px)] flex items-center justify-center border border-[#EAEAEA] rounded-[8px] text-[#E14343] hover:bg-red-50 hover:border-red-200 transition-all cursor-pointer shrink-0"
+                      title="Delete Vendor"
+                    >
+                      <Trash2 className="w-[14px] h-[14px]" />
                     </button>
                   </div>
                 </div>
@@ -344,6 +380,8 @@ export default function VendorsPage() {
         vendor={selectedVendor}
         onClose={() => setSelectedVendor(null)}
         onSuspend={() => selectedVendor && toggleVendorStatus(selectedVendor.id, selectedVendor.status)}
+        onApprove={() => selectedVendor && handleApproveVendor(selectedVendor.id)}
+        onDelete={() => selectedVendor && setVendorToDelete(selectedVendor)}
         onViewMenu={() => selectedVendor && handleViewMenu(selectedVendor)}
       />
 
@@ -413,6 +451,41 @@ export default function VendorsPage() {
             >
               <X className="w-[14px] h-[14px] text-[#D1D5DB]" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Vendor Confirmation Modal */}
+      {vendorToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-[400px] w-full p-6 shadow-xl border border-[#EAEAEA] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-[56px] h-[56px] bg-[#FEF2F2] rounded-full flex items-center justify-center text-[#EF4343]">
+                <Trash2 className="w-7 h-7" />
+              </div>
+
+              <div>
+                <h3 className="text-[18px] font-bold text-[#191C1C] mb-2">Delete Vendor?</h3>
+                <p className="text-[14px] text-[#747475] leading-relaxed">
+                  Are you sure you want to permanently delete <strong className="text-[#191C1C]">{vendorToDelete.name}</strong>? This action cannot be undone and will delete the vendor profile and all related menu items.
+                </p>
+              </div>
+
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setVendorToDelete(null)}
+                  className="flex-1 h-[46px] border border-[#EAEAEA] rounded-[10px] text-[14px] font-bold text-[#747475] hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDeleteVendor}
+                  className="flex-1 h-[46px] bg-[#EF4343] text-white rounded-[10px] text-[14px] font-bold hover:bg-[#D32F2F] transition-all cursor-pointer"
+                >
+                  Yes, Delete
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

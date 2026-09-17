@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
@@ -16,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { getDriverProfile, updateDriverProfile, uploadDriverProfilePic } from '../services/api';
+import { clearAuthSession } from '../services/authStorage';
 
 const ProfileCard = ({ title, children, onEdit, showEdit = true }) => (
   <View style={styles.profileCard}>
@@ -302,7 +304,34 @@ const DriverProfileScreen = ({ navigation }) => {
         {/* LOGOUT BUTTON */}
         <TouchableOpacity 
           style={styles.logoutBtnOuter} 
-          onPress={() => navigation.navigate('DriverEditProfile', { section: 'logout' })}
+          onPress={() => {
+            const doLogout = async () => {
+              await clearAuthSession();
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'RoleSelection' }],
+              });
+            };
+
+            if (Platform.OS === 'web') {
+              if (typeof window !== 'undefined' && window.confirm('Are you sure you want to log out of your driver account?')) {
+                doLogout();
+              }
+            } else {
+              Alert.alert(
+                'Logout',
+                'Are you sure you want to log out of your driver account? You will need to sign back in to receive delivery requests.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Logout',
+                    style: 'destructive',
+                    onPress: doLogout,
+                  },
+                ]
+              );
+            }
+          }}
         >
            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
            <Text style={styles.logoutTextOuter}>Logout</Text>

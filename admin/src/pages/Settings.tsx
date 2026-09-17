@@ -488,14 +488,56 @@ export default function SettingsPage() {
 
   const handleSaveChanges = async (section: keyof SettingsState) => {
     if (section === "profile") {
-      const { fullName, email, newPassword, image } = draftSettings.profile;
-      await updateProfileOnServer({
+      const { fullName, email, currentPassword, newPassword, confirmPassword, image } = draftSettings.profile;
+
+      if (newPassword) {
+        if (!currentPassword) {
+          toast.error("Please enter your current password");
+          return;
+        }
+        if (newPassword === currentPassword) {
+          toast.error("New password must be different from current password");
+          return;
+        }
+        if (newPassword.length < 6) {
+          toast.error("Password must be at least 6 characters long");
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          toast.error("Passwords do not match");
+          return;
+        }
+      }
+
+      const res = await updateProfileOnServer({
         name: fullName,
         email,
         password: newPassword || undefined,
+        currentPassword: currentPassword || undefined,
         image,
       });
+
+      if (res && !res.success) {
+        toast.error(res.error || "Failed to update profile");
+        return;
+      }
+
       toast.success("Profile updated successfully!");
+      const updatedProfile = {
+        ...draftSettings.profile,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      };
+      setDraftSettings((prev) => ({
+        ...prev,
+        profile: updatedProfile,
+      }));
+      setSavedSettings((prev) => ({
+        ...prev,
+        profile: updatedProfile,
+      }));
+      return;
     } else {
       await updateSettingsOnServer({ [section]: draftSettings[section] });
       toast.success(`${section.charAt(0).toUpperCase() + section.slice(1)} settings saved!`);
@@ -703,7 +745,14 @@ export default function SettingsPage() {
                             e.target.value,
                           )
                         }
-                        className="w-full h-[48px] border border-[#EAEAEA] rounded-[8px] px-4 text-[14px] text-[#191C1C] focus:outline-none pr-10"
+                        className={`w-full h-[48px] border ${
+                          draftSettings.profile.newPassword &&
+                          draftSettings.profile.currentPassword &&
+                          draftSettings.profile.newPassword ===
+                            draftSettings.profile.currentPassword
+                            ? "border-[#EF4343]"
+                            : "border-[#EAEAEA]"
+                        } rounded-[8px] px-4 text-[14px] text-[#191C1C] focus:outline-none pr-10`}
                       />
                       <button
                         onClick={() => setShowNewPassword(!showNewPassword)}
@@ -716,6 +765,14 @@ export default function SettingsPage() {
                         )}
                       </button>
                     </div>
+                    {draftSettings.profile.newPassword &&
+                      draftSettings.profile.currentPassword &&
+                      draftSettings.profile.newPassword ===
+                        draftSettings.profile.currentPassword && (
+                        <span className="text-[12px] text-[#EF4343] mt-1 text-right">
+                          x New password must be different from current password
+                        </span>
+                      )}
                   </div>
                   <div className="flex flex-col gap-2 relative">
                     <label className="text-[12px] text-[#191C1C]">

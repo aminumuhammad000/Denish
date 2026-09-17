@@ -1828,6 +1828,21 @@ var require_authController = __commonJS({
         if (!user.resetPasswordExpires || user.resetPasswordExpires < Date.now()) {
           return res.status(400).json({ success: false, error: "OTP code has expired. Please request a new one." });
         }
+        let isSamePassword = false;
+        if (user.password) {
+          if (user.password === cleanPassword) {
+            isSamePassword = true;
+          } else if (user.password.startsWith("$2a$") || user.password.startsWith("$2b$")) {
+            const bcrypt = require("bcryptjs");
+            isSamePassword = await bcrypt.compare(cleanPassword, user.password);
+          }
+        }
+        if (isSamePassword) {
+          return res.status(400).json({
+            success: false,
+            error: "New password must be different from your current password"
+          });
+        }
         user.password = cleanPassword;
         user.resetPasswordOTP = void 0;
         user.resetPasswordExpires = void 0;
@@ -4015,9 +4030,23 @@ var require_adminController = __commonJS({
     var updateVendorStatus = async (req, res) => {
       try {
         const { id } = req.params;
-        const { status } = req.body;
+        let { status } = req.body;
+        if (typeof status === "string") {
+          const lower = status.toLowerCase();
+          status = lower === "approved" ? "Approved" : lower === "suspended" ? "Suspended" : "Pending";
+        }
         const vendor = await Vendor.findByIdAndUpdate(id, { status }, { new: true });
         res.status(200).json({ success: true, vendor });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var approveVendor = async (req, res) => {
+      try {
+        const { id } = req.params;
+        const vendor = await Vendor.findByIdAndUpdate(id, { status: "Approved" }, { new: true });
+        if (!vendor) return res.status(404).json({ success: false, message: "Vendor not found" });
+        res.status(200).json({ success: true, message: "Vendor approved successfully", vendor });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -4028,12 +4057,31 @@ var require_adminController = __commonJS({
         const { status, isWarned, isSuspended } = req.body;
         const updates = {};
         if (typeof status !== "undefined") {
-          updates.status = status === "Suspended" ? "Suspended" : status === "Pending" ? "Pending" : "Active";
+          const lower = String(status).toLowerCase();
+          if (lower === "suspended") {
+            updates.status = "Suspended";
+            updates.isSuspended = true;
+          } else if (lower === "pending") {
+            updates.status = "Pending";
+          } else {
+            updates.status = "Active";
+            updates.isSuspended = false;
+          }
         }
         if (typeof isWarned !== "undefined") updates.isWarned = Boolean(isWarned);
         if (typeof isSuspended !== "undefined") updates.isSuspended = Boolean(isSuspended);
         const driver = await Driver.findByIdAndUpdate(id, updates, { new: true });
         res.status(200).json({ success: true, driver });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var approveDriver = async (req, res) => {
+      try {
+        const { id } = req.params;
+        const driver = await Driver.findByIdAndUpdate(id, { status: "Active", isSuspended: false }, { new: true });
+        if (!driver) return res.status(404).json({ success: false, message: "Driver not found" });
+        res.status(200).json({ success: true, message: "Driver approved successfully", driver });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -4240,11 +4288,37 @@ var require_adminController = __commonJS({
       try {
         const admin = await Admin.findOne({ email: "admin@denish.com" });
         if (!admin) return res.status(404).json({ success: false, message: "Admin not found" });
-        const { name, email, password, image } = req.body;
+        const { name, email, password, currentPassword, image } = req.body;
         if (name) admin.name = name;
         if (email) admin.email = email;
         if (image) admin.image = image;
-        if (password) admin.password = password;
+        if (password) {
+          const cleanNewPassword = String(password).trim();
+          const cleanCurrentPassword = currentPassword ? String(currentPassword).trim() : "";
+          if (cleanCurrentPassword && cleanNewPassword === cleanCurrentPassword) {
+            return res.status(400).json({
+              success: false,
+              message: "New password must be different from current password"
+            });
+          }
+          const isMatch = await admin.comparePassword(cleanNewPassword);
+          if (isMatch) {
+            return res.status(400).json({
+              success: false,
+              message: "New password must be different from current password"
+            });
+          }
+          if (cleanCurrentPassword) {
+            const isCurrentCorrect = await admin.comparePassword(cleanCurrentPassword);
+            if (!isCurrentCorrect) {
+              return res.status(400).json({
+                success: false,
+                message: "Current password is incorrect"
+              });
+            }
+          }
+          admin.password = cleanNewPassword;
+        }
         await admin.save();
         res.status(200).json({ success: true, admin: { id: admin._id, name: admin.name, email: admin.email, image: admin.image } });
       } catch (error) {
@@ -4508,18 +4582,62 @@ Phone: 08036301983`;
         res.status(500).json({ success: false, error: error.message });
       }
     };
+    var deleteVendor = async (req, res) => {
+      try {
+        const { id } = req.params;
+        const vendor = await Vendor.findByIdAndDelete(id);
+        if (!vendor) {
+          return res.status(404).json({ success: false, message: "Vendor not found" });
+        }
+        res.status(200).json({ success: true, message: "Vendor deleted successfully" });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var deleteDriver = async (req, res) => {
+      try {
+        const { id } = req.params;
+        const driver = await Driver.findByIdAndDelete(id);
+        if (!driver) {
+          return res.status(404).json({ success: false, message: "Driver not found" });
+        }
+        res.status(200).json({ success: true, message: "Driver deleted successfully" });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var deleteCustomer = async (req, res) => {
+      try {
+        const { id } = req.params;
+        const customer = await Customer.findByIdAndDelete(id);
+        if (!customer) {
+          return res.status(404).json({ success: false, message: "Customer not found" });
+        }
+        res.status(200).json({ success: true, message: "Customer deleted successfully" });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
     var deleteUser = async (req, res) => {
       try {
         const { id } = req.params;
         const { role } = req.query;
+        let deleted = null;
         if (role === "Vendor") {
-          await Vendor.findByIdAndDelete(id);
+          deleted = await Vendor.findByIdAndDelete(id);
         } else if (role === "Driver") {
-          await Driver.findByIdAndDelete(id);
+          deleted = await Driver.findByIdAndDelete(id);
+        } else if (role === "Customer") {
+          deleted = await Customer.findByIdAndDelete(id);
         } else {
-          await Customer.findByIdAndDelete(id);
+          deleted = await Customer.findByIdAndDelete(id);
+          if (!deleted) deleted = await Vendor.findByIdAndDelete(id);
+          if (!deleted) deleted = await Driver.findByIdAndDelete(id);
         }
-        res.status(200).json({ success: true, message: "User deleted successfully" });
+        if (!deleted) {
+          return res.status(404).json({ success: false, message: "Record not found to delete" });
+        }
+        res.status(200).json({ success: true, message: "Deleted successfully" });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -4585,6 +4703,11 @@ Phone: 08036301983`;
       getSystemContent,
       updateSystemContent,
       deleteUser,
+      deleteVendor,
+      deleteDriver,
+      deleteCustomer,
+      approveVendor,
+      approveDriver,
       getPayoutOverviewAdmin,
       triggerNightlyVendorPayoutsAdmin,
       triggerWeeklyRiderPayoutsAdmin
@@ -4631,6 +4754,11 @@ var require_adminRoutes = __commonJS({
       getSystemContent,
       updateSystemContent,
       deleteUser,
+      deleteVendor,
+      deleteDriver,
+      deleteCustomer,
+      approveVendor,
+      approveDriver,
       getPayoutOverviewAdmin,
       triggerNightlyVendorPayoutsAdmin,
       triggerWeeklyRiderPayoutsAdmin
@@ -4648,9 +4776,14 @@ var require_adminRoutes = __commonJS({
     router.get("/vendors/:vendorId/menu", getVendorMenuById);
     router.get("/vendors/:vendorId/menu-items", getVendorMenuById);
     router.patch("/vendors/:id/status", updateVendorStatus);
+    router.patch("/vendors/:id/approve", approveVendor);
+    router.delete("/vendors/:id", deleteVendor);
     router.patch("/drivers/:id/status", updateDriverStatus);
+    router.patch("/drivers/:id/approve", approveDriver);
+    router.delete("/drivers/:id", deleteDriver);
     router.patch("/users/:id/status", updateUserStatus);
     router.delete("/users/:id", deleteUser);
+    router.delete("/customers/:id", deleteCustomer);
     router.put("/dispute/:id", updateDisputeStatus);
     router.post("/transaction", addTransaction);
     router.put("/order/:id", updateOrder);

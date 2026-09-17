@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Settings, LogOut, X } from "lucide-react";
+import { LogoutConfirmModal } from "./LogoutConfirmModal";
 import { useAdminStore } from "../../lib/store";
 import { clearAdminSession } from "../../lib/auth";
 
@@ -22,6 +23,7 @@ export function AdminSidebar() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const admin = useAdminStore((state) => state.admin);
 
   // Track whether we're on mobile
@@ -245,7 +247,8 @@ export function AdminSidebar() {
             </div>
           </div>
           <button
-            onClick={handleLogout}
+            type="button"
+            onClick={() => setShowLogoutConfirm(true)}
             style={{
               width: "100%",
               display: "flex",
@@ -268,6 +271,15 @@ export function AdminSidebar() {
           </button>
         </div>
       </aside>
+
+      <LogoutConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          handleLogout();
+        }}
+      />
     </>
   );
 }

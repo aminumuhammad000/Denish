@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Modal, TextInput, Alert, Clipboard
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Modal, TextInput, Alert, Clipboard, Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -351,12 +351,33 @@ const CustomerProfileScreen = ({ navigation }) => {
             </View>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={async () => {
-          await clearAuthSession();
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'RoleSelection' }],
-          });
+        <TouchableOpacity style={styles.logoutBtn} onPress={() => {
+          const doLogout = async () => {
+            await clearAuthSession();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'RoleSelection' }],
+            });
+          };
+
+          if (Platform.OS === 'web') {
+            if (typeof window !== 'undefined' && window.confirm('Are you sure you want to log out?')) {
+              doLogout();
+            }
+          } else {
+            Alert.alert(
+              'Logout',
+              'Are you sure you want to log out of your account?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Logout',
+                  style: 'destructive',
+                  onPress: doLogout,
+                },
+              ]
+            );
+          }
         }}>
           <Ionicons name="log-out-outline" size={20} color="#FF5252" style={{ marginRight: 8 }} />
           <Text style={styles.logoutText}>Logout</Text>

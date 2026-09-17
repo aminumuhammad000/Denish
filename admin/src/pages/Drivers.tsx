@@ -1,7 +1,8 @@
 
 
-import { Search, Star, Eye, Download } from "lucide-react";
+import { Search, Star, Eye, Download, Check, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { DriverDetailsModal } from "@/components/admin/DriverDetailsModal";
 
 import { AdminPageSkeleton } from "@/components/layout/AdminPageSkeleton";
@@ -9,20 +10,26 @@ import { exportToCSV } from "@/lib/exportUtils";
 
 import { useAdminStore, type Driver } from "@/lib/store";
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   Online: "text-[#29A378] bg-[#E9F5EF]",
+  Active: "text-[#29A378] bg-[#E9F5EF]",
   Delivering: "text-[#F9A825] bg-[#FFF8E5]",
   Offline: "text-[#848484] bg-[#F5F5F5]",
+  Pending: "text-[#FE7200] bg-[#FFF4E4]",
+  Suspended: "text-[#E14343] bg-[#FDECEC]",
 };
 
 export default function DriversPage() {
   const [isMounted, setIsMounted] = useState(false);
   const driversList = useAdminStore((state) => state.drivers);
   const updateDriverStatusOnServer = useAdminStore((state) => state.updateDriverStatusOnServer);
+  const approveDriverOnServer = useAdminStore((state) => state.approveDriverOnServer);
+  const deleteDriverOnServer = useAdminStore((state) => state.deleteDriverOnServer);
   const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const [activeTab, setActiveTab] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  const [driverToDelete, setDriverToDelete] = useState<Driver | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -37,8 +44,8 @@ export default function DriversPage() {
 
   // Dynamic calculations based on state
   const totalDrivers = driversList.length;
-  const onlineCount = driversList.filter(d => d.status === "Online" && !d.isSuspended).length;
-  const deliveringCount = driversList.filter(d => d.status === "Delivering" && !d.isSuspended).length;
+  const pendingCount = driversList.filter(d => d.status === "Pending").length;
+  const onlineCount = driversList.filter(d => (d.status === "Online" || d.status === "Active") && !d.isSuspended).length;
   const offlineCount = driversList.filter(d => d.status === "Offline" || d.isSuspended).length;
 
   const filteredDrivers = driversList.filter((driver) => {
@@ -50,9 +57,46 @@ export default function DriversPage() {
       driver.phone.toLowerCase().includes(activeSearch) ||
       driver.vehicle.toLowerCase().includes(activeSearch);
     
-    const matchesTab = activeTab === "All" || driver.status === activeTab;
+    let matchesTab = true;
+    if (activeTab === "Pending") {
+      matchesTab = driver.status === "Pending";
+    } else if (activeTab === "Online") {
+      matchesTab = (driver.status === "Online" || driver.status === "Active") && !driver.isSuspended;
+    } else if (activeTab === "Delivering") {
+      matchesTab = driver.status === "Delivering" && !driver.isSuspended;
+    } else if (activeTab === "Offline") {
+      matchesTab = driver.status === "Offline" || !!driver.isSuspended;
+    }
+
     return matchesSearch && matchesTab;
   });
+
+  const handleApproveDriver = async (driver: Driver) => {
+    const success = await approveDriverOnServer(driver.id);
+    if (success) {
+      toast.success(`${driver.name} approved successfully`);
+      if (selectedDriver && selectedDriver.id === driver.id) {
+        setSelectedDriver({ ...selectedDriver, status: "Active", isSuspended: false });
+      }
+    } else {
+      toast.error("Failed to approve driver");
+    }
+  };
+
+  const handleConfirmDeleteDriver = async () => {
+    if (!driverToDelete) return;
+    const d = driverToDelete;
+    setDriverToDelete(null);
+    if (selectedDriver?.id === d.id) {
+      setSelectedDriver(null);
+    }
+    const success = await deleteDriverOnServer(d.id);
+    if (success) {
+      toast.success(`${d.name} deleted successfully`);
+    } else {
+      toast.error("Failed to delete driver");
+    }
+  };
 
   const handleUpdateDriver = async (updatedDriver: Driver) => {
     await updateDriverStatusOnServer(updatedDriver.id, updatedDriver.status, {
@@ -108,15 +152,15 @@ export default function DriversPage() {
             </div>
             <div className="bg-white p-[18px] rounded-[12px] border border-[#FAFAFA] shadow-sm">
               <p className="text-[#848484] text-[12px] font-medium mb-1">
-                Online
+                Pending Approval
               </p>
-              <h3 className="text-[32px] font-semibold text-[#29A378]">{onlineCount}</h3>
+              <h3 className="text-[32px] font-semibold text-[#FE7200]">{pendingCount}</h3>
             </div>
             <div className="bg-white p-[18px] rounded-[12px] border border-[#FAFAFA] shadow-sm">
               <p className="text-[#848484] text-[12px] font-medium mb-1">
-                Delivering
+                Online / Active
               </p>
-              <h3 className="text-[32px] font-semibold text-[#0A85FF]">{deliveringCount}</h3>
+              <h3 className="text-[32px] font-semibold text-[#29A378]">{onlineCount}</h3>
             </div>
             <div className="bg-white p-[18px] rounded-[12px] border border-[#FAFAFA] shadow-sm">
               <p className="text-[#848484] text-[12px] font-medium mb-1">
@@ -139,7 +183,7 @@ export default function DriversPage() {
               />
             </div>
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full pb-2 md:pb-0">
-              {["All", "Online", "Delivering", "Offline"].map((tab) => (
+              {["All", "Pending", "Online", "Delivering", "Offline"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -238,11 +282,11 @@ export default function DriversPage() {
                       <td className="px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,1vw,0.75rem)]">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`inline-flex items-center justify-center w-[92px] h-[32px] rounded-full text-[14px] font-medium ${
-                              driver.isSuspended ? statusStyles["Offline"] : statusStyles[driver.status]
+                            className={`inline-flex items-center justify-center px-3 h-[30px] rounded-full text-[13px] font-medium ${
+                              driver.isSuspended ? statusStyles["Suspended"] : (statusStyles[driver.status] || statusStyles["Offline"])
                             }`}
                           >
-                            {driver.isSuspended ? "Offline" : driver.status}
+                            {driver.isSuspended ? "Suspended" : driver.status}
                           </span>
                           {driver.isSuspended && (
                             <span className="px-2 py-0.5 text-[11px] font-bold text-white bg-[#E14343] rounded-[4px]">
@@ -272,18 +316,41 @@ export default function DriversPage() {
                         </span>
                       </td>
                       <td className="px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,1vw,0.75rem)]">
-                        <div className="flex justify-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {driver.status === "Pending" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleApproveDriver(driver);
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#29A378] text-white rounded-[6px] hover:bg-[#207951] transition-all text-[12px] font-semibold cursor-pointer shadow-sm"
+                              title="Approve Driver"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Approve</span>
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedDriver(driver);
                             }}
-                            className="flex items-center gap-2 px-3 py-1.5 border border-[#EAEAEA] rounded-[6px] hover:bg-[#F8FAF9] transition-all cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 border border-[#EAEAEA] rounded-[6px] hover:bg-[#F8FAF9] transition-all cursor-pointer"
                           >
                             <Eye className="w-4 h-4 text-[#747475]" />
                             <span className="text-[14px] font-medium text-[#212121]">
                               View
                             </span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDriverToDelete(driver);
+                            }}
+                            className="p-1.5 border border-[#EAEAEA] rounded-[6px] text-[#E14343] hover:bg-red-50 hover:border-red-200 transition-all cursor-pointer"
+                            title="Delete Driver"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -302,7 +369,44 @@ export default function DriversPage() {
           driver={selectedDriver}
           onClose={() => setSelectedDriver(null)}
           onUpdateDriver={handleUpdateDriver}
+          onApprove={handleApproveDriver}
+          onDelete={(d) => setDriverToDelete(d)}
         />
+      )}
+
+      {/* Delete Driver Confirmation Modal */}
+      {driverToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[20px] max-w-[400px] w-full p-6 shadow-xl border border-[#EAEAEA] animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-[56px] h-[56px] bg-[#FEF2F2] rounded-full flex items-center justify-center text-[#EF4343]">
+                <Trash2 className="w-7 h-7" />
+              </div>
+
+              <div>
+                <h3 className="text-[18px] font-bold text-[#191C1C] mb-2">Delete Driver?</h3>
+                <p className="text-[14px] text-[#747475] leading-relaxed">
+                  Are you sure you want to permanently delete <strong className="text-[#191C1C]">{driverToDelete.name}</strong>? This action cannot be undone and will remove the driver profile and delivery records.
+                </p>
+              </div>
+
+              <div className="flex gap-3 w-full mt-2">
+                <button
+                  onClick={() => setDriverToDelete(null)}
+                  className="flex-1 h-[46px] border border-[#EAEAEA] rounded-[10px] text-[14px] font-bold text-[#747475] hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDeleteDriver}
+                  className="flex-1 h-[46px] bg-[#EF4343] text-white rounded-[10px] text-[14px] font-bold hover:bg-[#D32F2F] transition-all cursor-pointer"
+                >
+                  Yes, Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

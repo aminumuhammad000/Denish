@@ -34,6 +34,11 @@ const {
   getSystemContent,
   updateSystemContent,
   deleteUser,
+  deleteVendor,
+  deleteDriver,
+  deleteCustomer,
+  approveVendor,
+  approveDriver,
   getPayoutOverviewAdmin,
   triggerNightlyVendorPayoutsAdmin,
   triggerWeeklyRiderPayoutsAdmin
@@ -58,9 +63,16 @@ router.get('/vendors/:vendorId/menu', getVendorMenuById);
 router.get('/vendors/:vendorId/menu-items', getVendorMenuById);
 
 router.patch('/vendors/:id/status', updateVendorStatus);
+router.patch('/vendors/:id/approve', approveVendor);
+router.delete('/vendors/:id', deleteVendor);
+
 router.patch('/drivers/:id/status', updateDriverStatus);
+router.patch('/drivers/:id/approve', approveDriver);
+router.delete('/drivers/:id', deleteDriver);
+
 router.patch('/users/:id/status', updateUserStatus);
 router.delete('/users/:id', deleteUser);
+router.delete('/customers/:id', deleteCustomer);
 router.put('/dispute/:id', updateDisputeStatus);
 router.post('/transaction', addTransaction);
 router.put('/order/:id', updateOrder);

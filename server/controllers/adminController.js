@@ -139,9 +139,24 @@ const getAllDisputes = async (req, res) => {
 const updateVendorStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    let { status } = req.body;
+    if (typeof status === 'string') {
+      const lower = status.toLowerCase();
+      status = lower === 'approved' ? 'Approved' : (lower === 'suspended' ? 'Suspended' : 'Pending');
+    }
     const vendor = await Vendor.findByIdAndUpdate(id, { status }, { new: true });
     res.status(200).json({ success: true, vendor });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const approveVendor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const vendor = await Vendor.findByIdAndUpdate(id, { status: 'Approved' }, { new: true });
+    if (!vendor) return res.status(404).json({ success: false, message: 'Vendor not found' });
+    res.status(200).json({ success: true, message: 'Vendor approved successfully', vendor });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -154,13 +169,33 @@ const updateDriverStatus = async (req, res) => {
     const updates = {};
 
     if (typeof status !== 'undefined') {
-      updates.status = status === 'Suspended' ? 'Suspended' : (status === 'Pending' ? 'Pending' : 'Active');
+      const lower = String(status).toLowerCase();
+      if (lower === 'suspended') {
+        updates.status = 'Suspended';
+        updates.isSuspended = true;
+      } else if (lower === 'pending') {
+        updates.status = 'Pending';
+      } else {
+        updates.status = 'Active';
+        updates.isSuspended = false;
+      }
     }
     if (typeof isWarned !== 'undefined') updates.isWarned = Boolean(isWarned);
     if (typeof isSuspended !== 'undefined') updates.isSuspended = Boolean(isSuspended);
 
     const driver = await Driver.findByIdAndUpdate(id, updates, { new: true });
     res.status(200).json({ success: true, driver });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const approveDriver = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const driver = await Driver.findByIdAndUpdate(id, { status: 'Active', isSuspended: false }, { new: true });
+    if (!driver) return res.status(404).json({ success: false, message: 'Driver not found' });
+    res.status(200).json({ success: true, message: 'Driver approved successfully', driver });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -374,11 +409,44 @@ const updateAdminProfile = async (req, res) => {
     const admin = await Admin.findOne({ email: 'admin@denish.com' });
     if (!admin) return res.status(404).json({ success: false, message: 'Admin not found' });
 
-    const { name, email, password, image } = req.body;
+    const { name, email, password, currentPassword, image } = req.body;
     if (name) admin.name = name;
     if (email) admin.email = email;
     if (image) admin.image = image;
-    if (password) admin.password = password;
+
+    if (password) {
+      const cleanNewPassword = String(password).trim();
+      const cleanCurrentPassword = currentPassword ? String(currentPassword).trim() : '';
+
+      if (cleanCurrentPassword && cleanNewPassword === cleanCurrentPassword) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'New password must be different from current password' 
+        });
+      }
+
+      // Check if new password matches existing password in database
+      const isMatch = await admin.comparePassword(cleanNewPassword);
+      if (isMatch) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'New password must be different from current password' 
+        });
+      }
+
+      // If currentPassword was provided, verify it is correct
+      if (cleanCurrentPassword) {
+        const isCurrentCorrect = await admin.comparePassword(cleanCurrentPassword);
+        if (!isCurrentCorrect) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Current password is incorrect' 
+          });
+        }
+      }
+
+      admin.password = cleanNewPassword;
+    }
 
     await admin.save();
     res.status(200).json({ success: true, admin: { id: admin._id, name: admin.name, email: admin.email, image: admin.image } });
@@ -656,20 +724,68 @@ const updateSystemContent = async (req, res) => {
   }
 };
 
+const deleteVendor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const vendor = await Vendor.findByIdAndDelete(id);
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+    res.status(200).json({ success: true, message: 'Vendor deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const deleteDriver = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const driver = await Driver.findByIdAndDelete(id);
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+    res.status(200).json({ success: true, message: 'Driver deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const deleteCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const customer = await Customer.findByIdAndDelete(id);
+    if (!customer) {
+      return res.status(404).json({ success: false, message: 'Customer not found' });
+    }
+    res.status(200).json({ success: true, message: 'Customer deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.query;
 
+    let deleted = null;
     if (role === 'Vendor') {
-      await Vendor.findByIdAndDelete(id);
+      deleted = await Vendor.findByIdAndDelete(id);
     } else if (role === 'Driver') {
-      await Driver.findByIdAndDelete(id);
+      deleted = await Driver.findByIdAndDelete(id);
+    } else if (role === 'Customer') {
+      deleted = await Customer.findByIdAndDelete(id);
     } else {
-      await Customer.findByIdAndDelete(id);
+      deleted = await Customer.findByIdAndDelete(id);
+      if (!deleted) deleted = await Vendor.findByIdAndDelete(id);
+      if (!deleted) deleted = await Driver.findByIdAndDelete(id);
     }
 
-    res.status(200).json({ success: true, message: 'User deleted successfully' });
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Record not found to delete' });
+    }
+
+    res.status(200).json({ success: true, message: 'Deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -740,6 +856,11 @@ module.exports = {
   getSystemContent,
   updateSystemContent,
   deleteUser,
+  deleteVendor,
+  deleteDriver,
+  deleteCustomer,
+  approveVendor,
+  approveDriver,
   getPayoutOverviewAdmin,
   triggerNightlyVendorPayoutsAdmin,
   triggerWeeklyRiderPayoutsAdmin

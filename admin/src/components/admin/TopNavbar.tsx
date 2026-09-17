@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Search, Bell, Menu, Settings, LogOut } from "lucide-react";
+import { LogoutConfirmModal } from "./LogoutConfirmModal";
 import { useAdminStore } from "../../lib/store";
 import { clearAdminSession } from "../../lib/auth";
 
@@ -10,6 +11,7 @@ export function TopNavbar() {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const admin = useAdminStore((state) => state.admin);
   const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
@@ -316,7 +318,8 @@ export function TopNavbar() {
               <Settings size={16} color="#747475" /> Settings
             </NavLink>
             <button
-              onClick={() => { setIsMenuOpen(false); handleLogout(); }}
+              type="button"
+              onClick={() => { setIsMenuOpen(false); setShowLogoutConfirm(true); }}
               style={{
                 width: "100%",
                 display: "flex",
@@ -337,6 +340,15 @@ export function TopNavbar() {
           </div>
         )}
       </div>
+
+      <LogoutConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          handleLogout();
+        }}
+      />
     </div>
   );
 }
