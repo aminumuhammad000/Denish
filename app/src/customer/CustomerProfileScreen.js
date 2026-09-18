@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Modal, TextInput, Alert, Clipboard, Platform
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Modal, TextInput, Alert, Clipboard, Platform, Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { Colors } from '../constants/Colors';
 
-import { getCustomerProfile, saveAddress, savePaymentMethod, deleteCustomerAddress, deleteCustomerPaymentMethod, updateCustomerProfile, fundCustomerWallet } from '../services/api';
+import { 
+  getCustomerProfile, 
+  saveAddress, 
+  savePaymentMethod, 
+  deleteCustomerAddress, 
+  deleteCustomerPaymentMethod, 
+  updateCustomerProfile, 
+  fundCustomerWallet,
+  initFlutterwaveCheckout,
+  verifyFlutterwaveCheckout
+} from '../services/api';
 import { clearAuthSession } from '../services/authStorage';
 import { useIsFocused } from '@react-navigation/native';
 import CustomerBottomTab from './components/CustomerBottomTab';
@@ -32,31 +43,65 @@ const CustomerProfileScreen = ({ navigation }) => {
 
   const handleFundWallet = async (selectedAmount) => {
     const amt = Number(selectedAmount || fundAmount);
-    if (!amt || amt < 100) {
+    if (!amt || isNaN(amt) || amt < 100) {
       Alert.alert('Invalid Amount', 'Please enter a valid amount of at least ₦100');
       return;
     }
+
     setFundingWallet(true);
     try {
-      const res = await fundCustomerWallet({
+      // 1. Initialize Flutterwave payment checkout on backend
+      const flwRes = await initFlutterwaveCheckout({
         amount: amt,
-        paymentMethod: 'Card',
-        reference: `WAL-${Date.now()}`
+        email: profile?.email || 'customer@denishng.com',
+        name: profile?.name || 'Denish Customer',
+        phone: profile?.phone || '08123456789',
+        orderId: `WAL-${Math.floor(10000 + Math.random() * 90000)}`,
+        isWalletTopup: true,
       });
-      if (res && res.success) {
+
+      if (!flwRes.success || !flwRes.data?.link) {
+        throw new Error(flwRes.message || 'Could not initiate Flutterwave payment link');
+      }
+
+      const checkoutUrl = flwRes.data.link;
+      const txRef = flwRes.data.tx_ref;
+
+      // 2. Open Flutterwave hosted checkout in in-app browser
+      try {
+        await WebBrowser.openBrowserAsync(checkoutUrl);
+      } catch (browserErr) {
+        await Linking.openURL(checkoutUrl);
+      }
+
+      // 3. Confirm with Flutterwave & credit wallet balance on backend
+      const verifyRes = await fundCustomerWallet({
+        amount: amt,
+        tx_ref: txRef,
+        reference: txRef,
+        paymentMethod: 'Flutterwave',
+      });
+
+      if (verifyRes && verifyRes.success) {
         setProfile(prev => ({
           ...prev,
-          walletBalance: res.balance !== undefined ? res.balance : ((prev?.walletBalance || 0) + amt)
+          walletBalance: verifyRes.balance !== undefined ? verifyRes.balance : ((prev?.walletBalance || 0) + amt)
         }));
         setWalletModalVisible(false);
         setFundAmount('');
-        Alert.alert('Success 🎉', `₦${amt.toLocaleString()} has been added to your Denish Wallet.`);
+        Alert.alert('Wallet Funded 🎉', `₦${amt.toLocaleString()} has been successfully added to your Denish Wallet.`);
       } else {
-        Alert.alert('Failed', res?.error || 'Could not fund wallet');
+        Alert.alert(
+          'Payment Not Confirmed',
+          verifyRes?.error || 'Payment was not confirmed by Flutterwave. Your wallet was not credited.'
+        );
       }
     } catch (e) {
       console.error('Wallet funding error:', e);
-      Alert.alert('Error', e.message || 'Failed to fund wallet');
+      Alert.alert(
+        'Payment Incomplete',
+        e.response?.data?.error || e.message || 'Payment could not be verified on Flutterwave. Your wallet has not been charged.'
+      );
     } finally {
       setFundingWallet(false);
     }
@@ -191,26 +236,45 @@ const CustomerProfileScreen = ({ navigation }) => {
 
         {/* Denish Wallet Card */}
         <View style={styles.walletCard}>
-          <View style={styles.walletCardTop}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={styles.walletCardHeader}>
+            <View style={styles.walletTitleGroup}>
               <View style={styles.walletIconCircle}>
-                <MaterialCommunityIcons name="wallet-outline" size={22} color="#FFF" />
+                <MaterialCommunityIcons name="wallet-outline" size={20} color="#FF7A00" />
               </View>
-              <Text style={styles.walletCardTitle}>Denish Wallet</Text>
+              <View style={{ flexShrink: 1 }}>
+                <Text style={styles.walletCardTitle}>Denish Wallet</Text>
+                <Text style={styles.walletCardSubtitle}>Instant checkout & cashless orders</Text>
+              </View>
             </View>
+            <View style={styles.walletSecureBadge}>
+              <Ionicons name="shield-checkmark" size={12} color="#4ADE80" />
+              <Text style={styles.walletSecureBadgeText}>Secured</Text>
+            </View>
+          </View>
+
+          <View style={styles.walletCardDivider} />
+
+          <View style={styles.walletCardBody}>
+            <View style={styles.walletBalanceSection}>
+              <Text style={styles.walletLabel}>Available Balance</Text>
+              <Text 
+                style={styles.walletBalanceText} 
+                numberOfLines={1} 
+                adjustsFontSizeToFit
+              >
+                ₦{(profile?.walletBalance ?? 0).toLocaleString()}
+              </Text>
+            </View>
+
             <TouchableOpacity 
               style={styles.addMoneyBtn}
               onPress={() => setWalletModalVisible(true)}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <Ionicons name="add-circle" size={16} color="#FF8C00" />
-              <Text style={styles.addMoneyBtnText}>+ Add money</Text>
+              <Ionicons name="add" size={17} color="#FFF" />
+              <Text style={styles.addMoneyBtnText}>Add Money</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.walletLabel}>Available Balance</Text>
-          <Text style={styles.walletBalanceText}>
-            ₦{(profile?.walletBalance ?? 0).toLocaleString()}
-          </Text>
         </View>
 
         {/* Loyalty Card */}
@@ -712,27 +776,30 @@ const CustomerProfileScreen = ({ navigation }) => {
         animationType="slide"
         transparent={true}
         visible={walletModalVisible}
-        onRequestClose={() => setWalletModalVisible(false)}
+        onRequestClose={() => !fundingWallet && setWalletModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <TouchableOpacity 
               style={styles.closeBtn} 
-              onPress={() => setWalletModalVisible(false)}
+              onPress={() => !fundingWallet && setWalletModalVisible(false)}
+              disabled={fundingWallet}
             >
               <Ionicons name="close" size={22} color="#666" />
             </TouchableOpacity>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <MaterialCommunityIcons name="wallet-plus-outline" size={24} color="#FF8C00" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <View style={styles.modalHeaderIconBox}>
+                <MaterialCommunityIcons name="wallet-plus-outline" size={22} color="#FF7A00" />
+              </View>
               <Text style={styles.modalHeaderTitle}>Add Money to Wallet</Text>
             </View>
-            <Text style={{ fontSize: 13, color: '#888', marginBottom: 18 }}>
-              Funds are credited immediately and can be used for instant checkouts.
+            <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 18, lineHeight: 18 }}>
+              Pay securely via Flutterwave (Card, Bank Transfer, or USSD). Funds are credited instantly upon successful confirmation.
             </Text>
 
             <Text style={styles.modalInputLabel}>Select Quick Amount</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            <View style={styles.presetChipsRow}>
               {[1000, 2000, 5000, 10000].map((preset) => (
                 <TouchableOpacity
                   key={preset}
@@ -741,6 +808,7 @@ const CustomerProfileScreen = ({ navigation }) => {
                     Number(fundAmount) === preset && styles.presetChipActive
                   ]}
                   onPress={() => setFundAmount(String(preset))}
+                  activeOpacity={0.7}
                 >
                   <Text style={[
                     styles.presetChipText,
@@ -757,30 +825,44 @@ const CustomerProfileScreen = ({ navigation }) => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. 3500"
-                placeholderTextColor="#AAA"
+                placeholderTextColor="#94A3B8"
                 keyboardType="number-pad"
                 value={fundAmount}
                 onChangeText={setFundAmount}
               />
             </View>
 
+            <View style={styles.securityRow}>
+              <Ionicons name="shield-checkmark" size={14} color="#16A34A" />
+              <Text style={styles.securityText}>Secured by Flutterwave Official Gateway</Text>
+            </View>
+
             <TouchableOpacity
               style={[styles.saveModalBtn, fundingWallet && { opacity: 0.7 }]}
               disabled={fundingWallet}
               onPress={() => handleFundWallet()}
+              activeOpacity={0.85}
             >
               {fundingWallet ? (
-                <ActivityIndicator color="#FFF" />
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                  <ActivityIndicator color="#FFF" size="small" />
+                  <Text style={styles.saveModalBtnText}>Connecting to Flutterwave...</Text>
+                </View>
               ) : (
-                <Text style={styles.saveModalBtnText}>
-                  + Add ₦{fundAmount ? Number(fundAmount).toLocaleString() : '0'} to Wallet
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Ionicons name="lock-closed" size={16} color="#FFF" />
+                  <Text style={styles.saveModalBtnText}>
+                    Proceed to Pay ₦{fundAmount && Number(fundAmount) > 0 ? Number(fundAmount).toLocaleString() : '0'}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.cancelModalBtn}
               onPress={() => setWalletModalVisible(false)}
+              disabled={fundingWallet}
+              activeOpacity={0.7}
             >
               <Text style={styles.cancelModalBtnText}>Cancel</Text>
             </TouchableOpacity>
@@ -829,72 +911,124 @@ const styles = StyleSheet.create({
   editBtn: { padding: 8 },
 
   walletCard: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0F172A',
     borderRadius: 20,
-    padding: 20,
+    padding: 18,
     marginBottom: 16,
-    elevation: 3,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 10,
   },
-  walletCardTop: {
+  walletCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  walletTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
   },
   walletIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#334155',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 122, 0, 0.18)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   walletCardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFF',
+  },
+  walletCardSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  walletSecureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(74, 222, 128, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  walletSecureBadgeText: {
+    color: '#4ADE80',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  walletCardDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 14,
+  },
+  walletCardBody: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  walletBalanceSection: {
+    flex: 1,
+    marginRight: 12,
+  },
+  walletLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  walletBalanceText: {
+    color: '#FFF',
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   addMoneyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#FFF',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
+    backgroundColor: '#FF7A00',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 22,
+    elevation: 2,
+    shadowColor: '#FF7A00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   addMoneyBtnText: {
-    color: '#FF8C00',
+    color: '#FFF',
     fontSize: 13,
     fontWeight: '700',
   },
-  walletLabel: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  walletBalanceText: {
-    color: '#FFF',
-    fontSize: 34,
-    fontWeight: '900',
-    marginTop: 4,
-    letterSpacing: 0.5,
+  presetChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+    flexWrap: 'wrap',
   },
   presetChip: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   presetChipActive: {
     backgroundColor: '#FFF7ED',
-    borderColor: '#FF8C00',
+    borderColor: '#FF7A00',
   },
   presetChipText: {
     fontSize: 13,
@@ -902,8 +1036,28 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   presetChipTextActive: {
-    color: '#FF8C00',
+    color: '#FF7A00',
     fontWeight: '700',
+  },
+  modalHeaderIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 122, 0, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  securityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 14,
+  },
+  securityText: {
+    fontSize: 11,
+    color: '#16A34A',
+    fontWeight: '600',
   },
 
   loyaltyCard: {
@@ -1000,9 +1154,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#1A1A1A',
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 20
   },
   modalInputGroup: {
     marginBottom: 16

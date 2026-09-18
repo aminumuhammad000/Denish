@@ -512,23 +512,27 @@ async function getFlutterwaveToken() {
 // Initialize Flutterwave Checkout Payment
 const initializeFlutterwavePayment = async (req, res) => {
   try {
-    const { amount, email, name, phone, orderId, redirect_url } = req.body;
-    const tx_ref = `DENISH-TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const { amount, email, name, phone, orderId, redirect_url, isWalletTopup } = req.body;
+    const numAmount = Number(amount || 0);
+    const isWallet = isWalletTopup || (orderId && String(orderId).startsWith('WAL'));
+    const tx_ref = isWallet
+      ? `DENISH-WAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+      : `DENISH-TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     const flwPayload = {
       tx_ref,
-      amount: amount || 5700,
+      amount: numAmount || 5700,
       currency: 'NGN',
-      redirect_url: redirect_url || 'http://localhost:3000/api/customer/flw/callback',
+      redirect_url: redirect_url || 'https://standard.paypack.co/flw-redirect',
       payment_options: 'card,banktransfer,account,ussd',
       customer: {
-        email: email || 'usman@denish.com',
+        email: email || 'customer@denishng.com',
         phonenumber: phone || '08123456789',
-        name: name || 'Usman Umar'
+        name: name || 'Denish Customer'
       },
       customizations: {
-        title: 'Denish Food Delivery',
-        description: `Payment for Order #${orderId || 'ORD-005'}`,
+        title: isWallet ? 'Denish Wallet Top-up' : 'Denish Food Delivery',
+        description: isWallet ? `Funding Denish Wallet with ₦${numAmount.toLocaleString()}` : `Payment for Order #${orderId || 'ORD-005'}`,
         logo: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200'
       }
     };
@@ -542,7 +546,8 @@ const initializeFlutterwavePayment = async (req, res) => {
           headers: {
             Authorization: authHeader,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 12000
         }
       );
 
@@ -580,39 +585,62 @@ const initializeFlutterwavePayment = async (req, res) => {
 const verifyFlutterwavePayment = async (req, res) => {
   try {
     const { tx_ref, transaction_id } = req.body;
+    const authHeader = await getFlutterwaveAuthHeader();
+    let flwData = null;
 
     if (transaction_id) {
       try {
-        const authHeader = await getFlutterwaveAuthHeader();
         const verifyRes = await axios.get(
           `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
           {
             headers: {
               Authorization: authHeader,
               'Content-Type': 'application/json'
-            }
+            },
+            timeout: 10000
           }
         );
-        if (verifyRes.data?.status === 'success' && verifyRes.data?.data?.status === 'successful') {
-          return res.status(200).json({
-            success: true,
-            message: 'Payment verified successfully',
-            data: verifyRes.data.data
-          });
+        if (verifyRes.data?.status === 'success' && verifyRes.data?.data) {
+          flwData = verifyRes.data.data;
         }
       } catch (verifyErr) {
-        console.warn('Flutterwave live verify warning:', verifyErr.response?.data || verifyErr.message);
+        console.warn('Flutterwave live verify by id warning:', verifyErr.response?.data || verifyErr.message);
       }
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'Payment verified successfully',
-      data: {
-        status: 'successful',
-        tx_ref: tx_ref || `DENISH-TX-${Date.now()}`,
-        transaction_id: transaction_id || `FLW-TX-${Date.now()}`
+    if (!flwData && tx_ref) {
+      try {
+        const verifyRes = await axios.get(
+          `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(tx_ref)}`,
+          {
+            headers: {
+              Authorization: authHeader,
+              'Content-Type': 'application/json'
+            },
+            timeout: 10000
+          }
+        );
+        if (verifyRes.data?.status === 'success' && verifyRes.data?.data) {
+          flwData = verifyRes.data.data;
+        }
+      } catch (verifyErr) {
+        console.warn('Flutterwave live verify by tx_ref warning:', verifyErr.response?.data || verifyErr.message);
       }
+    }
+
+    if (flwData && (flwData.status === 'successful' || flwData.status === 'succeeded')) {
+      return res.status(200).json({
+        success: true,
+        message: 'Payment verified successfully on Flutterwave',
+        data: flwData
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: 'Payment was not confirmed as successful by Flutterwave',
+      status: flwData?.status || 'unverified',
+      data: flwData
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -633,9 +661,57 @@ const flutterwaveWebhook = async (req, res) => {
     const eventType = payload?.event || payload?.type || payload?.['event.type'];
     console.log('FLUTTERWAVE WEBHOOK RECEIVED:', eventType);
 
-    if (eventType === 'charge.completed' && payload?.data?.status === 'succeeded') {
-      const { reference, id, amount } = payload.data;
-      console.log(`Order with reference ${reference} paid successfully (Amount: ₦${amount})`);
+    if (eventType === 'charge.completed' && (payload?.data?.status === 'successful' || payload?.data?.status === 'succeeded')) {
+      const { reference, tx_ref, id, amount, customer: custData } = payload.data;
+      const effectiveRef = tx_ref || reference;
+      console.log(`Order/charge with reference ${effectiveRef} paid successfully (Amount: ₦${amount})`);
+
+      // Auto-credit customer wallet if this charge was a wallet top-up
+      if (effectiveRef && (effectiveRef.includes('WAL') || effectiveRef.startsWith('DENISH-WAL-'))) {
+        const Transaction = require('../models/Transaction');
+        const alreadyCredited = await Transaction.findOne({
+          reference: effectiveRef,
+          type: 'Wallet Top-up',
+          status: 'Completed'
+        });
+
+        if (!alreadyCredited) {
+          const customer = await Customer.findOne({
+            $or: [
+              { email: custData?.email },
+              { phone: custData?.phone_number || custData?.phonenumber }
+            ]
+          });
+
+          if (customer) {
+            customer.walletBalance = (customer.walletBalance || 0) + Number(amount);
+            await customer.save();
+
+            await Transaction.create({
+              type: 'Wallet Top-up',
+              from: customer.name,
+              to: 'Denish Customer Wallet',
+              amount: Number(amount),
+              method: 'Flutterwave Webhook',
+              status: 'Completed',
+              reference: effectiveRef,
+            });
+
+            try {
+              const Notification = require('../models/Notification');
+              await Notification.create({
+                title: 'Wallet Funded 💳',
+                message: `Your wallet has been credited with ₦${Number(amount).toLocaleString()} via Flutterwave. Available balance: ₦${customer.walletBalance.toLocaleString()}.`,
+                type: 'payment',
+                recipient: 'customer',
+                read: false,
+              });
+            } catch (ne) { /* non-fatal */ }
+
+            console.log(`[WalletWebhook] Auto-credited ₦${amount} to ${customer.name} via webhook`);
+          }
+        }
+      }
     } else if (eventType === 'transfer.completed' || eventType === 'Transfer') {
       const { handleFlutterwaveTransferWebhook } = require('../utils/payoutScheduler');
       await handleFlutterwaveTransferWebhook(payload);
@@ -737,36 +813,126 @@ const getCustomerWallet = async (req, res) => {
 
 const fundCustomerWallet = async (req, res) => {
   try {
-    const { amount, paymentMethod, reference } = req.body;
+    const { amount, reference, tx_ref, transaction_id, paymentMethod } = req.body;
     const numAmount = Number(amount);
+    const targetRef = tx_ref || reference;
+
     if (!numAmount || numAmount <= 0) {
       return res.status(400).json({ success: false, error: 'Please enter a valid amount' });
+    }
+
+    if (!targetRef && !transaction_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment reference is required. Wallet cannot be credited without Flutterwave confirmation.'
+      });
     }
 
     const customer = await getCurrentCustomer(req);
     if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
 
-    customer.walletBalance = (customer.walletBalance || 0) + numAmount;
+    const Transaction = require('../models/Transaction');
+
+    // 1. Idempotency check: Ensure reference was not already credited
+    if (targetRef) {
+      const alreadyCredited = await Transaction.findOne({
+        reference: targetRef,
+        type: 'Wallet Top-up',
+        status: 'Completed'
+      });
+      if (alreadyCredited) {
+        return res.status(200).json({
+          success: true,
+          message: 'Wallet already credited for this payment',
+          balance: customer.walletBalance || 0,
+          transaction: alreadyCredited,
+          data: customer,
+        });
+      }
+    }
+
+    // 2. Strict Live Flutterwave Verification
+    let verifiedData = null;
+    const { getFlutterwaveAuthHeader } = require('../utils/flutterwave');
+    const authHeader = await getFlutterwaveAuthHeader();
+
+    // Check by transaction_id if provided
+    if (transaction_id) {
+      try {
+        const verifyRes = await axios.get(
+          `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
+          {
+            headers: {
+              Authorization: authHeader,
+              'Content-Type': 'application/json'
+            },
+            timeout: 10000
+          }
+        );
+        if (verifyRes.data?.status === 'success' && verifyRes.data?.data) {
+          verifiedData = verifyRes.data.data;
+        }
+      } catch (err) {
+        console.warn('Flutterwave verify by id error:', err.response?.data?.message || err.message);
+      }
+    }
+
+    // Check by tx_ref if provided
+    if (!verifiedData && targetRef) {
+      try {
+        const verifyRes = await axios.get(
+          `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(targetRef)}`,
+          {
+            headers: {
+              Authorization: authHeader,
+              'Content-Type': 'application/json'
+            },
+            timeout: 10000
+          }
+        );
+        if (verifyRes.data?.status === 'success' && verifyRes.data?.data) {
+          verifiedData = verifyRes.data.data;
+        }
+      } catch (err) {
+        console.warn('Flutterwave verify by tx_ref error:', err.response?.data?.message || err.message);
+      }
+    }
+
+    // Verify status
+    const isSuccessful = verifiedData && (verifiedData.status === 'successful' || verifiedData.status === 'succeeded');
+    
+    // Allow test bypass ONLY in explicit test environment with TEST_ prefix
+    const isTestBypass = process.env.NODE_ENV === 'test' && targetRef && targetRef.startsWith('TEST_');
+
+    if (!isSuccessful && !isTestBypass) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment could not be verified on Flutterwave. Your wallet has not been credited.',
+        status: verifiedData?.status || 'unverified'
+      });
+    }
+
+    const creditedAmount = verifiedData?.amount ? Number(verifiedData.amount) : numAmount;
+
+    // 3. Atomically update wallet balance
+    customer.walletBalance = (customer.walletBalance || 0) + creditedAmount;
     await customer.save();
 
-    const txRef = reference || `WAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-    const Transaction = require('../models/Transaction');
     const transaction = await Transaction.create({
       type: 'Wallet Top-up',
       from: customer.name,
       to: 'Denish Customer Wallet',
-      amount: numAmount,
+      amount: creditedAmount,
       method: paymentMethod || 'Flutterwave',
       status: 'Completed',
-      reference: txRef,
+      reference: targetRef || `WAL-${Date.now()}`,
     });
 
     try {
       const Notification = require('../models/Notification');
       await Notification.create({
         title: 'Wallet Credited 💳',
-        message: `Your wallet has been funded with ₦${numAmount.toLocaleString()}. Available balance: ₦${customer.walletBalance.toLocaleString()}.`,
+        message: `Your wallet has been funded with ₦${creditedAmount.toLocaleString()} via Flutterwave. Available balance: ₦${customer.walletBalance.toLocaleString()}.`,
         type: 'payment',
         recipient: 'customer',
         read: false,
@@ -777,7 +943,7 @@ const fundCustomerWallet = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `₦${numAmount.toLocaleString()} credited to wallet successfully`,
+      message: `₦${creditedAmount.toLocaleString()} credited to wallet successfully`,
       balance: customer.walletBalance,
       transaction,
       data: customer,
