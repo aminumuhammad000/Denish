@@ -97,7 +97,11 @@ const customerSignup = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Email or phone number already in use' });
     }
 
-    const customer = await Customer.create({ name, email, phone, password });
+    const cleanName = (name || 'DENISH').replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase() || 'DENISH';
+    const codeSuffix = phone ? phone.slice(-3) : Math.floor(100 + Math.random() * 900);
+    const referralCode = `${cleanName}${codeSuffix}`;
+
+    const customer = await Customer.create({ name, email, phone, password, referralCode });
 
     // Send welcome email in the background
     sendWelcomeEmail(email, name).catch(err => console.error('Error sending welcome email to customer:', err));

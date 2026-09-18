@@ -858,4 +858,14 @@ export const updateVendorOrderStatus = async (orderId, status) => {
   }
 };
 
+export const redeemLoyaltyPoints = async (points) => {
+  try {
+    const response = await api.post('/customer/loyalty/redeem', { points });
+    return response.data;
+  } catch (error) {
+    console.error('API redeemLoyaltyPoints error:', error);
+    throw error;
+  }
+};
+
 export default api;

@@ -18,6 +18,12 @@ const statusStyles = {
   cancelled: "text-red-500 bg-red-50",
 };
 
+const getItemsCount = (items: any): number | string => {
+  if (Array.isArray(items)) return items.length;
+  if (typeof items === "object" && items !== null) return 1;
+  return items || 0;
+};
+
 export default function OrdersPage() {
   const [isMounted, setIsMounted] = useState(false);
   const ordersList = useAdminStore((state) => state.orders);
@@ -78,7 +84,7 @@ export default function OrdersPage() {
       "Order ID": o.id,
       "Customer": o.customer,
       "Delivery Address": o.address,
-      "Item Count": o.items,
+      "Item Count": getItemsCount(o.items),
       "Order Value": o.total,
       "Commission earned": o.commission,
       "Vendor Partner": o.vendor,
@@ -229,7 +235,7 @@ export default function OrdersPage() {
                         </p>
                       </td>
                       <td className="px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,1vw,0.75rem)] text-[14px] text-[#191C1C] text-center">
-                        {order.items}
+                        {getItemsCount(order.items)}
                       </td>
                       <td className="px-[clamp(0.5rem,1.5vw,1rem)] py-[clamp(0.25rem,1vw,0.75rem)] text-[14px] font-semibold text-[#191C1C] text-center break-words">
                         {order.total}
@@ -306,7 +312,7 @@ export default function OrdersPage() {
                     <div className="grid grid-cols-2 gap-2 text-sm text-[#212121]">
                       <div>
                         <p className="text-[11px] uppercase tracking-wide text-[#848484]">Items</p>
-                        <p className="font-medium">{order.items}</p>
+                        <p className="font-medium">{getItemsCount(order.items)}</p>
                       </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-wide text-[#848484]">Total</p>

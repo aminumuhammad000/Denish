@@ -163,11 +163,18 @@ const placeOrder = async (req, res) => {
       status: 'pending'
     });
 
+    // Earn real loyalty points: 1 point for every ₦100 spent (min 10 points)
+    const pointsEarned = Math.max(10, Math.floor(finalTotal / 100));
+    if (customer) {
+      customer.loyaltyPoints = (customer.loyaltyPoints || 0) + pointsEarned;
+      await customer.save();
+    }
+
     // Send email notification to vendor
     const { notifyVendorOrderPlaced } = require('../utils/emailService');
     notifyVendorOrderPlaced(newOrder, vendorDoc).catch(e => console.warn('Vendor email dispatch error:', e.message));
 
-    res.status(201).json({ success: true, data: newOrder });
+    res.status(201).json({ success: true, data: newOrder, pointsEarned });
   } catch (error) {
     console.error('placeOrder backend error:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -178,6 +185,15 @@ const getCustomerProfile = async (req, res) => {
   try {
     const customer = await getCurrentCustomer(req);
     if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+    
+    // Ensure referralCode exists
+    if (!customer.referralCode && customer.name) {
+      const cleanName = customer.name.replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase() || 'DENISH';
+      const codeSuffix = customer.phone ? customer.phone.slice(-3) : Math.floor(100 + Math.random() * 900);
+      customer.referralCode = `${cleanName}${codeSuffix}`;
+      await customer.save();
+    }
+    
     res.status(200).json({ success: true, data: customer });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -937,8 +953,10 @@ const fundCustomerWallet = async (req, res) => {
 
     const creditedAmount = verifiedData?.amount ? Number(verifiedData.amount) : numAmount;
 
-    // 3. Atomically update wallet balance
+    // 3. Atomically update wallet balance and award bonus loyalty points (1 pt per ₦200 funded)
     customer.walletBalance = (customer.walletBalance || 0) + creditedAmount;
+    const bonusPoints = Math.max(5, Math.floor(creditedAmount / 200));
+    customer.loyaltyPoints = (customer.loyaltyPoints || 0) + bonusPoints;
     await customer.save();
 
     const transaction = await Transaction.create({
@@ -966,13 +984,65 @@ const fundCustomerWallet = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `₦${creditedAmount.toLocaleString()} credited to wallet successfully`,
+      message: `₦${creditedAmount.toLocaleString()} credited to wallet successfully (+${bonusPoints} loyalty points!)`,
       balance: customer.walletBalance,
+      loyaltyPoints: customer.loyaltyPoints,
       transaction,
       data: customer,
     });
   } catch (error) {
     console.error('fundCustomerWallet error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const redeemLoyaltyPoints = async (req, res) => {
+  try {
+    const { points } = req.body;
+    const numPoints = Number(points);
+    if (!numPoints || numPoints < 50) {
+      return res.status(400).json({ success: false, error: 'Minimum redemption is 50 loyalty points' });
+    }
+
+    const customer = await getCurrentCustomer(req);
+    if (!customer) {
+      return res.status(404).json({ success: false, error: 'Customer not found' });
+    }
+
+    const currentPoints = customer.loyaltyPoints || 0;
+    if (currentPoints < numPoints) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient loyalty points. You have ${currentPoints} points, but requested ${numPoints}.`
+      });
+    }
+
+    // 1 Loyalty Point = ₦1 wallet balance
+    const cashValue = numPoints;
+    customer.loyaltyPoints = currentPoints - numPoints;
+    customer.walletBalance = (customer.walletBalance || 0) + cashValue;
+    await customer.save();
+
+    const Transaction = require('../models/Transaction');
+    const txn = await Transaction.create({
+      type: 'Loyalty Reward',
+      from: 'Denish Rewards Program',
+      to: `${customer.name} (Wallet)`,
+      amount: cashValue,
+      method: 'Loyalty Points',
+      status: 'Completed',
+      reference: `LOYALTY-${Date.now()}`
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully redeemed ${numPoints} loyalty points for ₦${cashValue.toLocaleString()}!`,
+      loyaltyPoints: customer.loyaltyPoints,
+      balance: customer.walletBalance,
+      transaction: txn
+    });
+  } catch (error) {
+    console.error('redeemLoyaltyPoints error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -1004,5 +1074,6 @@ module.exports = {
   markCustomerNotificationRead,
   markAllCustomerNotificationsRead,
   getCustomerWallet,
-  fundCustomerWallet
+  fundCustomerWallet,
+  redeemLoyaltyPoints
 };

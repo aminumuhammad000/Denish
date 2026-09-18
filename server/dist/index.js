@@ -127,6 +127,9 @@ var require_Customer = __commonJS({
         default: 0,
         min: 0
       },
+      referralCode: {
+        type: String
+      },
       address: String,
       addresses: [{
         label: String,
@@ -1825,7 +1828,30 @@ var require_orderController = __commonJS({
           return res.status(404).json({ success: false, error: "Vendor not found" });
         }
         const orders = await Order.find({ vendorId: vendor._id }).sort({ createdAt: -1 });
-        res.status(200).json({ success: true, count: orders.length, data: orders });
+        const formattedOrders = orders.map((o) => {
+          const itemsList = Array.isArray(o.items) ? o.items : [];
+          const itemsCount = itemsList.length;
+          const itemsSummary = itemsList.map((i) => `${i.quantity || 1}x ${i.name || "Item"}`).join(", ");
+          return {
+            _id: o._id,
+            id: o.orderId || o._id.toString(),
+            orderId: o.orderId || o._id.toString(),
+            customerName: o.customerName || "Customer",
+            customerPhone: o.customerPhone || "",
+            customerEmail: o.customerEmail || "",
+            deliveryAddress: o.deliveryAddress || o.address || "Standard Delivery",
+            amount: o.totalAmount || o.total || 0,
+            total: o.totalAmount || o.total || 0,
+            status: o.status || "pending",
+            createdAt: o.createdAt,
+            updatedAt: o.updatedAt,
+            paymentMethod: o.paymentMethod || "Card",
+            itemsCount,
+            itemsSummary: itemsSummary || `${itemsCount} items`,
+            items: itemsList
+          };
+        });
+        res.status(200).json({ success: true, count: formattedOrders.length, data: formattedOrders });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -2195,7 +2221,10 @@ var require_authController = __commonJS({
         if (existing) {
           return res.status(400).json({ success: false, error: "Email or phone number already in use" });
         }
-        const customer = await Customer.create({ name, email, phone, password });
+        const cleanName = (name || "DENISH").replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase() || "DENISH";
+        const codeSuffix = phone ? phone.slice(-3) : Math.floor(100 + Math.random() * 900);
+        const referralCode = `${cleanName}${codeSuffix}`;
+        const customer = await Customer.create({ name, email, phone, password, referralCode });
         sendWelcomeEmail(email, name).catch((err) => console.error("Error sending welcome email to customer:", err));
         res.status(201).json({ success: true, token: "cust-token-" + customer._id, user: customer });
       } catch (error) {
@@ -3560,9 +3589,14 @@ var require_customerController = __commonJS({
           paymentMethod,
           status: "pending"
         });
+        const pointsEarned = Math.max(10, Math.floor(finalTotal / 100));
+        if (customer) {
+          customer.loyaltyPoints = (customer.loyaltyPoints || 0) + pointsEarned;
+          await customer.save();
+        }
         const { notifyVendorOrderPlaced } = require_emailService();
         notifyVendorOrderPlaced(newOrder, vendorDoc).catch((e) => console.warn("Vendor email dispatch error:", e.message));
-        res.status(201).json({ success: true, data: newOrder });
+        res.status(201).json({ success: true, data: newOrder, pointsEarned });
       } catch (error) {
         console.error("placeOrder backend error:", error);
         res.status(500).json({ success: false, error: error.message });
@@ -3572,6 +3606,12 @@ var require_customerController = __commonJS({
       try {
         const customer = await getCurrentCustomer(req);
         if (!customer) return res.status(404).json({ success: false, error: "Customer not found" });
+        if (!customer.referralCode && customer.name) {
+          const cleanName = customer.name.replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase() || "DENISH";
+          const codeSuffix = customer.phone ? customer.phone.slice(-3) : Math.floor(100 + Math.random() * 900);
+          customer.referralCode = `${cleanName}${codeSuffix}`;
+          await customer.save();
+        }
         res.status(200).json({ success: true, data: customer });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -4199,6 +4239,8 @@ var require_customerController = __commonJS({
         }
         const creditedAmount = verifiedData?.amount ? Number(verifiedData.amount) : numAmount;
         customer.walletBalance = (customer.walletBalance || 0) + creditedAmount;
+        const bonusPoints = Math.max(5, Math.floor(creditedAmount / 200));
+        customer.loyaltyPoints = (customer.loyaltyPoints || 0) + bonusPoints;
         await customer.save();
         const transaction = await Transaction.create({
           type: "Wallet Top-up",
@@ -4223,13 +4265,58 @@ var require_customerController = __commonJS({
         }
         res.status(200).json({
           success: true,
-          message: `\u20A6${creditedAmount.toLocaleString()} credited to wallet successfully`,
+          message: `\u20A6${creditedAmount.toLocaleString()} credited to wallet successfully (+${bonusPoints} loyalty points!)`,
           balance: customer.walletBalance,
+          loyaltyPoints: customer.loyaltyPoints,
           transaction,
           data: customer
         });
       } catch (error) {
         console.error("fundCustomerWallet error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var redeemLoyaltyPoints = async (req, res) => {
+      try {
+        const { points } = req.body;
+        const numPoints = Number(points);
+        if (!numPoints || numPoints < 50) {
+          return res.status(400).json({ success: false, error: "Minimum redemption is 50 loyalty points" });
+        }
+        const customer = await getCurrentCustomer(req);
+        if (!customer) {
+          return res.status(404).json({ success: false, error: "Customer not found" });
+        }
+        const currentPoints = customer.loyaltyPoints || 0;
+        if (currentPoints < numPoints) {
+          return res.status(400).json({
+            success: false,
+            error: `Insufficient loyalty points. You have ${currentPoints} points, but requested ${numPoints}.`
+          });
+        }
+        const cashValue = numPoints;
+        customer.loyaltyPoints = currentPoints - numPoints;
+        customer.walletBalance = (customer.walletBalance || 0) + cashValue;
+        await customer.save();
+        const Transaction = require_Transaction();
+        const txn = await Transaction.create({
+          type: "Loyalty Reward",
+          from: "Denish Rewards Program",
+          to: `${customer.name} (Wallet)`,
+          amount: cashValue,
+          method: "Loyalty Points",
+          status: "Completed",
+          reference: `LOYALTY-${Date.now()}`
+        });
+        res.status(200).json({
+          success: true,
+          message: `Successfully redeemed ${numPoints} loyalty points for \u20A6${cashValue.toLocaleString()}!`,
+          loyaltyPoints: customer.loyaltyPoints,
+          balance: customer.walletBalance,
+          transaction: txn
+        });
+      } catch (error) {
+        console.error("redeemLoyaltyPoints error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
@@ -4260,7 +4347,8 @@ var require_customerController = __commonJS({
       markCustomerNotificationRead,
       markAllCustomerNotificationsRead,
       getCustomerWallet,
-      fundCustomerWallet
+      fundCustomerWallet,
+      redeemLoyaltyPoints
     };
   }
 });
@@ -4297,7 +4385,8 @@ var require_customerRoutes = __commonJS({
       markCustomerNotificationRead,
       markAllCustomerNotificationsRead,
       getCustomerWallet,
-      fundCustomerWallet
+      fundCustomerWallet,
+      redeemLoyaltyPoints
     } = require_customerController();
     var { upload } = require_cloudinary();
     router.get("/restaurants", getRestaurants);
@@ -4308,6 +4397,7 @@ var require_customerRoutes = __commonJS({
     router.put("/profile", updateCustomerProfile);
     router.get("/wallet", getCustomerWallet);
     router.post("/wallet/fund", fundCustomerWallet);
+    router.post("/loyalty/redeem", redeemLoyaltyPoints);
     router.post("/add-address", addAddress);
     router.delete("/address/:addressId", deleteAddress);
     router.post("/add-payment-method", addPaymentMethod);

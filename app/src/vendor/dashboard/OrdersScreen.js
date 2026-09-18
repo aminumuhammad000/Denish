@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView,
-  TouchableOpacity, ActivityIndicator, Alert, useWindowDimensions
+  TouchableOpacity, ActivityIndicator, Alert, useWindowDimensions, Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,23 @@ const TAB_STATUS_MAP = {
   Cancelled: ['cancelled'],
 };
 
+function formatItemsText(items, itemsCount) {
+  if (typeof items === 'string') return items;
+  if (Array.isArray(items) && items.length > 0) {
+    return items
+      .map(i => {
+        if (!i) return '';
+        if (typeof i === 'string') return i;
+        const qty = i.quantity || 1;
+        const name = i.name || 'Item';
+        return `${qty}x ${name}`;
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+  return itemsCount ? `${itemsCount} items` : 'Order items';
+}
+
 function timeAgo(dateStr) {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
   if (diff < 60) return `${diff}s ago`;
@@ -29,6 +46,8 @@ const OrdersScreen = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('New');
+
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   const fetchOrders = async () => {
     try {
@@ -156,13 +175,17 @@ const OrdersScreen = () => {
                   </View>
 
               {/* Customer & items */}
-              <Text style={styles.customerName} numberOfLines={1} ellipsizeMode="tail">{order.customerName} | {order.itemsCount} items</Text>
-              <Text style={styles.itemsText} numberOfLines={2} ellipsizeMode="tail">{order.items || `${order.itemsCount} items`}</Text>
+              <Text style={styles.customerName} numberOfLines={1} ellipsizeMode="tail">
+                {order.customerName || 'Customer'} | {Array.isArray(order.items) ? order.items.length : (order.itemsCount || 1)} items
+              </Text>
+              <Text style={styles.itemsText} numberOfLines={2} ellipsizeMode="tail">
+                {formatItemsText(order.itemsSummary || order.items, order.itemsCount)}
+              </Text>
 
               {/* Action buttons */}
               {activeTab === 'New' && (
                 <View style={styles.actionRow}>
-                  <TouchableOpacity style={styles.viewDetailsBtn}>
+                  <TouchableOpacity style={styles.viewDetailsBtn} onPress={() => setSelectedOrder(order)}>
                     <Text style={styles.viewDetailsBtnText}>View details</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.rejectBtn} onPress={() => handleReject(order)}>
@@ -175,7 +198,7 @@ const OrdersScreen = () => {
               )}
               {activeTab === 'Active' && (
                 <View style={styles.actionRow}>
-                  <TouchableOpacity style={styles.viewDetailsBtn}>
+                  <TouchableOpacity style={styles.viewDetailsBtn} onPress={() => setSelectedOrder(order)}>
                     <Text style={styles.viewDetailsBtnText}>View details</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.acceptBtn, { flex: 1 }]} onPress={() => handleMarkReady(order)}>
@@ -185,7 +208,7 @@ const OrdersScreen = () => {
               )}
               {(activeTab === 'Completed' || activeTab === 'Cancelled') && (
                 <View style={styles.actionRow}>
-                  <TouchableOpacity style={[styles.viewDetailsBtn, { flex: 1 }]}>
+                  <TouchableOpacity style={[styles.viewDetailsBtn, { flex: 1 }]} onPress={() => setSelectedOrder(order)}>
                     <Text style={styles.viewDetailsBtnText}>View details</Text>
                   </TouchableOpacity>
                 </View>
@@ -194,6 +217,62 @@ const OrdersScreen = () => {
           ))
         )}
       </ScrollView>
+
+      {/* Order Details Modal */}
+      <Modal
+        visible={!!selectedOrder}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedOrder(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Order {selectedOrder?.orderId}</Text>
+                <Text style={styles.modalSub}>{selectedOrder?.createdAt ? timeAgo(selectedOrder.createdAt) : ''}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedOrder(null)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={22} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionLabel}>CUSTOMER</Text>
+                <Text style={styles.modalCustomerName}>{selectedOrder?.customerName || 'Customer'}</Text>
+                {!!selectedOrder?.customerPhone && (
+                  <Text style={styles.modalDetailText}>📞 {selectedOrder.customerPhone}</Text>
+                )}
+                <Text style={styles.modalDetailText}>📍 {selectedOrder?.deliveryAddress || 'Standard Delivery'}</Text>
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionLabel}>ORDER ITEMS</Text>
+                {Array.isArray(selectedOrder?.items) && selectedOrder.items.length > 0 ? (
+                  selectedOrder.items.map((item, idx) => (
+                    <View key={item._id || idx} style={styles.modalItemRow}>
+                      <Text style={styles.modalItemName}>{item.quantity || 1}x {item.name || 'Item'}</Text>
+                      <Text style={styles.modalItemPrice}>₦{((item.price || 0) * (item.quantity || 1)).toLocaleString()}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.modalDetailText}>{formatItemsText(selectedOrder?.itemsSummary || selectedOrder?.items, selectedOrder?.itemsCount)}</Text>
+                )}
+              </View>
+
+              <View style={styles.modalTotalRow}>
+                <Text style={styles.modalTotalLabel}>Total Amount</Text>
+                <Text style={styles.modalTotalValue}>₦{(selectedOrder?.amount || selectedOrder?.total || 0).toLocaleString()}</Text>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity style={styles.modalDoneBtn} onPress={() => setSelectedOrder(null)}>
+              <Text style={styles.modalDoneBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -312,6 +391,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   acceptBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
+  modalSub: { fontSize: 12, color: '#888', marginTop: 2 },
+  modalCloseBtn: { padding: 4 },
+  modalSection: {
+    marginBottom: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+  },
+  modalSectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#888',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  modalCustomerName: { fontSize: 15, fontWeight: '600', color: '#111', marginBottom: 4 },
+  modalDetailText: { fontSize: 13, color: '#555', marginTop: 2 },
+  modalItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalItemName: { fontSize: 14, color: '#333', fontWeight: '500' },
+  modalItemPrice: { fontSize: 14, color: '#111', fontWeight: '600' },
+  modalTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EAEAEA',
+    marginTop: 6,
+  },
+  modalTotalLabel: { fontSize: 15, fontWeight: '600', color: '#333' },
+  modalTotalValue: { fontSize: 18, fontWeight: '800', color: '#FF8C00' },
+  modalDoneBtn: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  modalDoneBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
 });
 
 export default OrdersScreen;

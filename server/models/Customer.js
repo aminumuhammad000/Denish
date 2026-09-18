@@ -28,6 +28,9 @@ const customerSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  referralCode: {
+    type: String
+  },
   address: String,
   addresses: [{
     label: String,

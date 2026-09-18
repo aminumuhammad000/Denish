@@ -16,7 +16,8 @@ import {
   updateCustomerProfile, 
   fundCustomerWallet,
   initFlutterwaveCheckout,
-  verifyFlutterwaveCheckout
+  verifyFlutterwaveCheckout,
+  redeemLoyaltyPoints
 } from '../services/api';
 import { clearAuthSession } from '../services/authStorage';
 import { useIsFocused } from '@react-navigation/native';
@@ -41,6 +42,55 @@ const CustomerProfileScreen = ({ navigation }) => {
   const [fundAmount, setFundAmount] = useState('');
   const [fundingWallet, setFundingWallet] = useState(false);
   const [fundingStatusText, setFundingStatusText] = useState('');
+  const [redeemingPoints, setRedeemingPoints] = useState(false);
+
+  const userReferralCode = profile?.referralCode || (profile?.name ? `${profile.name.replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase()}${Math.abs((profile?.phone || '100').slice(-3))}` : 'DENISH100');
+
+  const handleRedeemLoyaltyPoints = async () => {
+    const currentPoints = profile?.loyaltyPoints || 0;
+    if (currentPoints < 50) {
+      Alert.alert(
+        'Insufficient Points',
+        `You have ${currentPoints} loyalty points. A minimum of 50 points (₦50) is required to redeem for wallet balance.`
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Redeem Loyalty Points',
+      `Convert ${currentPoints} loyalty points into ₦${currentPoints.toLocaleString()} cash in your Denish Wallet? (1 pt = ₦1)`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Redeem Now',
+          style: 'default',
+          onPress: async () => {
+            try {
+              setRedeemingPoints(true);
+              const res = await redeemLoyaltyPoints(currentPoints);
+              if (res.success) {
+                setProfile(prev => ({
+                  ...prev,
+                  loyaltyPoints: res.loyaltyPoints ?? 0,
+                  walletBalance: res.balance ?? (prev?.walletBalance || 0) + currentPoints
+                }));
+                Alert.alert(
+                  'Points Redeemed! 🎉',
+                  res.message || `₦${currentPoints.toLocaleString()} has been added to your Denish Wallet.`
+                );
+              } else {
+                Alert.alert('Redeem Failed', res.error || 'Could not redeem points');
+              }
+            } catch (err) {
+              Alert.alert('Redeem Failed', err.response?.data?.error || err.message || 'Error redeeming loyalty points');
+            } finally {
+              setRedeemingPoints(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const handleFundWallet = async (selectedAmount) => {
     const amt = Number(selectedAmount || fundAmount);
@@ -297,9 +347,55 @@ const CustomerProfileScreen = ({ navigation }) => {
 
         {/* Loyalty Card */}
         <View style={styles.loyaltyCard}>
-          <MaterialCommunityIcons name="gift-outline" size={40} color="#FFF" />
-          <Text style={styles.loyaltyLabel}>Loyalty points</Text>
-          <Text style={styles.loyaltyPoints}>{profile?.loyaltyPoints ?? 0}</Text>
+          <View style={styles.loyaltyTopRow}>
+            <View style={styles.loyaltyHeaderLeft}>
+              <View style={styles.loyaltyIconBg}>
+                <MaterialCommunityIcons name="gift-outline" size={24} color="#FF8C00" />
+              </View>
+              <View>
+                <Text style={styles.loyaltyLabel}>Loyalty Points</Text>
+                <Text style={styles.loyaltySubLabel}>1 point = ₦1 wallet cash</Text>
+              </View>
+            </View>
+            <View style={styles.loyaltyBadge}>
+              <Text style={styles.loyaltyBadgeText}>{(profile?.loyaltyPoints ?? 0) >= 50 ? 'Eligible' : 'Min 50 pts'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.loyaltyPointsRow}>
+            <Text style={styles.loyaltyPoints}>{profile?.loyaltyPoints ?? 0}</Text>
+            <TouchableOpacity 
+              style={[
+                styles.redeemBtn,
+                ((profile?.loyaltyPoints ?? 0) < 50 || redeemingPoints) && styles.redeemBtnDisabled
+              ]}
+              onPress={handleRedeemLoyaltyPoints}
+              disabled={redeemingPoints}
+              activeOpacity={0.85}
+            >
+              {redeemingPoints ? (
+                <ActivityIndicator size="small" color="#FF8C00" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons 
+                    name="cash-refund" 
+                    size={16} 
+                    color={(profile?.loyaltyPoints ?? 0) >= 50 ? '#FF8C00' : '#888'} 
+                  />
+                  <Text style={[
+                    styles.redeemBtnText,
+                    (profile?.loyaltyPoints ?? 0) < 50 && styles.redeemBtnTextDisabled
+                  ]}>
+                    Redeem to Wallet
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.loyaltyFootnote}>
+            Earn 1 point per ₦100 spent on orders & 1 point per ₦200 funded.
+          </Text>
         </View>
 
         {/* Saved Addresses */}
@@ -633,18 +729,18 @@ const CustomerProfileScreen = ({ navigation }) => {
             </View>
 
             <Text style={styles.referralSubtitle}>
-              You’ll need to sign back in to receive orders.
+              Share your referral code with friends and earn 50 loyalty points when they complete their first order!
             </Text>
 
             <View style={styles.codeBox}>
-              <Text style={styles.codeText}>EMEKA340</Text>
+              <Text style={styles.codeText}>{userReferralCode}</Text>
             </View>
 
             <TouchableOpacity 
               style={styles.copyBtn}
               onPress={() => {
-                Clipboard.setString('EMEKA340');
-                Alert.alert('Copied!', 'Referral code copied to clipboard.');
+                Clipboard.setString(userReferralCode);
+                Alert.alert('Copied!', `Referral code "${userReferralCode}" copied to clipboard.`);
               }}
             >
               <Text style={styles.copyBtnText}>Copy code</Text>
@@ -1081,12 +1177,100 @@ const styles = StyleSheet.create({
   loyaltyCard: {
     backgroundColor: '#FF8C00',
     borderRadius: 20,
-    padding: 24,
+    padding: 20,
     marginBottom: 25,
-    alignItems: 'flex-start',
+    shadowColor: '#FF8C00',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  loyaltyLabel: { color: '#FFF', fontSize: 16, marginTop: 15, opacity: 0.9 },
-  loyaltyPoints: { color: '#FFF', fontSize: 48, fontWeight: '900', marginTop: 5 },
+  loyaltyTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 10,
+  },
+  loyaltyHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  loyaltyIconBg: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loyaltyLabel: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  loyaltySubLabel: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  loyaltyBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  loyaltyBadgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  loyaltyPointsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginVertical: 4,
+  },
+  loyaltyPoints: {
+    color: '#FFF',
+    fontSize: 40,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  redeemBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  redeemBtnDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+  },
+  redeemBtnText: {
+    color: '#FF8C00',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  redeemBtnTextDisabled: {
+    color: '#777',
+  },
+  loyaltyFootnote: {
+    color: 'rgba(255, 255, 255, 0.82)',
+    fontSize: 11,
+    marginTop: 8,
+    lineHeight: 15,
+  },
 
   sectionHeader: {
     flexDirection: 'row',
