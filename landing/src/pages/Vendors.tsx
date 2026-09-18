@@ -74,7 +74,7 @@ const vendorTestimonials = [
     initials: "BH",
   },
   {
-    quote: "The dashboard gives us real-time insights we never had before. Managing orders is seamless, and the nightly settlements are a huge plus.",
+    quote: "The dashboard gives us real-time insights we never had before. Managing orders is seamless, and the 24-hour daily settlements at 6:00 PM are a huge plus.",
     name: "Mama's Kitchen",
     location: "Kano",
     initials: "MK",

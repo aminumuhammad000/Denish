@@ -56,7 +56,7 @@ Accepted Payment Methods: We support multiple payment
 channels including Debit Cards, Bank Transfers, and Digital Wallets.
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
-Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.
+Settlement Cycle: Payouts to Vendors are processed daily on a 24-hour cycle (at 6:00 PM WAT), and payouts to Riders are processed weekly directly to their designated bank accounts.
 Fees: Delivery fees, service fees, and platform fees are calculated
 and displayed to users prior to order confirmation.
 

@@ -40,6 +40,7 @@ const {
   approveVendor,
   approveDriver,
   getPayoutOverviewAdmin,
+  triggerDailyVendorPayoutsAdmin,
   triggerNightlyVendorPayoutsAdmin,
   triggerWeeklyRiderPayoutsAdmin,
   triggerReconciliationAdmin,
@@ -53,30 +54,36 @@ const { getVendorMenuById } = require('../controllers/menuController');
 // but in a real app, you'd protect these routes.
 
 router.post('/login', adminLogin);
-router.get('/stats', getDashboardStats);
+router.get('/profile', getAdminProfile);
+router.put('/profile', updateAdminProfile);
 
+router.get('/notifications', getNotifications);
+router.patch('/notifications/:id/read', markNotificationAsRead);
+router.patch('/notifications/read-all', markAllNotificationsAsRead);
+
+router.get('/content/:key', getSystemContent);
+router.put('/content/:key', updateSystemContent);
+
+router.get('/all-data', getAllData);
+router.get('/dashboard-stats', getDashboardStats);
 router.get('/orders', getAllOrders);
 router.get('/vendors', getAllVendors);
 router.get('/drivers', getAllDrivers);
 router.get('/users', getAllUsers);
 router.get('/transactions', getAllTransactions);
 router.get('/disputes', getAllDisputes);
-router.get('/vendors/:vendorId/menu', getVendorMenuById);
-router.get('/vendors/:vendorId/menu-items', getVendorMenuById);
 
-router.patch('/vendors/:id/status', updateVendorStatus);
-router.patch('/vendors/:id/approve', approveVendor);
-router.patch('/vendors/:id/verify', approveVendor);
-router.delete('/vendors/:id', deleteVendor);
-
-router.patch('/drivers/:id/status', updateDriverStatus);
-router.patch('/drivers/:id/approve', approveDriver);
-router.patch('/drivers/:id/verify', approveDriver);
-router.delete('/drivers/:id', deleteDriver);
-
-router.patch('/users/:id/status', updateUserStatus);
 router.delete('/users/:id', deleteUser);
 router.delete('/customers/:id', deleteCustomer);
+router.delete('/vendors/:id', deleteVendor);
+router.delete('/drivers/:id', deleteDriver);
+
+router.patch('/vendors/:id/approve', approveVendor);
+router.patch('/drivers/:id/approve', approveDriver);
+
+router.put('/vendor/:id/status', updateVendorStatus);
+router.put('/driver/:id/status', updateDriverStatus);
+router.put('/user/:id/status', updateUserStatus);
 router.put('/dispute/:id', updateDisputeStatus);
 router.post('/transaction', addTransaction);
 router.put('/order/:id', updateOrder);
@@ -87,8 +94,9 @@ router.put('/settings', updateSettings);
 // Payout Management routes
 router.get('/payouts', getAllPayoutsAdmin);
 router.get('/payouts/status', getPayoutOverviewAdmin);
+router.post('/payouts/process-daily-vendors', triggerDailyVendorPayoutsAdmin);
 router.post('/payouts/process-nightly-vendors', triggerNightlyVendorPayoutsAdmin);
-router.post('/payouts/vendors/trigger', triggerNightlyVendorPayoutsAdmin);
+router.post('/payouts/vendors/trigger', triggerDailyVendorPayoutsAdmin);
 router.post('/payouts/process-weekly-riders', triggerWeeklyRiderPayoutsAdmin);
 router.post('/payouts/drivers/trigger', triggerWeeklyRiderPayoutsAdmin);
 router.post('/payouts/reconcile', triggerReconciliationAdmin);

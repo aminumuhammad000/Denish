@@ -71,7 +71,7 @@ const payoutSchema = new mongoose.Schema({
   },
   cycle: {
     type: String,
-    enum: ['nightly_vendor', 'weekly_driver', 'manual'],
+    enum: ['daily_vendor', '24h_vendor', 'nightly_vendor', 'weekly_driver', 'manual'],
     required: true,
     index: true,
   },

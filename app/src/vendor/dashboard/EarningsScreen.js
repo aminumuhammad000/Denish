@@ -84,7 +84,7 @@ const EarningsScreen = ({ navigation }) => {
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available balance</Text>
           <Text style={styles.balanceAmount}>₦{availableBalance.toLocaleString()}</Text>
-          <Text style={styles.balanceMeta}>Min payout ₦5,000 | Nightly settlement at 11:00 PM</Text>
+          <Text style={styles.balanceMeta}>Min payout ₦5,000 | 24-hour settlement daily at 6:00 PM</Text>
           <TouchableOpacity
             style={styles.payoutBtn}
             onPress={() => navigation.navigate('RequestPayout', {

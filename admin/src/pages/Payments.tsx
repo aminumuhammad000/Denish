@@ -221,15 +221,15 @@ export default function PaymentsPage() {
             <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#FFF9F2] border border-[#FFE7CC]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[#FE7200]/10 flex items-center justify-center text-[20px]">
-                  🌙
+                  ⚡
                 </div>
                 <div>
-                  <h4 className="text-[14px] font-semibold text-[#191C1C]">Vendor Nightly Payouts</h4>
-                  <p className="text-[12px] text-[#747475]">Processed every night at 11:00 PM (WAT)</p>
+                  <h4 className="text-[14px] font-semibold text-[#191C1C]">Vendor 24-Hour Payouts</h4>
+                  <p className="text-[12px] text-[#747475]">Processed every day at 6:00 PM (WAT)</p>
                 </div>
               </div>
               <span className="text-[12px] font-bold text-[#FE7200] bg-white px-2.5 py-1 rounded-full border border-[#FFD9B3]">
-                Daily Nightly
+                Daily (24h)
               </span>
             </div>
 

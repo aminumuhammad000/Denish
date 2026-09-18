@@ -70,20 +70,20 @@ const releaseMaturedDriverEarnings = async () => {
 };
 
 /**
- * Process Nightly Vendor Payouts
+ * Process Daily 24-Hour Vendor Payouts
  * Timezone: Africa/Lagos (WAT)
- * Scheduled at 23:00 (11:00 PM WAT) every night.
+ * Scheduled at 18:00 (6:00 PM WAT) every 24 hours (Daily).
  * 
  * Safety Guarantees:
  * - Concurrency lock prevents concurrent runs.
- * - Idempotency reference VND_NIGHT_{vendorId}_{dateKey} prevents double payment.
+ * - Idempotency reference VND_24H_{vendorId}_{dateKey} prevents double payment.
  * - Account verification before transfer.
  * - Balance deducted atomically.
  * - Never marked as SUCCESSFUL until Flutterwave confirms it.
  * - If Flutterwave fails, balance is automatically refunded.
  * - If uncertain (network timeout), status is kept PROCESSING (no duplicate retry).
  */
-const processNightlyVendorPayouts = async ({ isManual = false, initiatedBy = 'system' } = {}) => {
+const processDailyVendorPayouts = async ({ isManual = false, initiatedBy = 'system' } = {}) => {
   if (isVendorPayoutRunning) {
     console.warn('[PayoutScheduler] Vendor payout is already running. Skipping concurrent trigger.');
     return { success: false, message: 'Vendor payout job is already in progress' };
@@ -92,7 +92,7 @@ const processNightlyVendorPayouts = async ({ isManual = false, initiatedBy = 'sy
   isVendorPayoutRunning = true;
   const startTime = new Date();
   const dateKey = startTime.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
-  console.log(`[PayoutScheduler] Starting Nightly Vendor Payout (Date: ${dateKey}, Type: ${isManual ? 'MANUAL: ' + initiatedBy : 'SCHEDULED'})...`);
+  console.log(`[PayoutScheduler] Starting Daily 24-Hour Vendor Payout (Date: ${dateKey}, Type: ${isManual ? 'MANUAL: ' + initiatedBy : 'SCHEDULED'})...`);
 
   try {
     const settings = await Settings.findOne();
@@ -114,10 +114,15 @@ const processNightlyVendorPayouts = async ({ isManual = false, initiatedBy = 'sy
       if (balance < minThreshold) continue;
 
       const vendorName = vendor.businessName || vendor.name || 'Vendor';
-      const reference = `VND_NIGHT_${vendor._id.toString()}_${dateKey}`;
+      const reference = `VND_24H_${vendor._id.toString()}_${dateKey}`;
 
-      // A. Check for existing Payout with this reference (Idempotency)
-      const existingPayout = await Payout.findOne({ reference });
+      // A. Check for existing Payout with this reference or legacy format (Idempotency)
+      const existingPayout = await Payout.findOne({ 
+        $or: [
+          { reference },
+          { reference: `VND_NIGHT_${vendor._id.toString()}_${dateKey}` }
+        ]
+      });
       if (existingPayout && ['SUCCESSFUL', 'PROCESSING'].includes(existingPayout.status)) {
         console.log(`[PayoutScheduler] Payout ${reference} already exists with status ${existingPayout.status}. Skipping.`);
         results.push({
@@ -214,8 +219,8 @@ const processNightlyVendorPayouts = async ({ isManual = false, initiatedBy = 'sy
         },
         reference,
         status: 'PENDING',
-        narration: `Connecta Nightly Vendor Payout - ${vendorName}`,
-        cycle: 'nightly_vendor',
+        narration: `Connecta 24h Vendor Payout - ${vendorName}`,
+        cycle: 'daily_vendor',
         initiatedBy,
         processedAt: new Date(),
       });
@@ -253,8 +258,8 @@ const processNightlyVendorPayouts = async ({ isManual = false, initiatedBy = 'sy
 
         try {
           await Notification.create({
-            title: 'Nightly Payout Successful 🌙',
-            message: `Your nightly payout of ₦${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
+            title: 'Daily Payout Successful 🎉',
+            message: `Your 24-hour payout of ₦${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
             type: 'payout',
             recipient: 'vendor',
             read: false,
@@ -353,15 +358,15 @@ const processNightlyVendorPayouts = async ({ isManual = false, initiatedBy = 'sy
       results,
     };
 
-    console.log(`[PayoutScheduler] Nightly Vendor Payout complete: ${lastVendorRun.processedCount} processed, ₦${totalPaidOut.toLocaleString()} sent.`);
+    console.log(`[PayoutScheduler] Daily 24-Hour Vendor Payout complete: ${lastVendorRun.processedCount} processed, ₦${totalPaidOut.toLocaleString()} sent.`);
     return {
       success: true,
-      cycle: 'nightly_vendor',
+      cycle: 'daily_vendor',
       dateKey,
       ...lastVendorRun,
     };
   } catch (err) {
-    console.error('[PayoutScheduler] Fatal error in processNightlyVendorPayouts:', err);
+    console.error('[PayoutScheduler] Fatal error in processDailyVendorPayouts:', err);
     lastVendorRun = {
       timestamp: startTime,
       durationMs: Date.now() - startTime.getTime(),
@@ -370,11 +375,13 @@ const processNightlyVendorPayouts = async ({ isManual = false, initiatedBy = 'sy
       isManual,
       initiatedBy,
     };
-    return { success: false, cycle: 'nightly_vendor', error: err.message };
+    return { success: false, cycle: 'daily_vendor', error: err.message };
   } finally {
     isVendorPayoutRunning = false;
   }
 };
+
+const processNightlyVendorPayouts = processDailyVendorPayouts;
 
 /**
  * Process Weekly Driver Payouts
@@ -892,9 +899,9 @@ const getPayoutScheduleStatus = async () => {
   return {
     timezone: 'Africa/Lagos',
     vendorPayout: {
-      cycle: 'nightly',
-      scheduleText: 'Every night at 11:00 PM WAT (Daily)',
-      cronExpression: '0 23 * * *',
+      cycle: '24_hours',
+      scheduleText: 'Every day at 6:00 PM WAT (24-Hour Daily Settlement)',
+      cronExpression: '0 18 * * *',
       minThreshold: vendorThreshold,
       eligibleCount: eligibleVendors.length,
       pendingTotalAmount: pendingVendorsTotal,
@@ -924,17 +931,17 @@ const getPayoutScheduleStatus = async () => {
 const initPayoutScheduler = () => {
   console.log('[PayoutScheduler] Initializing automated payout cron jobs (Timezone: Africa/Lagos)...');
 
-  // 1. Vendor Nightly Payout: 23:00 WAT every day
+  // 1. Vendor 24-Hour Payout: 18:00 (6:00 PM WAT) every day
   if (vendorCronJob) vendorCronJob.stop();
   vendorCronJob = cron.schedule(
-    '0 23 * * *',
+    '0 18 * * *',
     async () => {
-      console.log('[PayoutScheduler] Cron triggered: Running Nightly Vendor Payout...');
-      await processNightlyVendorPayouts({ isManual: false, initiatedBy: 'cron_nightly' });
+      console.log('[PayoutScheduler] Cron triggered: Running Daily 24-Hour Vendor Payout (6:00 PM WAT)...');
+      await processDailyVendorPayouts({ isManual: false, initiatedBy: 'cron_24h_daily' });
     },
     { scheduled: true, timezone: 'Africa/Lagos' }
   );
-  console.log('[PayoutScheduler] ✓ Nightly Vendor Payout scheduled (23:00 WAT Daily)');
+  console.log('[PayoutScheduler] ✓ Daily 24-Hour Vendor Payout scheduled (18:00 / 6:00 PM WAT Daily)');
 
   // 2. Rider Weekly Payout: 23:59 WAT every Sunday
   if (driverCronJob) driverCronJob.stop();
@@ -963,6 +970,7 @@ const initPayoutScheduler = () => {
 
 module.exports = {
   releaseMaturedDriverEarnings,
+  processDailyVendorPayouts,
   processNightlyVendorPayouts,
   processWeeklyRiderPayouts,
   reconcilePendingPayouts,

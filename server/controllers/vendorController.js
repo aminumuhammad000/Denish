@@ -97,10 +97,10 @@ const getVendorDashboard = async (req, res) => {
         avgOrders: vendor.earnings?.avgOrders ?? Math.round(avgOrderValue),
       },
       payoutSchedule: {
-        cycle: 'nightly',
-        time: '23:00 WAT',
-        frequencyText: 'Every night at 11:00 PM',
-        description: 'Automated nightly settlement directly to your registered bank account.'
+        cycle: '24_hours',
+        time: '18:00 WAT',
+        frequencyText: 'Daily at 6:00 PM (24-Hour Settlement)',
+        description: 'Automated 24-hour daily settlement at 6:00 PM directly to your registered bank account.'
       },
       stats,
       todayRevenue: totalRevenue,

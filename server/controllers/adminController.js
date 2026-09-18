@@ -555,7 +555,7 @@ Accepted Payment Methods: We support multiple payment
 channels including Debit Cards, Bank Transfers, and Digital Wallets.
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
-Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.
+Settlement Cycle: Payouts to Vendors are processed daily on a 24-hour cycle (at 6:00 PM WAT), and payouts to Riders are processed weekly directly to their designated bank accounts.
 Fees: Delivery fees, service fees, and platform fees are calculated
 and displayed to users prior to order confirmation.
 
@@ -818,15 +818,18 @@ const getPayoutOverviewAdmin = async (req, res) => {
   }
 };
 
-const triggerNightlyVendorPayoutsAdmin = async (req, res) => {
+const triggerDailyVendorPayoutsAdmin = async (req, res) => {
   try {
-    const { processNightlyVendorPayouts } = require('../utils/payoutScheduler');
-    const result = await processNightlyVendorPayouts({ isManual: true, initiatedBy: 'admin' });
+    const { processDailyVendorPayouts, processNightlyVendorPayouts } = require('../utils/payoutScheduler');
+    const runner = processDailyVendorPayouts || processNightlyVendorPayouts;
+    const result = await runner({ isManual: true, initiatedBy: 'admin' });
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+
+const triggerNightlyVendorPayoutsAdmin = triggerDailyVendorPayoutsAdmin;
 
 const triggerWeeklyRiderPayoutsAdmin = async (req, res) => {
   try {
@@ -918,6 +921,7 @@ module.exports = {
   approveVendor,
   approveDriver,
   getPayoutOverviewAdmin,
+  triggerDailyVendorPayoutsAdmin,
   triggerNightlyVendorPayoutsAdmin,
   triggerWeeklyRiderPayoutsAdmin,
   triggerReconciliationAdmin,

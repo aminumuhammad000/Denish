@@ -244,7 +244,7 @@ Accepted Payment Methods: We support multiple payment
 channels including Debit Cards, Bank Transfers, and Digital Wallets.
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
-Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.
+Settlement Cycle: Payouts to Vendors are processed daily on a 24-hour cycle (at 6:00 PM WAT), and payouts to Riders are processed weekly directly to their designated bank accounts.
 Fees: Delivery fees, service fees, and platform fees are calculated
 and displayed to users prior to order confirmation.
 
@@ -1309,7 +1309,7 @@ var require_Payout = __commonJS({
       },
       cycle: {
         type: String,
-        enum: ["nightly_vendor", "weekly_driver", "manual"],
+        enum: ["daily_vendor", "24h_vendor", "nightly_vendor", "weekly_driver", "manual"],
         required: true,
         index: true
       },
@@ -1491,10 +1491,10 @@ var require_vendorController = __commonJS({
             avgOrders: vendor.earnings?.avgOrders ?? Math.round(avgOrderValue)
           },
           payoutSchedule: {
-            cycle: "nightly",
-            time: "23:00 WAT",
-            frequencyText: "Every night at 11:00 PM",
-            description: "Automated nightly settlement directly to your registered bank account."
+            cycle: "24_hours",
+            time: "18:00 WAT",
+            frequencyText: "Daily at 6:00 PM (24-Hour Settlement)",
+            description: "Automated 24-hour daily settlement at 6:00 PM directly to your registered bank account."
           },
           stats,
           todayRevenue: totalRevenue,
@@ -2688,10 +2688,10 @@ var require_Settings = __commonJS({
       },
       payments: {
         gateway: { type: String, default: "Flutterwave" },
-        vendorPayoutCycle: { type: String, default: "nightly" },
-        // nightly (daily at night)
-        vendorPayoutTime: { type: String, default: "23:00" },
-        // 11:00 PM WAT
+        vendorPayoutCycle: { type: String, default: "24_hours" },
+        // 24_hours (daily at 6:00 PM)
+        vendorPayoutTime: { type: String, default: "18:00" },
+        // 6:00 PM WAT
         riderPayoutCycle: { type: String, default: "weekly" },
         // weekly
         riderPayoutDay: { type: String, default: "Sunday" },
@@ -2703,7 +2703,7 @@ var require_Settings = __commonJS({
         riderMinThreshold: { type: String, default: "1000" },
         // ₦1,000
         autoPayoutEnabled: { type: Boolean, default: true },
-        payoutCycle: { type: String, default: "nightly" },
+        payoutCycle: { type: String, default: "24_hours" },
         // legacy fallback
         minThreshold: { type: String, default: "5000" }
         // legacy fallback
@@ -2786,7 +2786,7 @@ var require_payoutScheduler = __commonJS({
         console.error("[PayoutScheduler] releaseMaturedDriverEarnings error:", err.message);
       }
     };
-    var processNightlyVendorPayouts = async ({ isManual = false, initiatedBy = "system" } = {}) => {
+    var processDailyVendorPayouts = async ({ isManual = false, initiatedBy = "system" } = {}) => {
       if (isVendorPayoutRunning) {
         console.warn("[PayoutScheduler] Vendor payout is already running. Skipping concurrent trigger.");
         return { success: false, message: "Vendor payout job is already in progress" };
@@ -2794,7 +2794,7 @@ var require_payoutScheduler = __commonJS({
       isVendorPayoutRunning = true;
       const startTime = /* @__PURE__ */ new Date();
       const dateKey = startTime.toISOString().slice(0, 10).replace(/-/g, "");
-      console.log(`[PayoutScheduler] Starting Nightly Vendor Payout (Date: ${dateKey}, Type: ${isManual ? "MANUAL: " + initiatedBy : "SCHEDULED"})...`);
+      console.log(`[PayoutScheduler] Starting Daily 24-Hour Vendor Payout (Date: ${dateKey}, Type: ${isManual ? "MANUAL: " + initiatedBy : "SCHEDULED"})...`);
       try {
         const settings = await Settings.findOne();
         const minThreshold = Number(settings?.payments?.vendorMinThreshold || 5e3);
@@ -2809,8 +2809,13 @@ var require_payoutScheduler = __commonJS({
           const balance = Number(vendor.earnings?.availableBalance || 0);
           if (balance < minThreshold) continue;
           const vendorName = vendor.businessName || vendor.name || "Vendor";
-          const reference = `VND_NIGHT_${vendor._id.toString()}_${dateKey}`;
-          const existingPayout = await Payout.findOne({ reference });
+          const reference = `VND_24H_${vendor._id.toString()}_${dateKey}`;
+          const existingPayout = await Payout.findOne({
+            $or: [
+              { reference },
+              { reference: `VND_NIGHT_${vendor._id.toString()}_${dateKey}` }
+            ]
+          });
           if (existingPayout && ["SUCCESSFUL", "PROCESSING"].includes(existingPayout.status)) {
             console.log(`[PayoutScheduler] Payout ${reference} already exists with status ${existingPayout.status}. Skipping.`);
             results.push({
@@ -2894,8 +2899,8 @@ var require_payoutScheduler = __commonJS({
             },
             reference,
             status: "PENDING",
-            narration: `Connecta Nightly Vendor Payout - ${vendorName}`,
-            cycle: "nightly_vendor",
+            narration: `Connecta 24h Vendor Payout - ${vendorName}`,
+            cycle: "daily_vendor",
             initiatedBy,
             processedAt: /* @__PURE__ */ new Date()
           });
@@ -2925,8 +2930,8 @@ var require_payoutScheduler = __commonJS({
             });
             try {
               await Notification.create({
-                title: "Nightly Payout Successful \u{1F319}",
-                message: `Your nightly payout of \u20A6${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
+                title: "Daily Payout Successful \u{1F389}",
+                message: `Your 24-hour payout of \u20A6${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
                 type: "payout",
                 recipient: "vendor",
                 read: false
@@ -3013,15 +3018,15 @@ var require_payoutScheduler = __commonJS({
           initiatedBy,
           results
         };
-        console.log(`[PayoutScheduler] Nightly Vendor Payout complete: ${lastVendorRun.processedCount} processed, \u20A6${totalPaidOut.toLocaleString()} sent.`);
+        console.log(`[PayoutScheduler] Daily 24-Hour Vendor Payout complete: ${lastVendorRun.processedCount} processed, \u20A6${totalPaidOut.toLocaleString()} sent.`);
         return {
           success: true,
-          cycle: "nightly_vendor",
+          cycle: "daily_vendor",
           dateKey,
           ...lastVendorRun
         };
       } catch (err) {
-        console.error("[PayoutScheduler] Fatal error in processNightlyVendorPayouts:", err);
+        console.error("[PayoutScheduler] Fatal error in processDailyVendorPayouts:", err);
         lastVendorRun = {
           timestamp: startTime,
           durationMs: Date.now() - startTime.getTime(),
@@ -3030,11 +3035,12 @@ var require_payoutScheduler = __commonJS({
           isManual,
           initiatedBy
         };
-        return { success: false, cycle: "nightly_vendor", error: err.message };
+        return { success: false, cycle: "daily_vendor", error: err.message };
       } finally {
         isVendorPayoutRunning = false;
       }
     };
+    var processNightlyVendorPayouts = processDailyVendorPayouts;
     var processWeeklyRiderPayouts = async ({ isManual = false, initiatedBy = "system" } = {}) => {
       if (isDriverPayoutRunning) {
         console.warn("[PayoutScheduler] Driver payout is already running. Skipping concurrent trigger.");
@@ -3444,9 +3450,9 @@ var require_payoutScheduler = __commonJS({
       return {
         timezone: "Africa/Lagos",
         vendorPayout: {
-          cycle: "nightly",
-          scheduleText: "Every night at 11:00 PM WAT (Daily)",
-          cronExpression: "0 23 * * *",
+          cycle: "24_hours",
+          scheduleText: "Every day at 6:00 PM WAT (24-Hour Daily Settlement)",
+          cronExpression: "0 18 * * *",
           minThreshold: vendorThreshold,
           eligibleCount: eligibleVendors.length,
           pendingTotalAmount: pendingVendorsTotal,
@@ -3473,14 +3479,14 @@ var require_payoutScheduler = __commonJS({
       console.log("[PayoutScheduler] Initializing automated payout cron jobs (Timezone: Africa/Lagos)...");
       if (vendorCronJob) vendorCronJob.stop();
       vendorCronJob = cron.schedule(
-        "0 23 * * *",
+        "0 18 * * *",
         async () => {
-          console.log("[PayoutScheduler] Cron triggered: Running Nightly Vendor Payout...");
-          await processNightlyVendorPayouts({ isManual: false, initiatedBy: "cron_nightly" });
+          console.log("[PayoutScheduler] Cron triggered: Running Daily 24-Hour Vendor Payout (6:00 PM WAT)...");
+          await processDailyVendorPayouts({ isManual: false, initiatedBy: "cron_24h_daily" });
         },
         { scheduled: true, timezone: "Africa/Lagos" }
       );
-      console.log("[PayoutScheduler] \u2713 Nightly Vendor Payout scheduled (23:00 WAT Daily)");
+      console.log("[PayoutScheduler] \u2713 Daily 24-Hour Vendor Payout scheduled (18:00 / 6:00 PM WAT Daily)");
       if (driverCronJob) driverCronJob.stop();
       driverCronJob = cron.schedule(
         "59 23 * * 0",
@@ -3504,6 +3510,7 @@ var require_payoutScheduler = __commonJS({
     };
     module2.exports = {
       releaseMaturedDriverEarnings,
+      processDailyVendorPayouts,
       processNightlyVendorPayouts,
       processWeeklyRiderPayouts,
       reconcilePendingPayouts,
@@ -5957,7 +5964,7 @@ Accepted Payment Methods: We support multiple payment
 channels including Debit Cards, Bank Transfers, and Digital Wallets.
 Payment Collection: Payments are processed securely through
 integrated third-party payment gateways.
-Settlement Cycle: Payouts to Vendors are processed nightly (daily at night), and payouts to Riders are processed weekly directly to their designated bank accounts.
+Settlement Cycle: Payouts to Vendors are processed daily on a 24-hour cycle (at 6:00 PM WAT), and payouts to Riders are processed weekly directly to their designated bank accounts.
 Fees: Delivery fees, service fees, and platform fees are calculated
 and displayed to users prior to order confirmation.
 
@@ -6203,15 +6210,17 @@ Phone: 08036301983`;
         res.status(500).json({ success: false, error: error.message });
       }
     };
-    var triggerNightlyVendorPayoutsAdmin = async (req, res) => {
+    var triggerDailyVendorPayoutsAdmin = async (req, res) => {
       try {
-        const { processNightlyVendorPayouts } = require_payoutScheduler();
-        const result = await processNightlyVendorPayouts({ isManual: true, initiatedBy: "admin" });
+        const { processDailyVendorPayouts, processNightlyVendorPayouts } = require_payoutScheduler();
+        const runner = processDailyVendorPayouts || processNightlyVendorPayouts;
+        const result = await runner({ isManual: true, initiatedBy: "admin" });
         res.status(200).json(result);
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
     };
+    var triggerNightlyVendorPayoutsAdmin = triggerDailyVendorPayoutsAdmin;
     var triggerWeeklyRiderPayoutsAdmin = async (req, res) => {
       try {
         const { processWeeklyRiderPayouts } = require_payoutScheduler();
@@ -6296,6 +6305,7 @@ Phone: 08036301983`;
       approveVendor,
       approveDriver,
       getPayoutOverviewAdmin,
+      triggerDailyVendorPayoutsAdmin,
       triggerNightlyVendorPayoutsAdmin,
       triggerWeeklyRiderPayoutsAdmin,
       triggerReconciliationAdmin,
@@ -6349,6 +6359,7 @@ var require_adminRoutes = __commonJS({
       approveVendor,
       approveDriver,
       getPayoutOverviewAdmin,
+      triggerDailyVendorPayoutsAdmin,
       triggerNightlyVendorPayoutsAdmin,
       triggerWeeklyRiderPayoutsAdmin,
       triggerReconciliationAdmin,
@@ -6357,26 +6368,30 @@ var require_adminRoutes = __commonJS({
     var { upload } = require_cloudinary();
     var { getVendorMenuById } = require_menuController();
     router.post("/login", adminLogin);
-    router.get("/stats", getDashboardStats);
+    router.get("/profile", getAdminProfile);
+    router.put("/profile", updateAdminProfile);
+    router.get("/notifications", getNotifications);
+    router.patch("/notifications/:id/read", markNotificationAsRead);
+    router.patch("/notifications/read-all", markAllNotificationsAsRead);
+    router.get("/content/:key", getSystemContent);
+    router.put("/content/:key", updateSystemContent);
+    router.get("/all-data", getAllData);
+    router.get("/dashboard-stats", getDashboardStats);
     router.get("/orders", getAllOrders);
     router.get("/vendors", getAllVendors);
     router.get("/drivers", getAllDrivers);
     router.get("/users", getAllUsers);
     router.get("/transactions", getAllTransactions);
     router.get("/disputes", getAllDisputes);
-    router.get("/vendors/:vendorId/menu", getVendorMenuById);
-    router.get("/vendors/:vendorId/menu-items", getVendorMenuById);
-    router.patch("/vendors/:id/status", updateVendorStatus);
-    router.patch("/vendors/:id/approve", approveVendor);
-    router.patch("/vendors/:id/verify", approveVendor);
-    router.delete("/vendors/:id", deleteVendor);
-    router.patch("/drivers/:id/status", updateDriverStatus);
-    router.patch("/drivers/:id/approve", approveDriver);
-    router.patch("/drivers/:id/verify", approveDriver);
-    router.delete("/drivers/:id", deleteDriver);
-    router.patch("/users/:id/status", updateUserStatus);
     router.delete("/users/:id", deleteUser);
     router.delete("/customers/:id", deleteCustomer);
+    router.delete("/vendors/:id", deleteVendor);
+    router.delete("/drivers/:id", deleteDriver);
+    router.patch("/vendors/:id/approve", approveVendor);
+    router.patch("/drivers/:id/approve", approveDriver);
+    router.put("/vendor/:id/status", updateVendorStatus);
+    router.put("/driver/:id/status", updateDriverStatus);
+    router.put("/user/:id/status", updateUserStatus);
     router.put("/dispute/:id", updateDisputeStatus);
     router.post("/transaction", addTransaction);
     router.put("/order/:id", updateOrder);
@@ -6384,8 +6399,9 @@ var require_adminRoutes = __commonJS({
     router.put("/settings", updateSettings);
     router.get("/payouts", getAllPayoutsAdmin);
     router.get("/payouts/status", getPayoutOverviewAdmin);
+    router.post("/payouts/process-daily-vendors", triggerDailyVendorPayoutsAdmin);
     router.post("/payouts/process-nightly-vendors", triggerNightlyVendorPayoutsAdmin);
-    router.post("/payouts/vendors/trigger", triggerNightlyVendorPayoutsAdmin);
+    router.post("/payouts/vendors/trigger", triggerDailyVendorPayoutsAdmin);
     router.post("/payouts/process-weekly-riders", triggerWeeklyRiderPayoutsAdmin);
     router.post("/payouts/drivers/trigger", triggerWeeklyRiderPayoutsAdmin);
     router.post("/payouts/reconcile", triggerReconciliationAdmin);

@@ -200,7 +200,7 @@ async function runTests() {
     console.log('\n--- TEST 6: Telemetry & Status API ---');
     const scheduleStatus = await getPayoutScheduleStatus();
     assert(scheduleStatus.timezone === 'Africa/Lagos', 'Timezone is configured to Africa/Lagos');
-    assert(scheduleStatus.vendorPayout.cycle === 'nightly', 'Vendor payout configured as nightly (23:00 WAT)');
+    assert(scheduleStatus.vendorPayout.cycle === '24_hours', 'Vendor payout configured as 24_hours (18:00 / 6:00 PM WAT)');
     assert(scheduleStatus.riderPayout.cycle === 'weekly', 'Rider payout configured as weekly (Sunday 23:59 WAT)');
     assert(typeof scheduleStatus.vendorPayout.eligibleCount === 'number', 'Vendor eligible count calculated');
     assert(typeof scheduleStatus.riderPayout.eligibleCount === 'number', 'Rider eligible count calculated');
