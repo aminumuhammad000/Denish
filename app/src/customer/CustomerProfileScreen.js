@@ -40,6 +40,7 @@ const CustomerProfileScreen = ({ navigation }) => {
   const [walletModalVisible, setWalletModalVisible] = useState(false);
   const [fundAmount, setFundAmount] = useState('');
   const [fundingWallet, setFundingWallet] = useState(false);
+  const [fundingStatusText, setFundingStatusText] = useState('');
 
   const handleFundWallet = async (selectedAmount) => {
     const amt = Number(selectedAmount || fundAmount);
@@ -49,6 +50,7 @@ const CustomerProfileScreen = ({ navigation }) => {
     }
 
     setFundingWallet(true);
+    setFundingStatusText('Opening Flutterwave...');
     try {
       // 1. Initialize Flutterwave payment checkout on backend
       const flwRes = await initFlutterwaveCheckout({
@@ -74,26 +76,41 @@ const CustomerProfileScreen = ({ navigation }) => {
         await Linking.openURL(checkoutUrl);
       }
 
-      // 3. Confirm with Flutterwave & credit wallet balance on backend
-      const verifyRes = await fundCustomerWallet({
+      setFundingStatusText('Verifying with Flutterwave...');
+
+      // 3. First verify transaction with Flutterwave resolve endpoint
+      const verifyCheck = await verifyFlutterwaveCheckout({ tx_ref: txRef });
+      const flwStatus = verifyCheck.data?.status?.toLowerCase();
+
+      if (!verifyCheck.success || (flwStatus !== 'successful' && flwStatus !== 'succeeded')) {
+        Alert.alert(
+          'Payment Incomplete',
+          'Payment was not completed or confirmed on Flutterwave. Your wallet balance has not changed.'
+        );
+        return;
+      }
+
+      // 4. Submit verified payment to backend for atomic wallet crediting
+      const fundRes = await fundCustomerWallet({
         amount: amt,
         tx_ref: txRef,
         reference: txRef,
         paymentMethod: 'Flutterwave',
       });
 
-      if (verifyRes && verifyRes.success) {
+      if (fundRes && fundRes.success && typeof fundRes.balance === 'number') {
+        // ONLY update walletBalance to the verified balance returned by backend
         setProfile(prev => ({
           ...prev,
-          walletBalance: verifyRes.balance !== undefined ? verifyRes.balance : ((prev?.walletBalance || 0) + amt)
+          walletBalance: fundRes.balance
         }));
         setWalletModalVisible(false);
         setFundAmount('');
-        Alert.alert('Wallet Funded 🎉', `₦${amt.toLocaleString()} has been successfully added to your Denish Wallet.`);
+        Alert.alert('Wallet Funded 🎉', `₦${amt.toLocaleString()} has been successfully added to your Denish Wallet via Flutterwave.`);
       } else {
         Alert.alert(
           'Payment Not Confirmed',
-          verifyRes?.error || 'Payment was not confirmed by Flutterwave. Your wallet was not credited.'
+          fundRes?.error || 'Payment was not confirmed by Flutterwave. Your wallet was not credited.'
         );
       }
     } catch (e) {
@@ -104,6 +121,7 @@ const CustomerProfileScreen = ({ navigation }) => {
       );
     } finally {
       setFundingWallet(false);
+      setFundingStatusText('');
     }
   };
 
@@ -846,7 +864,7 @@ const CustomerProfileScreen = ({ navigation }) => {
               {fundingWallet ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
                   <ActivityIndicator color="#FFF" size="small" />
-                  <Text style={styles.saveModalBtnText}>Connecting to Flutterwave...</Text>
+                  <Text style={styles.saveModalBtnText}>{fundingStatusText || 'Connecting to Flutterwave...'}</Text>
                 </View>
               ) : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
