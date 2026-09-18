@@ -281,6 +281,7 @@ const VendorHomeScreen = ({ navigation }) => {
                       {(o.status || 'NEW').toUpperCase()}
                     </Text>
                   </View>
+                </View>
                 <Text style={[styles.orderCustomerText, { color: theme.subText }]}>
                   {o.customer || o.customerName || 'Customer'} | {typeof o.items === 'string' ? o.items : (Array.isArray(o.items) ? o.items.map(i => typeof i === 'string' ? i : `${i.quantity || 1}x ${i.name || 'Item'}`).join(', ') : `${o.itemsCount || 1} items`)}
                 </Text>
