@@ -144,7 +144,11 @@ const updateVendorStatus = async (req, res) => {
       const lower = status.toLowerCase();
       status = lower === 'approved' ? 'Approved' : (lower === 'suspended' ? 'Suspended' : 'Pending');
     }
-    const vendor = await Vendor.findByIdAndUpdate(id, { status }, { new: true });
+    const updates = { status };
+    if (status === 'Approved') {
+      updates.isVerified = true;
+    }
+    const vendor = await Vendor.findByIdAndUpdate(id, updates, { new: true });
     res.status(200).json({ success: true, vendor });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -154,9 +158,9 @@ const updateVendorStatus = async (req, res) => {
 const approveVendor = async (req, res) => {
   try {
     const { id } = req.params;
-    const vendor = await Vendor.findByIdAndUpdate(id, { status: 'Approved' }, { new: true });
+    const vendor = await Vendor.findByIdAndUpdate(id, { status: 'Approved', isVerified: true }, { new: true });
     if (!vendor) return res.status(404).json({ success: false, message: 'Vendor not found' });
-    res.status(200).json({ success: true, message: 'Vendor approved successfully', vendor });
+    res.status(200).json({ success: true, message: 'Vendor approved & verified successfully', vendor });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -178,6 +182,7 @@ const updateDriverStatus = async (req, res) => {
       } else {
         updates.status = 'Active';
         updates.isSuspended = false;
+        updates.isVerified = true;
       }
     }
     if (typeof isWarned !== 'undefined') updates.isWarned = Boolean(isWarned);
@@ -193,9 +198,9 @@ const updateDriverStatus = async (req, res) => {
 const approveDriver = async (req, res) => {
   try {
     const { id } = req.params;
-    const driver = await Driver.findByIdAndUpdate(id, { status: 'Active', isSuspended: false }, { new: true });
+    const driver = await Driver.findByIdAndUpdate(id, { status: 'Active', isSuspended: false, isVerified: true }, { new: true });
     if (!driver) return res.status(404).json({ success: false, message: 'Driver not found' });
-    res.status(200).json({ success: true, message: 'Driver approved successfully', driver });
+    res.status(200).json({ success: true, message: 'Driver approved & verified successfully', driver });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

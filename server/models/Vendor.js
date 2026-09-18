@@ -58,6 +58,7 @@ const vendorSchema = new mongoose.Schema({
       return val;
     }
   },
+  isVerified: { type: Boolean, default: false },
   rating: { type: Number, default: 4.8 },
   deliveryTime: { type: String, default: '25-35 min' },
   deliveryFee: { type: Number, default: 500 },

@@ -1,6 +1,6 @@
 
 
-import { Search, Star, Eye, Download, Check, Trash2 } from "lucide-react";
+import { Search, Star, Eye, Download, Check, Trash2, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { DriverDetailsModal } from "@/components/admin/DriverDetailsModal";
@@ -22,50 +22,68 @@ const statusStyles: Record<string, string> = {
 export default function DriversPage() {
   const [isMounted, setIsMounted] = useState(false);
   const driversList = useAdminStore((state) => state.drivers);
+  const fetchDrivers = useAdminStore((state) => state.fetchDrivers);
   const updateDriverStatusOnServer = useAdminStore((state) => state.updateDriverStatusOnServer);
   const approveDriverOnServer = useAdminStore((state) => state.approveDriverOnServer);
   const deleteDriverOnServer = useAdminStore((state) => state.deleteDriverOnServer);
   const globalSearchQuery = useAdminStore((state) => state.globalSearchQuery);
   const [activeTab, setActiveTab] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [driverToDelete, setDriverToDelete] = useState<Driver | null>(null);
 
   useEffect(() => {
+    fetchDrivers();
     const timer = setTimeout(() => {
       setIsMounted(true);
     }, 0);
     return () => clearTimeout(timer);
-  }, []);
+  }, [fetchDrivers]);
 
   if (!isMounted) {
     return <AdminPageSkeleton />;
   }
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchDrivers();
+    setIsRefreshing(false);
+    toast.success("Drivers list updated");
+  };
+
   // Dynamic calculations based on state
   const totalDrivers = driversList.length;
-  const pendingCount = driversList.filter(d => d.status === "Pending").length;
-  const onlineCount = driversList.filter(d => (d.status === "Online" || d.status === "Active") && !d.isSuspended).length;
-  const offlineCount = driversList.filter(d => d.status === "Offline" || d.isSuspended).length;
+  const pendingCount = driversList.filter(d => (d.status || "").toLowerCase() === "pending").length;
+  const onlineCount = driversList.filter(d => ((d.status || "").toLowerCase() === "online" || (d.status || "").toLowerCase() === "active") && !d.isSuspended).length;
+  const offlineCount = driversList.filter(d => (d.status || "").toLowerCase() === "offline" || d.isSuspended).length;
 
   const filteredDrivers = driversList.filter((driver) => {
     const activeSearch = (globalSearchQuery || searchQuery).trim().toLowerCase();
+    const name = (driver.name || "").toLowerCase();
+    const location = (driver.location || "").toLowerCase();
+    const phone = (driver.phone || "").toLowerCase();
+    const vehicle = (driver.vehicle || "").toLowerCase();
+    const email = (driver.email || "").toLowerCase();
+
     const matchesSearch =
       !activeSearch ||
-      driver.name.toLowerCase().includes(activeSearch) ||
-      driver.location.toLowerCase().includes(activeSearch) ||
-      driver.phone.toLowerCase().includes(activeSearch) ||
-      driver.vehicle.toLowerCase().includes(activeSearch);
+      name.includes(activeSearch) ||
+      location.includes(activeSearch) ||
+      phone.includes(activeSearch) ||
+      vehicle.includes(activeSearch) ||
+      email.includes(activeSearch);
     
     let matchesTab = true;
+    const s = (driver.status || "").toLowerCase();
     if (activeTab === "Pending") {
-      matchesTab = driver.status === "Pending";
+      matchesTab = s === "pending";
     } else if (activeTab === "Online") {
-      matchesTab = (driver.status === "Online" || driver.status === "Active") && !driver.isSuspended;
+      matchesTab = (s === "online" || s === "active") && !driver.isSuspended;
     } else if (activeTab === "Delivering") {
-      matchesTab = driver.status === "Delivering" && !driver.isSuspended;
+      matchesTab = s === "delivering" && !driver.isSuspended;
     } else if (activeTab === "Offline") {
-      matchesTab = driver.status === "Offline" || !!driver.isSuspended;
+      matchesTab = s === "offline" || !!driver.isSuspended;
     }
 
     return matchesSearch && matchesTab;
@@ -74,12 +92,13 @@ export default function DriversPage() {
   const handleApproveDriver = async (driver: Driver) => {
     const success = await approveDriverOnServer(driver.id);
     if (success) {
-      toast.success(`${driver.name} approved successfully`);
+      toast.success(`${driver.name} verified & approved successfully`);
       if (selectedDriver && selectedDriver.id === driver.id) {
-        setSelectedDriver({ ...selectedDriver, status: "Active", isSuspended: false });
+        setSelectedDriver({ ...selectedDriver, status: "Active", isSuspended: false, isVerified: true });
       }
+      await fetchDrivers();
     } else {
-      toast.error("Failed to approve driver");
+      toast.error("Failed to verify driver");
     }
   };
 
@@ -104,6 +123,7 @@ export default function DriversPage() {
       isSuspended: updatedDriver.isSuspended,
     });
     setSelectedDriver(updatedDriver);
+    await fetchDrivers();
   };
 
 
@@ -130,16 +150,32 @@ export default function DriversPage() {
       <div className="px-[clamp(0px,calc((1024px-100vw)*100),1rem)] py-[clamp(1rem,3vw,2rem)] flex flex-col items-center">
         <div className="w-full pb-8 flex flex-col gap-4 sm:gap-6 px-3 sm:px-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-            <h1 className="text-[22px] sm:text-[28px] font-bold text-[#191C1C] leading-tight break-words">
-              Driver Management
-            </h1>
-            <button 
-              onClick={handleExport}
-              className="flex items-center justify-center gap-2 px-4 py-2 border border-[#EAEAEA] rounded-[8px] text-[14px] sm:text-[16px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer self-stretch sm:self-auto"
-            >
-              <Download className="w-4 h-4 text-[#212121]" />
-              Export
-            </button>
+            <div className="flex items-center gap-3">
+              <h1 className="text-[22px] sm:text-[28px] font-bold text-[#191C1C] leading-tight break-words">
+                Driver Management
+              </h1>
+              <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-[#747475] rounded-full">
+                {totalDrivers} Total
+              </span>
+            </div>
+            <div className="flex items-center gap-2 self-stretch sm:self-auto">
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="flex items-center justify-center gap-2 px-3 py-2 border border-[#EAEAEA] rounded-[8px] text-[14px] sm:text-[15px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50"
+                title="Refresh Drivers"
+              >
+                <RefreshCw className={`w-4 h-4 text-[#747475] ${isRefreshing ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+              <button 
+                onClick={handleExport}
+                className="flex items-center justify-center gap-2 px-4 py-2 border border-[#EAEAEA] rounded-[8px] text-[14px] sm:text-[16px] font-medium text-[#212121] hover:bg-gray-50 transition-all cursor-pointer self-stretch sm:self-auto"
+              >
+                <Download className="w-4 h-4 text-[#212121]" />
+                Export
+              </button>
+            </div>
           </div>
 
           {/* Quick Stats */}

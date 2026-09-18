@@ -11,34 +11,46 @@ export const signInWithGoogle = () => {
       document.body.appendChild(script);
     }
 
+    const initAndRequest = () => {
+      try {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: (GOOGLE_CLIENT_IDS.webClientId || '').trim(),
+          scope: 'openid email profile',
+          callback: (response) => {
+            if (response.error) {
+              const msg = response.error === 'popup_closed_by_user' 
+                ? 'Sign-in cancelled' 
+                : (response.error_description || response.error);
+              reject(new Error(msg));
+            } else if (response.access_token) {
+              resolve({
+                token: response.access_token,
+                isAccessToken: true
+              });
+            } else {
+              reject(new Error('Google Sign-In: No access token received'));
+            }
+          },
+          error_callback: (err) => {
+            const msg = err?.message || (typeof err === 'string' ? err : 'Google popup error');
+            reject(new Error(msg));
+          }
+        });
+        client.requestAccessToken();
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
+      initAndRequest();
+      return;
+    }
+
     const checkInterval = setInterval(() => {
       if (typeof window !== 'undefined' && window.google?.accounts?.oauth2) {
         clearInterval(checkInterval);
-
-        try {
-          const client = window.google.accounts.oauth2.initTokenClient({
-            client_id: GOOGLE_CLIENT_IDS.webClientId,
-            scope: 'openid email profile',
-            callback: (response) => {
-              if (response.error) {
-                reject(new Error(response.error_description || response.error));
-              } else if (response.access_token) {
-                resolve({
-                  token: response.access_token,
-                  isAccessToken: true
-                });
-              } else {
-                reject(new Error('Google Sign-In web: No access token received'));
-              }
-            },
-            error_callback: (err) => {
-              reject(err);
-            }
-          });
-          client.requestAccessToken();
-        } catch (err) {
-          reject(err);
-        }
+        initAndRequest();
       }
     }, 100);
 

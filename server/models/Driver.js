@@ -33,6 +33,10 @@ const driverSchema = new mongoose.Schema({
     enum: ['Pending', 'Active', 'Suspended'],
     default: 'Pending',
   },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
   isWarned: {
     type: Boolean,
     default: false,

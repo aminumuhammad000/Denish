@@ -1,18 +1,22 @@
 
 
-import { X, Star, Trash2 } from "lucide-react";
+import { X, Star, Trash2, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface Vendor {
   id: string;
   name: string;
   category: string;
+  address?: string;
+  email?: string;
+  phone?: string;
   status: "approved" | "suspended" | "pending";
   orders: number;
   revenue: string;
   rating: number;
   image: string;
   commissionRate?: number;
+  isVerified?: boolean;
 }
 
 interface VendorDetailsModalProps {
@@ -56,12 +60,23 @@ export function VendorDetailsModal({
         ref={modalRef}
         className="bg-white w-full max-w-[542px] rounded-[21px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
       >
-        <div className="p-[25px] flex flex-col gap-[28px]">
+        <div className="p-[25px] flex flex-col gap-[20px]">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h2 className="text-[24px] font-semibold text-[#191C1C]">
-              {vendor.name}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-[24px] font-semibold text-[#191C1C]">
+                {vendor.name}
+              </h2>
+              <span className={`px-2.5 py-0.5 rounded-full text-[12px] font-medium capitalize ${
+                vendor.status.toLowerCase() === "approved"
+                  ? "text-[#3DD26A] bg-[#F0FBF4] border border-[#3DD26A]/20"
+                  : vendor.status.toLowerCase() === "suspended"
+                  ? "text-red-500 bg-red-50 border border-red-200"
+                  : "text-[#F9811F] bg-[#FFF4E4] border border-[#F9811F]/20"
+              }`}>
+                {vendor.status}
+              </span>
+            </div>
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full transition-all"
@@ -71,21 +86,30 @@ export function VendorDetailsModal({
           </div>
 
           {/* Image */}
-          <div className="w-full h-[205px] rounded-[12px] overflow-hidden bg-[#F8FAF9]">
+          <div className="w-full h-[180px] rounded-[12px] overflow-hidden bg-[#F8FAF9]">
             <img
               src={vendor.image}
               alt={vendor.name}
               width={492}
-              height={205}
+              height={180}
               className="w-full h-full object-cover"
             />
           </div>
 
+          {/* Contact / Address Strip */}
+          {(vendor.phone || vendor.email || vendor.address) && (
+            <div className="bg-[#F8F9FA] rounded-[10px] p-3 text-[13px] text-[#555] flex flex-col gap-1 border border-[#EAEAEA]">
+              {vendor.phone && <div><strong>Phone:</strong> {vendor.phone}</div>}
+              {vendor.email && <div><strong>Email:</strong> {vendor.email}</div>}
+              {vendor.address && <div><strong>Address:</strong> {vendor.address}</div>}
+            </div>
+          )}
+
           {/* Info Grid */}
-          <div className="grid grid-cols-2 gap-y-6">
+          <div className="grid grid-cols-2 gap-y-4">
             <div className="flex flex-col gap-1">
               <p className="text-[12px] font-medium text-[#848484]">Cuisine</p>
-              <p className="text-[16px] font-medium text-[#212121]">
+              <p className="text-[15px] font-medium text-[#212121]">
                 {vendor.category}
               </p>
             </div>
@@ -93,30 +117,30 @@ export function VendorDetailsModal({
               <p className="text-[12px] font-medium text-[#848484]">Rating</p>
               <div className="flex items-center gap-1">
                 <Star className="w-[14px] h-[14px] fill-[#F9A825] text-[#F9A825]" />
-                <p className="text-[16px] font-medium text-[#212121]">
+                <p className="text-[15px] font-medium text-[#212121]">
                   {vendor.rating}
                 </p>
               </div>
             </div>
             <div className="flex flex-col gap-1">
               <p className="text-[12px] font-medium text-[#848484]">Total Orders</p>
-              <p className="text-[16px] font-medium text-[#212121]">
+              <p className="text-[15px] font-medium text-[#212121]">
                 {vendor.orders}
               </p>
             </div>
             <div className="flex flex-col gap-1">
-              <p className="text-[12px] font-medium text-[#848484]">Reviews</p>
-              <p className="text-[16px] font-medium text-[#212121]">0</p>
+              <p className="text-[12px] font-medium text-[#848484]">Commission Rate</p>
+              <p className="text-[15px] font-medium text-[#212121]">{vendor.commissionRate || 15}%</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <p className="text-[12px] font-medium text-[#848484]">Total Revenue</p>
+              <p className="text-[15px] font-medium text-[#212121]">{vendor.revenue}</p>
             </div>
             <div className="flex flex-col gap-1">
               <p className="text-[12px] font-medium text-[#848484]">Commission Paid</p>
-              <p className="text-[16px] font-medium text-[#212121]">
+              <p className="text-[15px] font-medium text-[#212121]">
                 ₦{((parseFloat(vendor.revenue.replace(/[^\d.]/g, "")) || 0) * (vendor.commissionRate || 15) / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-[12px] font-medium text-[#848484]">Complaints</p>
-              <p className="text-[16px] font-medium text-[#212121]">0</p>
             </div>
           </div>
 
@@ -131,9 +155,10 @@ export function VendorDetailsModal({
             {vendor.status.toLowerCase() === "pending" ? (
               <button
                 onClick={onApprove || onSuspend}
-                className="flex-1 h-[42px] bg-[#29A378] text-white rounded-[8px] text-[14px] font-medium hover:bg-[#207951] transition-all cursor-pointer"
+                className="flex-[1.5] h-[42px] bg-[#29A378] text-white rounded-[8px] text-[14px] font-semibold hover:bg-[#207951] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
               >
-                Approve Vendor
+                <Check className="w-4 h-4" />
+                Verify & Approve Vendor
               </button>
             ) : (
               <button

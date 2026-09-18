@@ -64,10 +64,12 @@ router.get('/vendors/:vendorId/menu-items', getVendorMenuById);
 
 router.patch('/vendors/:id/status', updateVendorStatus);
 router.patch('/vendors/:id/approve', approveVendor);
+router.patch('/vendors/:id/verify', approveVendor);
 router.delete('/vendors/:id', deleteVendor);
 
 router.patch('/drivers/:id/status', updateDriverStatus);
 router.patch('/drivers/:id/approve', approveDriver);
+router.patch('/drivers/:id/verify', approveDriver);
 router.delete('/drivers/:id', deleteDriver);
 
 router.patch('/users/:id/status', updateUserStatus);

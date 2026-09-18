@@ -496,6 +496,7 @@ var require_Vendor = __commonJS({
           return val;
         }
       },
+      isVerified: { type: Boolean, default: false },
       rating: { type: Number, default: 4.8 },
       deliveryTime: { type: String, default: "25-35 min" },
       deliveryFee: { type: Number, default: 500 }
@@ -1428,6 +1429,10 @@ var require_Driver = __commonJS({
         type: String,
         enum: ["Pending", "Active", "Suspended"],
         default: "Pending"
+      },
+      isVerified: {
+        type: Boolean,
+        default: false
       },
       isWarned: {
         type: Boolean,
@@ -4035,7 +4040,11 @@ var require_adminController = __commonJS({
           const lower = status.toLowerCase();
           status = lower === "approved" ? "Approved" : lower === "suspended" ? "Suspended" : "Pending";
         }
-        const vendor = await Vendor.findByIdAndUpdate(id, { status }, { new: true });
+        const updates = { status };
+        if (status === "Approved") {
+          updates.isVerified = true;
+        }
+        const vendor = await Vendor.findByIdAndUpdate(id, updates, { new: true });
         res.status(200).json({ success: true, vendor });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -4044,9 +4053,9 @@ var require_adminController = __commonJS({
     var approveVendor = async (req, res) => {
       try {
         const { id } = req.params;
-        const vendor = await Vendor.findByIdAndUpdate(id, { status: "Approved" }, { new: true });
+        const vendor = await Vendor.findByIdAndUpdate(id, { status: "Approved", isVerified: true }, { new: true });
         if (!vendor) return res.status(404).json({ success: false, message: "Vendor not found" });
-        res.status(200).json({ success: true, message: "Vendor approved successfully", vendor });
+        res.status(200).json({ success: true, message: "Vendor approved & verified successfully", vendor });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -4066,6 +4075,7 @@ var require_adminController = __commonJS({
           } else {
             updates.status = "Active";
             updates.isSuspended = false;
+            updates.isVerified = true;
           }
         }
         if (typeof isWarned !== "undefined") updates.isWarned = Boolean(isWarned);
@@ -4079,9 +4089,9 @@ var require_adminController = __commonJS({
     var approveDriver = async (req, res) => {
       try {
         const { id } = req.params;
-        const driver = await Driver.findByIdAndUpdate(id, { status: "Active", isSuspended: false }, { new: true });
+        const driver = await Driver.findByIdAndUpdate(id, { status: "Active", isSuspended: false, isVerified: true }, { new: true });
         if (!driver) return res.status(404).json({ success: false, message: "Driver not found" });
-        res.status(200).json({ success: true, message: "Driver approved successfully", driver });
+        res.status(200).json({ success: true, message: "Driver approved & verified successfully", driver });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -4777,9 +4787,11 @@ var require_adminRoutes = __commonJS({
     router.get("/vendors/:vendorId/menu-items", getVendorMenuById);
     router.patch("/vendors/:id/status", updateVendorStatus);
     router.patch("/vendors/:id/approve", approveVendor);
+    router.patch("/vendors/:id/verify", approveVendor);
     router.delete("/vendors/:id", deleteVendor);
     router.patch("/drivers/:id/status", updateDriverStatus);
     router.patch("/drivers/:id/approve", approveDriver);
+    router.patch("/drivers/:id/verify", approveDriver);
     router.delete("/drivers/:id", deleteDriver);
     router.patch("/users/:id/status", updateUserStatus);
     router.delete("/users/:id", deleteUser);

@@ -28,6 +28,7 @@ export interface Driver {
   earnings: string;
   isWarned?: boolean;
   isSuspended?: boolean;
+  isVerified?: boolean;
 }
 
 export interface Vendor {
@@ -43,6 +44,7 @@ export interface Vendor {
   commissionRate?: number;
   email?: string;
   phone?: string;
+  isVerified?: boolean;
 }
 
 export interface User {
@@ -197,10 +199,12 @@ interface AdminState {
   updateVendorOnServer: (id: string, updatedData: Partial<Vendor>) => Promise<void>;
   updateVendorStatusOnServer: (id: string, status: string) => Promise<void>;
   approveVendorOnServer: (id: string) => Promise<boolean>;
+  verifyVendorOnServer: (id: string) => Promise<boolean>;
   deleteVendorOnServer: (id: string) => Promise<boolean>;
 
   updateDriverStatusOnServer: (id: string, status: string, extra?: Partial<Driver>) => Promise<void>;
   approveDriverOnServer: (id: string) => Promise<boolean>;
+  verifyDriverOnServer: (id: string) => Promise<boolean>;
   deleteDriverOnServer: (id: string) => Promise<boolean>;
 
   updateUserStatusOnServer: (id: string, status: string, extra?: Partial<User>) => Promise<void>;
@@ -338,6 +342,7 @@ export const useAdminStore = create<AdminState>()(
               earnings: "₦" + extractNumber(d.earnings).toLocaleString(),
               isWarned: !!d.isWarned,
               isSuspended: !!d.isSuspended,
+              isVerified: Boolean(d.isVerified || d.status === "Active" || d.status === "Online"),
             }));
             set({ drivers: formattedDrivers });
           }
@@ -352,10 +357,10 @@ export const useAdminStore = create<AdminState>()(
           if (data.success) {
             const formattedVendors: Vendor[] = data.vendors.map((v: any) => ({
               id: v._id,
-              name: v.businessName || v.name,
+              name: v.businessName || v.name || "Vendor",
               category: v.category || "General",
               address: v.address || v.location || "N/A",
-              status: v.status || "pending",
+              status: ((v.status || "pending").toLowerCase() === "approved" ? "approved" : (v.status || "").toLowerCase() === "suspended" ? "suspended" : "pending") as "approved" | "suspended" | "pending",
               orders: v.earnings?.totalOrders || v.ordersCount || 0,
               revenue: "₦" + (extractNumber(v.earnings) || v.revenue || 0).toLocaleString(),
               rating: v.rating || 0,
@@ -363,6 +368,7 @@ export const useAdminStore = create<AdminState>()(
               commissionRate: v.commissionRate || 15,
               email: v.email || "",
               phone: v.phone || "",
+              isVerified: Boolean(v.isVerified || (v.status && v.status.toLowerCase() === "approved")),
             }));
             set({ vendors: formattedVendors });
           }
@@ -465,15 +471,16 @@ export const useAdminStore = create<AdminState>()(
               earnings: "₦" + extractNumber(d.earnings).toLocaleString(),
               isWarned: !!d.isWarned,
               isSuspended: !!d.isSuspended,
+              isVerified: Boolean(d.isVerified || d.status === "Active" || d.status === "Online"),
             }));
 
             // Format vendors
             const formattedVendors: Vendor[] = vendors.map((v: any) => ({
               id: v._id,
-              name: v.businessName || v.name,
+              name: v.businessName || v.name || "Vendor",
               category: v.category || "General",
               address: v.address || v.location || "N/A",
-              status: v.status || "pending",
+              status: ((v.status || "pending").toLowerCase() === "approved" ? "approved" : (v.status || "").toLowerCase() === "suspended" ? "suspended" : "pending") as "approved" | "suspended" | "pending",
               orders: v.earnings?.totalOrders || v.ordersCount || 0,
               revenue: "₦" + (extractNumber(v.earnings) || v.revenue || 0).toLocaleString(),
               rating: v.rating || 0,
@@ -481,6 +488,7 @@ export const useAdminStore = create<AdminState>()(
               commissionRate: v.commissionRate || 15,
               email: v.email || "",
               phone: v.phone || "",
+              isVerified: Boolean(v.isVerified || (v.status && v.status.toLowerCase() === "approved")),
             }));
 
             // Format users
@@ -540,7 +548,7 @@ export const useAdminStore = create<AdminState>()(
           if (response.ok) {
             set((state) => ({
               vendors: state.vendors.map((v) =>
-                v.id === id ? { ...v, status: "approved" as const } : v,
+                v.id === id ? { ...v, status: "approved" as const, isVerified: true } : v,
               ),
               users: state.users.map((u) =>
                 u.id === id ? { ...u, status: "Active" as const } : u,
@@ -553,6 +561,9 @@ export const useAdminStore = create<AdminState>()(
           console.error("Failed to approve vendor:", error);
           return false;
         }
+      },
+      verifyVendorOnServer: async (id: string) => {
+        return get().approveVendorOnServer(id);
       },
       deleteVendorOnServer: async (id: string) => {
         try {
@@ -599,7 +610,7 @@ export const useAdminStore = create<AdminState>()(
           if (response.ok) {
             set((state) => ({
               drivers: state.drivers.map((d) =>
-                d.id === id ? { ...d, status: "Online" as const, isSuspended: false } : d,
+                d.id === id ? { ...d, status: "Active", isSuspended: false, isVerified: true } : d,
               ),
               users: state.users.map((u) =>
                 u.id === id ? { ...u, status: "Active" as const } : u,
@@ -612,6 +623,9 @@ export const useAdminStore = create<AdminState>()(
           console.error("Failed to approve driver:", error);
           return false;
         }
+      },
+      verifyDriverOnServer: async (id: string) => {
+        return get().approveDriverOnServer(id);
       },
       deleteDriverOnServer: async (id: string) => {
         try {

@@ -8,11 +8,12 @@ import {StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
-import { customerSignup } from '../services/api';
+import { customerSignup, googleAuthApi } from '../services/api';
 import { setAuthSession } from '../services/authStorage';
+import { signInWithGoogle } from '../services/googleAuth';
 
 const SignupScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -59,6 +60,35 @@ const SignupScreen = ({ navigation }) => {
     } catch (err) {
       console.error('Signup error:', err);
       setErrorMsg(err.response?.data?.error || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const { token, isAccessToken } = await signInWithGoogle();
+      const response = await googleAuthApi(token, 'customer', isAccessToken);
+      
+      if (response && response.success) {
+        await setAuthSession({
+          role: 'customer',
+          token: response.token,
+          user: response.user,
+          screen: 'CustomerHome'
+        });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'CustomerHome' }],
+        });
+      } else {
+        setErrorMsg(response.error || 'Google Sign-In failed');
+      }
+    } catch (error) {
+      console.error(error);
+      setErrorMsg(error.message || 'An error occurred during Google Sign-In');
     } finally {
       setLoading(false);
     }
@@ -158,6 +188,20 @@ const SignupScreen = ({ navigation }) => {
                   <Text style={styles.buttonText}>Sign Up</Text>
                 )}
               </TouchableOpacity>
+
+              {/* Divider */}
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or continue with</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              {/* Social Icons */}
+              <View style={styles.socialContainer}>
+                <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin} disabled={loading}>
+                  <FontAwesome name="google" size={28} color="#EA4335" />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -277,6 +321,42 @@ const styles = StyleSheet.create({
     color: 'red',
     fontSize: 12,
     marginTop: 4,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#EEE',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#999',
+    fontSize: 12,
+  },
+  socialContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+    marginBottom: 10,
+  },
+  socialButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EEE',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
 });
 

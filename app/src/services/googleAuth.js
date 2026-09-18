@@ -8,10 +8,13 @@ if (Platform.OS !== 'web') {
     // Dynamically require to avoid crash on startup in Expo Go
     GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
     
-    GoogleSignin.configure({
+    const config = {
       webClientId: GOOGLE_CLIENT_IDS.webClientId,
-      iosClientId: GOOGLE_CLIENT_IDS.iosClientId,
-    });
+    };
+    if (GOOGLE_CLIENT_IDS.iosClientId && GOOGLE_CLIENT_IDS.iosClientId !== GOOGLE_CLIENT_IDS.webClientId) {
+      config.iosClientId = GOOGLE_CLIENT_IDS.iosClientId;
+    }
+    GoogleSignin.configure(config);
   } catch (error) {
     console.warn('GoogleSignin native module not found. This is expected if running in Expo Go.');
   }
