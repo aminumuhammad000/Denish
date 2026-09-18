@@ -21,6 +21,7 @@ import Analytics from "./pages/Analytics";
 import Commissions from "./pages/Commissions";
 import Content from "./pages/Content";
 import Settings from "./pages/Settings";
+import MenuItems from "./pages/MenuItems";
 
 function AdminLayout({ children }: { children: React.ReactNode }) {
   const fetchAdminProfile = useAdminStore((state) => state.fetchAdminProfile);
@@ -111,6 +112,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/vendors" element={<Vendors />} />
+          <Route path="/menu-items" element={<MenuItems />} />
           <Route path="/drivers" element={<Drivers />} />
           <Route path="/users" element={<Users />} />
           <Route path="/disputes" element={<Disputes />} />

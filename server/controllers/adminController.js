@@ -881,6 +881,74 @@ const getAllPayoutsAdmin = async (req, res) => {
   }
 };
 
+// ─── Menu Items Management ───────────────────────────────────────────────────
+const getAllMenuItemsAdmin = async (req, res) => {
+  try {
+    const MenuItem = require('../models/MenuItem');
+    const { vendorId, category, search, available } = req.query;
+
+    const filter = {};
+    if (vendorId) filter.vendorId = vendorId;
+    if (category && category !== 'All') filter.category = category;
+    if (available !== undefined && available !== 'All') {
+      filter.available = available === 'true' || available === true;
+    }
+    if (search && search.trim()) {
+      filter.$or = [
+        { name: { $regex: search.trim(), $options: 'i' } },
+        { description: { $regex: search.trim(), $options: 'i' } }
+      ];
+    }
+
+    const items = await MenuItem.find(filter)
+      .populate('vendorId', 'name businessName email phone logoUrl status')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, count: items.length, items });
+  } catch (error) {
+    console.error('getAllMenuItemsAdmin error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const deleteMenuItemAdmin = async (req, res) => {
+  try {
+    const MenuItem = require('../models/MenuItem');
+    const { id } = req.params;
+
+    const item = await MenuItem.findById(id);
+    if (!item) {
+      return res.status(404).json({ success: false, error: 'Menu item not found' });
+    }
+
+    await MenuItem.findByIdAndDelete(id);
+    res.status(200).json({ success: true, message: 'Menu item deleted successfully', id });
+  } catch (error) {
+    console.error('deleteMenuItemAdmin error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const toggleMenuItemAdmin = async (req, res) => {
+  try {
+    const MenuItem = require('../models/MenuItem');
+    const { id } = req.params;
+
+    const item = await MenuItem.findById(id);
+    if (!item) {
+      return res.status(404).json({ success: false, error: 'Menu item not found' });
+    }
+
+    item.available = !item.available;
+    await item.save();
+
+    res.status(200).json({ success: true, item });
+  } catch (error) {
+    console.error('toggleMenuItemAdmin error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllOrders,
@@ -926,6 +994,9 @@ module.exports = {
   triggerWeeklyRiderPayoutsAdmin,
   triggerReconciliationAdmin,
   getAllPayoutsAdmin,
+  getAllMenuItemsAdmin,
+  deleteMenuItemAdmin,
+  toggleMenuItemAdmin,
 };
 
 

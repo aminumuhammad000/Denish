@@ -2211,8 +2211,69 @@ var require_authController = __commonJS({
     var Vendor = require_Vendor();
     var Customer = require_Customer();
     var Driver = require_Driver();
+    var Admin = require_Admin();
     var axios = require("axios");
     var { sendWelcomeEmail, sendOTPEmail } = require_emailService();
+    var checkEmailAndPhoneAcrossAllRoles = async ({ email, phone, currentId = null }) => {
+      const cleanEmail = email ? email.trim().toLowerCase() : "";
+      const cleanPhone = phone ? phone.trim() : "";
+      const emailRegex = cleanEmail ? new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") : null;
+      if (cleanEmail) {
+        const adminExists = await Admin.findOne({ email: emailRegex });
+        if (adminExists) {
+          return {
+            exists: true,
+            role: "Admin",
+            error: "This email is reserved for administrative access. Please use a different email address."
+          };
+        }
+      }
+      const [customer, vendor, driver] = await Promise.all([
+        cleanEmail || cleanPhone ? Customer.findOne({
+          $or: [
+            ...emailRegex ? [{ email: emailRegex }] : [],
+            ...cleanPhone ? [{ phone: cleanPhone }] : []
+          ]
+        }) : null,
+        cleanEmail || cleanPhone ? Vendor.findOne({
+          $or: [
+            ...emailRegex ? [{ email: emailRegex }] : [],
+            ...cleanPhone ? [{ phone: cleanPhone }] : []
+          ]
+        }) : null,
+        cleanEmail || cleanPhone ? Driver.findOne({
+          $or: [
+            ...emailRegex ? [{ email: emailRegex }] : [],
+            ...cleanPhone ? [{ phone: cleanPhone }] : []
+          ]
+        }) : null
+      ]);
+      if (vendor && (!currentId || vendor._id.toString() !== currentId.toString())) {
+        const isEmailMatch = emailRegex && vendor.email && vendor.email.toLowerCase() === cleanEmail;
+        return {
+          exists: true,
+          role: "Vendor",
+          error: isEmailMatch ? `This email is already registered as a Vendor (${vendor.businessName || vendor.name}). Each account must have a unique email address across roles. Please log in as a Vendor or use a different email.` : "This phone number is already registered with a Vendor account."
+        };
+      }
+      if (customer && (!currentId || customer._id.toString() !== currentId.toString())) {
+        const isEmailMatch = emailRegex && customer.email && customer.email.toLowerCase() === cleanEmail;
+        return {
+          exists: true,
+          role: "Customer",
+          error: isEmailMatch ? `This email is already registered as a Customer (${customer.name}). Each account must have a unique email address across roles. Please log in as a Customer or use a different email.` : "This phone number is already registered with a Customer account."
+        };
+      }
+      if (driver && (!currentId || driver._id.toString() !== currentId.toString())) {
+        const isEmailMatch = emailRegex && driver.email && driver.email.toLowerCase() === cleanEmail;
+        return {
+          exists: true,
+          role: "Driver",
+          error: isEmailMatch ? `This email is already registered as a Driver / Rider (${driver.name}). Each account must have a unique email address across roles. Please log in as a Driver or use a different email.` : "This phone number is already registered with a Driver account."
+        };
+      }
+      return { exists: false };
+    };
     var vendorLogin = async (req, res) => {
       try {
         const { email, password } = req.body;
@@ -2235,20 +2296,21 @@ var require_authController = __commonJS({
     var vendorSignup = async (req, res) => {
       try {
         const { name, email, phone, password } = req.body;
-        const existingEmail = await Vendor.findOne({ email });
-        if (existingEmail) {
-          return res.status(400).json({ success: false, error: "Email already in use" });
+        const cleanEmail = email ? email.trim() : "";
+        const cleanPhone = phone ? phone.trim() : "";
+        if (!cleanEmail) {
+          return res.status(400).json({ success: false, error: "Email is required" });
         }
-        const existingPhone = await Vendor.findOne({ phone });
-        if (existingPhone) {
-          return res.status(400).json({ success: false, error: "Phone number already in use" });
+        const check = await checkEmailAndPhoneAcrossAllRoles({ email: cleanEmail, phone: cleanPhone });
+        if (check.exists) {
+          return res.status(400).json({ success: false, error: check.error });
         }
         const vendor = await Vendor.create({
-          name,
-          email,
-          phone,
+          name: name ? name.trim() : "",
+          email: cleanEmail,
+          phone: cleanPhone,
           password,
-          businessName: name,
+          businessName: name ? name.trim() : "",
           category: "Local dishes",
           address: "",
           about: "",
@@ -2256,7 +2318,7 @@ var require_authController = __commonJS({
           coverUrl: "",
           status: "Pending"
         });
-        sendWelcomeEmail(email, name).catch((err) => console.error("Error sending welcome email to vendor:", err));
+        sendWelcomeEmail(cleanEmail, name).catch((err) => console.error("Error sending welcome email to vendor:", err));
         res.status(201).json({ success: true, token: "fake-jwt-token-for-" + vendor._id, vendor });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -2284,15 +2346,26 @@ var require_authController = __commonJS({
     var customerSignup = async (req, res) => {
       try {
         const { name, email, phone, password } = req.body;
-        const existing = await Customer.findOne({ $or: [{ email }, { phone }] });
-        if (existing) {
-          return res.status(400).json({ success: false, error: "Email or phone number already in use" });
+        const cleanEmail = email ? email.trim() : "";
+        const cleanPhone = phone ? phone.trim() : "";
+        if (!cleanEmail) {
+          return res.status(400).json({ success: false, error: "Email is required" });
+        }
+        const check = await checkEmailAndPhoneAcrossAllRoles({ email: cleanEmail, phone: cleanPhone });
+        if (check.exists) {
+          return res.status(400).json({ success: false, error: check.error });
         }
         const cleanName = (name || "DENISH").replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase() || "DENISH";
-        const codeSuffix = phone ? phone.slice(-3) : Math.floor(100 + Math.random() * 900);
+        const codeSuffix = cleanPhone ? cleanPhone.slice(-3) : Math.floor(100 + Math.random() * 900);
         const referralCode = `${cleanName}${codeSuffix}`;
-        const customer = await Customer.create({ name, email, phone, password, referralCode });
-        sendWelcomeEmail(email, name).catch((err) => console.error("Error sending welcome email to customer:", err));
+        const customer = await Customer.create({
+          name: name ? name.trim() : "Customer",
+          email: cleanEmail,
+          phone: cleanPhone,
+          password,
+          referralCode
+        });
+        sendWelcomeEmail(cleanEmail, name).catch((err) => console.error("Error sending welcome email to customer:", err));
         res.status(201).json({ success: true, token: "cust-token-" + customer._id, user: customer });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -2320,12 +2393,23 @@ var require_authController = __commonJS({
     var driverSignup = async (req, res) => {
       try {
         const { name, email, phone, password, vehicleType } = req.body;
-        const existing = await Driver.findOne({ $or: [{ email }, { phone }] });
-        if (existing) {
-          return res.status(400).json({ success: false, error: "Email or phone number already in use" });
+        const cleanEmail = email ? email.trim() : "";
+        const cleanPhone = phone ? phone.trim() : "";
+        if (!cleanEmail) {
+          return res.status(400).json({ success: false, error: "Email is required" });
         }
-        const driver = await Driver.create({ name, email, phone, password, vehicleType });
-        sendWelcomeEmail(email, name).catch((err) => console.error("Error sending welcome email to driver:", err));
+        const check = await checkEmailAndPhoneAcrossAllRoles({ email: cleanEmail, phone: cleanPhone });
+        if (check.exists) {
+          return res.status(400).json({ success: false, error: check.error });
+        }
+        const driver = await Driver.create({
+          name: name ? name.trim() : "Driver",
+          email: cleanEmail,
+          phone: cleanPhone,
+          password,
+          vehicleType: vehicleType || "Motorcycle"
+        });
+        sendWelcomeEmail(cleanEmail, name).catch((err) => console.error("Error sending welcome email to driver:", err));
         res.status(201).json({ success: true, token: "driver-token-" + driver._id, user: driver });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -2542,11 +2626,15 @@ var require_authController = __commonJS({
         }
         user = await Model.findOne({ email: { $regex: new RegExp(`^${email.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") } });
         if (!user) {
+          const check = await checkEmailAndPhoneAcrossAllRoles({ email: email.trim() });
+          if (check.exists) {
+            return res.status(400).json({ success: false, error: check.error });
+          }
           const placeholderPhone = `google-${googleId}`;
           const placeholderPassword = Math.random().toString(36).slice(-10);
           const createData = {
-            name,
-            email,
+            name: name || "User",
+            email: email.trim(),
             phone: placeholderPhone,
             password: placeholderPassword,
             profilePic: picture
@@ -2556,7 +2644,11 @@ var require_authController = __commonJS({
             createData.status = "Pending";
           } else if (role === "vendor") {
             createData.logoUrl = picture;
+            createData.businessName = name || "Vendor Business";
             createData.status = "Pending";
+          } else if (role === "customer") {
+            const cleanName = (name || "DENISH").replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase() || "DENISH";
+            createData.referralCode = `${cleanName}${Math.floor(100 + Math.random() * 900)}`;
           }
           user = await Model.create(createData);
           sendWelcomeEmail(email, name).catch((err) => console.error("Error sending welcome email:", err));
@@ -6265,6 +6357,60 @@ Phone: 08036301983`;
         res.status(500).json({ success: false, error: error.message });
       }
     };
+    var getAllMenuItemsAdmin = async (req, res) => {
+      try {
+        const MenuItem = require_MenuItem();
+        const { vendorId, category, search, available } = req.query;
+        const filter = {};
+        if (vendorId) filter.vendorId = vendorId;
+        if (category && category !== "All") filter.category = category;
+        if (available !== void 0 && available !== "All") {
+          filter.available = available === "true" || available === true;
+        }
+        if (search && search.trim()) {
+          filter.$or = [
+            { name: { $regex: search.trim(), $options: "i" } },
+            { description: { $regex: search.trim(), $options: "i" } }
+          ];
+        }
+        const items = await MenuItem.find(filter).populate("vendorId", "name businessName email phone logoUrl status").sort({ createdAt: -1 });
+        res.status(200).json({ success: true, count: items.length, items });
+      } catch (error) {
+        console.error("getAllMenuItemsAdmin error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var deleteMenuItemAdmin = async (req, res) => {
+      try {
+        const MenuItem = require_MenuItem();
+        const { id } = req.params;
+        const item = await MenuItem.findById(id);
+        if (!item) {
+          return res.status(404).json({ success: false, error: "Menu item not found" });
+        }
+        await MenuItem.findByIdAndDelete(id);
+        res.status(200).json({ success: true, message: "Menu item deleted successfully", id });
+      } catch (error) {
+        console.error("deleteMenuItemAdmin error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var toggleMenuItemAdmin = async (req, res) => {
+      try {
+        const MenuItem = require_MenuItem();
+        const { id } = req.params;
+        const item = await MenuItem.findById(id);
+        if (!item) {
+          return res.status(404).json({ success: false, error: "Menu item not found" });
+        }
+        item.available = !item.available;
+        await item.save();
+        res.status(200).json({ success: true, item });
+      } catch (error) {
+        console.error("toggleMenuItemAdmin error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
     module2.exports = {
       getDashboardStats,
       getAllOrders,
@@ -6309,7 +6455,10 @@ Phone: 08036301983`;
       triggerNightlyVendorPayoutsAdmin,
       triggerWeeklyRiderPayoutsAdmin,
       triggerReconciliationAdmin,
-      getAllPayoutsAdmin
+      getAllPayoutsAdmin,
+      getAllMenuItemsAdmin,
+      deleteMenuItemAdmin,
+      toggleMenuItemAdmin
     };
   }
 });
@@ -6363,7 +6512,10 @@ var require_adminRoutes = __commonJS({
       triggerNightlyVendorPayoutsAdmin,
       triggerWeeklyRiderPayoutsAdmin,
       triggerReconciliationAdmin,
-      getAllPayoutsAdmin
+      getAllPayoutsAdmin,
+      getAllMenuItemsAdmin,
+      deleteMenuItemAdmin,
+      toggleMenuItemAdmin
     } = require_adminController();
     var { upload } = require_cloudinary();
     var { getVendorMenuById } = require_menuController();
@@ -6405,6 +6557,9 @@ var require_adminRoutes = __commonJS({
     router.post("/payouts/process-weekly-riders", triggerWeeklyRiderPayoutsAdmin);
     router.post("/payouts/drivers/trigger", triggerWeeklyRiderPayoutsAdmin);
     router.post("/payouts/reconcile", triggerReconciliationAdmin);
+    router.get("/menu-items", getAllMenuItemsAdmin);
+    router.delete("/menu-items/:id", deleteMenuItemAdmin);
+    router.patch("/menu-items/:id/toggle", toggleMenuItemAdmin);
     router.get("/banners", getBanners);
     router.post("/banners", addBanner);
     router.put("/banners/:id", updateBanner);

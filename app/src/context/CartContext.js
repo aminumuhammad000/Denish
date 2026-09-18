@@ -1,10 +1,67 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const CART_STORAGE_KEY = 'denish_customer_cart_data';
 
 const CartContext = createContext({});
 
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [restaurantId, setRestaurantId] = useState(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load cart from persistent storage on mount
+  useEffect(() => {
+    const loadSavedCart = async () => {
+      try {
+        let rawData = null;
+        if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+          rawData = window.localStorage.getItem(CART_STORAGE_KEY);
+        } else {
+          rawData = await AsyncStorage.getItem(CART_STORAGE_KEY);
+        }
+
+        if (rawData) {
+          const parsed = JSON.parse(rawData);
+          if (parsed && Array.isArray(parsed.cartItems)) {
+            setCartItems(parsed.cartItems);
+            setRestaurantId(parsed.restaurantId || null);
+          }
+        }
+      } catch (e) {
+        console.error('Error loading cart from storage:', e);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    loadSavedCart();
+  }, []);
+
+  // Save cart to persistent storage whenever cartItems or restaurantId changes
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const persistCart = async () => {
+      try {
+        const payload = JSON.stringify({
+          cartItems,
+          restaurantId,
+        });
+
+        if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(CART_STORAGE_KEY, payload);
+        } else {
+          await AsyncStorage.setItem(CART_STORAGE_KEY, payload);
+        }
+      } catch (e) {
+        console.error('Error saving cart to storage:', e);
+      }
+    };
+
+    persistCart();
+  }, [cartItems, restaurantId, isLoaded]);
 
   const addToCart = (item, restId, quantity = 1, instructions = '') => {
     let updatedItems = [...cartItems];
@@ -59,7 +116,7 @@ export const CartProvider = ({ children }) => {
   };
 
   return (
-    <CartContext.Provider value={{ cartItems, restaurantId, addToCart, removeFromCart, clearCart, getTotal }}>
+    <CartContext.Provider value={{ cartItems, restaurantId, addToCart, removeFromCart, clearCart, getTotal, isLoaded }}>
       {children}
     </CartContext.Provider>
   );

@@ -45,6 +45,9 @@ const {
   triggerWeeklyRiderPayoutsAdmin,
   triggerReconciliationAdmin,
   getAllPayoutsAdmin,
+  getAllMenuItemsAdmin,
+  deleteMenuItemAdmin,
+  toggleMenuItemAdmin,
 } = require('../controllers/adminController');
 const { upload } = require('../config/cloudinary');
 const { getVendorMenuById } = require('../controllers/menuController');
@@ -100,6 +103,11 @@ router.post('/payouts/vendors/trigger', triggerDailyVendorPayoutsAdmin);
 router.post('/payouts/process-weekly-riders', triggerWeeklyRiderPayoutsAdmin);
 router.post('/payouts/drivers/trigger', triggerWeeklyRiderPayoutsAdmin);
 router.post('/payouts/reconcile', triggerReconciliationAdmin);
+
+// Menu Items Management routes
+router.get('/menu-items', getAllMenuItemsAdmin);
+router.delete('/menu-items/:id', deleteMenuItemAdmin);
+router.patch('/menu-items/:id/toggle', toggleMenuItemAdmin);
 
 router.get('/banners', getBanners);
 router.post('/banners', addBanner);

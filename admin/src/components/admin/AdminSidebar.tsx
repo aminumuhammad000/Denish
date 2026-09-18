@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Settings, LogOut, X } from "lucide-react";
+import { Settings, LogOut, X, UtensilsCrossed } from "lucide-react";
 import { LogoutConfirmModal } from "./LogoutConfirmModal";
 import { useAdminStore } from "../../lib/store";
 import { clearAdminSession } from "../../lib/auth";
@@ -9,6 +9,7 @@ const navItems = [
   { iconPath: "/images/Dashboard_sidebar_icons/overview.svg", label: "Overview", href: "/dashboard" },
   { iconPath: "/images/Dashboard_sidebar_icons/orders.svg", label: "Orders", href: "/orders" },
   { iconPath: "/images/Dashboard_sidebar_icons/vendors.svg", label: "Vendors", href: "/vendors" },
+  { iconPath: "", label: "Menu Items", href: "/menu-items", isMenuItems: true },
   { iconPath: "/images/Dashboard_sidebar_icons/drivers.svg", label: "Drivers", href: "/drivers" },
   { iconPath: "/images/Dashboard_sidebar_icons/users.svg", label: "Users", href: "/users" },
   { iconPath: "/images/Dashboard_sidebar_icons/commissions.svg", label: "Commissions", href: "/commissions" },
@@ -176,6 +177,10 @@ export function AdminSidebar() {
                   )}
                   {item.isSettings ? (
                     <Settings
+                      style={{ width: 20, height: 20, color: isActive ? "#F9811F" : "white" }}
+                    />
+                  ) : item.isMenuItems ? (
+                    <UtensilsCrossed
                       style={{ width: 20, height: 20, color: isActive ? "#F9811F" : "white" }}
                     />
                   ) : (
