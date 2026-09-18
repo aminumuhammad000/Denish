@@ -53,8 +53,8 @@ const TrackOrderScreen = ({ navigation, route }) => {
 
   const handleCallDriver = () => {
     navigation.navigate('Calling', {
-      name: trackingData?.driverName || 'Kola Adeleke',
-      phone: trackingData?.driverPhone || '09123882672',
+      name: trackingData?.driverName || 'Delivery Partner',
+      phone: trackingData?.driverPhone || '08012345678',
       orderId,
       subtitle: `${trackingData?.totalAmount ? '₦' + trackingData.totalAmount.toLocaleString() : '₦5,700'} | 3.5 km`
     });
@@ -116,7 +116,7 @@ const TrackOrderScreen = ({ navigation, route }) => {
         <View style={styles.driverCard}>
           <Image source={{ uri: trackingData?.driverPic || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }} style={styles.driverPic} />
           <View style={styles.driverInfo}>
-            <Text style={styles.driverName}>{trackingData?.driverName || 'Kola Adeleke'}</Text>
+            <Text style={styles.driverName}>{trackingData?.driverName || 'Delivery Partner'}</Text>
             <View style={styles.driverMeta}>
               <Ionicons name="star" size={12} color="#FFD700" />
               <Text style={styles.driverRating}>4.8</Text>
@@ -128,7 +128,7 @@ const TrackOrderScreen = ({ navigation, route }) => {
              <TouchableOpacity style={styles.driverActionBtn} onPress={handleCallDriver}>
                <Ionicons name="call" size={18} color="#27A572" />
              </TouchableOpacity>
-             <TouchableOpacity style={styles.driverActionBtnChat} onPress={() => navigation.navigate('ChatDetail', { name: trackingData?.driverName || 'Kola Adeleke', type: 'Driver' })}>
+             <TouchableOpacity style={styles.driverActionBtnChat} onPress={() => navigation.navigate('ChatDetail', { name: trackingData?.driverName || 'Delivery Partner', type: 'Driver' })}>
                <Ionicons name="chatbubble-ellipses" size={18} color="#FF7D01" />
              </TouchableOpacity>
           </View>

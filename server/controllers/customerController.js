@@ -8,6 +8,7 @@ const Customer = require('../models/Customer');
 const Order = require('../models/Order');
 const Message = require('../models/Message');
 const CallSession = require('../models/CallSession');
+const Driver = require('../models/Driver');
 
 const Banner = require('../models/Banner');
 
@@ -109,11 +110,14 @@ const placeOrder = async (req, res) => {
     }));
 
     const customer = await getCurrentCustomer(req);
-    const resolvedCustomerName = customer ? customer.name : (customerName || 'Test User');
+    const resolvedCustomerName = customer ? customer.name : (customerName || req.body.name || 'Customer');
+    const resolvedCustomerEmail = customer ? customer.email : (req.body.customerEmail || req.body.email || '');
+    const resolvedCustomerPhone = customer ? customer.phone : (customerPhone || req.body.phone || '');
     const resolvedCustomerId = customer ? customer._id : undefined;
 
     const vendorDoc = await Vendor.findById(validVendorId);
     const resolvedVendorName = vendorDoc ? (vendorDoc.businessName || vendorDoc.name) : 'Unknown Vendor';
+    const resolvedVendorEmail = vendorDoc ? vendorDoc.email : '';
 
     const paymentMethod = req.body.paymentMethod || 'Card';
     if (paymentMethod && paymentMethod.toLowerCase() === 'wallet') {
@@ -145,8 +149,11 @@ const placeOrder = async (req, res) => {
       orderId: generatedOrderId,
       customerId: resolvedCustomerId,
       customerName: resolvedCustomerName,
+      customerEmail: resolvedCustomerEmail,
+      customerPhone: resolvedCustomerPhone,
       vendorId: validVendorId,
       vendorName: resolvedVendorName,
+      vendorEmail: resolvedVendorEmail,
       address: finalAddress,
       deliveryAddress: finalAddress,
       items: formattedItems,
@@ -155,6 +162,10 @@ const placeOrder = async (req, res) => {
       paymentMethod: paymentMethod,
       status: 'pending'
     });
+
+    // Send email notification to vendor
+    const { notifyVendorOrderPlaced } = require('../utils/emailService');
+    notifyVendorOrderPlaced(newOrder, vendorDoc).catch(e => console.warn('Vendor email dispatch error:', e.message));
 
     res.status(201).json({ success: true, data: newOrder });
   } catch (error) {
@@ -273,15 +284,27 @@ const getOrderTracking = async (req, res) => {
     const elapsedMins = Math.floor((new Date() - new Date(order.createdAt)) / 60000);
     const estimatedArrival = Math.max(0, 30 - elapsedMins);
 
+    // Dynamically resolve driver from assigned order or registered driver in DB
+    let driver = null;
+    if (order.driverId) {
+      driver = await Driver.findById(order.driverId);
+    }
+    if (!driver) {
+      driver = await Driver.findOne({ status: 'Active' }) || await Driver.findOne();
+    }
+    const resolvedDriverName = order.driverName || driver?.name || 'Delivery Partner';
+    const resolvedDriverPhone = order.driverPhone || driver?.phone || '08012345678';
+    const resolvedDriverPic = driver?.profilePic || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100';
+
     res.status(200).json({
       success: true,
       data: {
         order,
         estimatedArrival,
         status: order.status,
-        driverName: 'Kola Adeleke',
-        driverPhone: '09123882672',
-        driverPic: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100',
+        driverName: resolvedDriverName,
+        driverPhone: resolvedDriverPhone,
+        driverPic: resolvedDriverPic,
         totalAmount: order.totalAmount || order.total || 5700
       }
     });
@@ -415,19 +438,19 @@ const sendMessage = async (req, res) => {
 
 const initiateCall = async (req, res) => {
   try {
-    const { receiverName, orderId, subtitle } = req.body;
-    const customer = await Customer.findOne().sort({ createdAt: -1 });
-    const callerId = customer ? customer._id.toString() : 'customer-1';
-    const callerName = customer ? customer.name : 'Usman Umar';
+    const { receiverName, orderId, subtitle, callerName: customCallerName, callerId: customCallerId, receiverId } = req.body;
+    const customer = await getCurrentCustomer(req) || await Customer.findOne().sort({ createdAt: -1 });
+    const callerId = customCallerId || (customer ? customer._id.toString() : 'user-1');
+    const callerName = customCallerName || (customer ? customer.name : 'Customer');
 
     const session = await CallSession.create({
       callerId,
       callerName,
-      receiverId: 'receiver-1',
-      receiverName: receiverName || 'Temmy Store',
+      receiverId: receiverId || 'receiver-1',
+      receiverName: receiverName || 'Recipient',
       status: 'ringing',
-      orderId: orderId || 'Order ORD-005',
-      subtitle: subtitle || '3.5 km | ₦750'
+      orderId: orderId || 'Order Call',
+      subtitle: subtitle || ''
     });
 
     res.status(200).json({ success: true, call: session });

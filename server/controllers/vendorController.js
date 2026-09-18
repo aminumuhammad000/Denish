@@ -171,6 +171,14 @@ const updateVendorOrderStatus = async (req, res) => {
     order.status = status;
     await order.save();
 
+    // Trigger customer email notification on processing/preparing and delivery
+    const { notifyCustomerOrderProcessing, notifyCustomerOrderDelivered } = require('../utils/emailService');
+    if (['preparing', 'ready', 'accepted'].includes(status)) {
+      notifyCustomerOrderProcessing(order).catch(e => console.warn('Notify customer processing email error:', e.message));
+    } else if (status === 'delivered') {
+      notifyCustomerOrderDelivered(order).catch(e => console.warn('Notify customer delivered email error:', e.message));
+    }
+
     res.status(200).json({ success: true, message: `Order status updated to ${status}`, data: order });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

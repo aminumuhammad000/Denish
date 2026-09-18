@@ -18,10 +18,10 @@ import { respondCallSession } from '../services/api';
 const IncomingCallScreen = ({ route, navigation }) => {
   const { 
     callId = '1', 
-    callerName = 'Mama\'s Kitchen Driver', 
-    phone = '09123882672', 
-    orderId = 'Order ORD-005', 
-    subtitle = '3.5 km | ₦750' 
+    callerName = 'Incoming Caller', 
+    phone = '08012345678', 
+    orderId = 'Delivery Call', 
+    subtitle = '' 
   } = route?.params || {};
   
   const pulseAnim = useRef(new Animated.Value(1)).current;

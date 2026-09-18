@@ -662,8 +662,23 @@ const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
+    const currentDriver = await getCurrentDriver(req) || await Driver.findOne();
+    if (currentDriver) {
+      order.driverId = currentDriver._id;
+      order.driverName = currentDriver.name;
+      order.driverPhone = currentDriver.phone;
+    }
+
     order.status = status;
     await order.save();
+
+    // Trigger customer email notification on processing/preparing and delivery
+    const { notifyCustomerOrderProcessing, notifyCustomerOrderDelivered } = require('../utils/emailService');
+    if (['preparing', 'ready', 'on the way'].includes(status)) {
+      notifyCustomerOrderProcessing(order).catch(e => console.warn('Notify customer processing email error:', e.message));
+    } else if (status === 'delivered') {
+      notifyCustomerOrderDelivered(order).catch(e => console.warn('Notify customer delivered email error:', e.message));
+    }
 
     // If order status is marked as 'delivered', update driver earnings in DB with 7-day maturity period
     if (status === 'delivered') {

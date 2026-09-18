@@ -432,7 +432,7 @@ const DriverDeliveriesScreen = ({ navigation }) => {
                   <ActiveCard
                     key={item._id || item.id}
                     item={item}
-                    onTrack={() => navigation.navigate('DriverOrderTracking', { orderId: item._id || item.id })}
+                    onTrack={() => navigation.navigate('DriverOrderTracking', { orderId: item._id || item.id, orderDetails: item })}
                   />
                 ))
               ) : (

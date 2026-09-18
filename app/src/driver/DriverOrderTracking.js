@@ -92,7 +92,7 @@ const DriverOrderTracking = ({ route, navigation }) => {
     id: orderId || 'ORD-005',
     restaurant: 'Spice Avenue',
     pickupAddress: '15 Admiralty Way, Lekki',
-    customer: 'Kola Adeleke',
+    customer: 'Customer',
     dropoffAddress: '12 Marina Road, Lagos Island',
     amount: 850,
     distance: '3.5 km',
@@ -171,17 +171,20 @@ const DriverOrderTracking = ({ route, navigation }) => {
               <TouchableOpacity 
                 style={styles.actionBtn}
                 onPress={() => navigation.navigate('Calling', {
-                  name: displayOrder.customer || 'Customer',
-                  phone: '09123882672',
-                  orderId: displayOrder.id,
-                  subtitle: displayOrder.dropoffAddress
+                  name: displayOrder.customer || displayOrder.customerName || 'Customer',
+                  phone: displayOrder.customerPhone || displayOrder.phone || '08033030303',
+                  orderId: displayOrder.id || displayOrder.orderId || orderId,
+                  subtitle: displayOrder.dropoffAddress || displayOrder.deliveryAddress || 'Delivery Address'
                 })}
               >
                 <Ionicons name="call-outline" size={20} color="#666" />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.actionBtn}
-                onPress={() => navigation.navigate('ChatDetail', { name: displayOrder.customer || 'Customer', role: 'Driver' })}
+                onPress={() => navigation.navigate('ChatDetail', { 
+                  name: displayOrder.customer || displayOrder.customerName || 'Customer', 
+                  role: 'Driver' 
+                })}
               >
                 <Ionicons name="chatbubble-ellipses-outline" size={20} color="#666" />
               </TouchableOpacity>

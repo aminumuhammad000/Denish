@@ -244,6 +244,7 @@ const CheckoutScreen = ({ navigation }) => {
         totalAmount: total,
         deliveryAddress: selectedAddrObj.addr,
         customerName: profile?.name || "Customer",
+        customerEmail: profile?.email,
         customerPhone: profile?.phone || "08123456789"
       };
 

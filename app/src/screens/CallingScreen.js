@@ -16,7 +16,7 @@ import { playRingtone, stopRingtone } from '../utils/callAudio';
 import { initiateCallSession, respondCallSession, fetchCallStatus } from '../services/api';
 
 const CallingScreen = ({ route, navigation }) => {
-  const { name = 'Temmy Store', phone = '09123882672', orderId = 'Order ORD-005', subtitle = '3.5 km | ₦750' } = route?.params || {};
+  const { name = 'Recipient', phone = '08012345678', orderId = 'Connecting Call...', subtitle = '' } = route?.params || {};
   
   const [callState, setCallState] = useState('Ringing...'); // 'Ringing...', '00:01', 'Ended'
   const [callDuration, setCallDuration] = useState(0);

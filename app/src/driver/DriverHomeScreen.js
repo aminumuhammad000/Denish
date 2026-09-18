@@ -344,6 +344,7 @@ const DriverHomeScreen = ({ navigation }) => {
                   onPress={() =>
                     navigation.navigate('DriverOrderTracking', {
                       orderId: activeDelivery._id || activeDelivery.id,
+                      orderDetails: activeDelivery,
                     })
                   }
                 >

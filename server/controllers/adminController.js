@@ -247,6 +247,17 @@ const updateOrder = async (req, res) => {
   try {
     const { id } = req.params;
     const updatedOrder = await Order.findByIdAndUpdate(id, req.body, { new: true });
+    
+    if (updatedOrder && req.body.status) {
+      const status = req.body.status;
+      const { notifyCustomerOrderProcessing, notifyCustomerOrderDelivered } = require('../utils/emailService');
+      if (['preparing', 'ready', 'on the way', 'accepted'].includes(status)) {
+        notifyCustomerOrderProcessing(updatedOrder).catch(e => console.warn('Admin notify processing error:', e.message));
+      } else if (status === 'delivered') {
+        notifyCustomerOrderDelivered(updatedOrder).catch(e => console.warn('Admin notify delivered error:', e.message));
+      }
+    }
+
     res.status(200).json({ success: true, order: updatedOrder });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
