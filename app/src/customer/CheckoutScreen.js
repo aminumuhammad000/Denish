@@ -97,10 +97,20 @@ const CheckoutScreen = ({ navigation }) => {
         setAddresses(addrList);
         if (addrList.length > 0) setSelectedAddressId(addrList[0].id || addrList[0]._id);
 
+        const walletBalance = profileData.walletBalance || 0;
+        const walletOption = { 
+          id: 'wallet', 
+          type: 'wallet', 
+          title: `Denish Wallet (₦${walletBalance.toLocaleString()})`, 
+          sub: walletBalance >= total ? 'Pay instantly from wallet balance' : 'Insufficient balance (Top-up in Profile)', 
+          icon: 'wallet-outline',
+          walletBalance 
+        };
         const flwOption = { id: 'flutterwave', type: 'card', title: 'Flutterwave Checkout (Card / Transfer / USSD)', sub: 'Pay securely via Flutterwave', icon: 'card-outline' };
 
+        let remotePayments = [];
         if (profileData.paymentMethods && profileData.paymentMethods.length > 0) {
-          const remotePayments = profileData.paymentMethods.map(p => ({
+          remotePayments = profileData.paymentMethods.map(p => ({
             ...p,
             id: p.id || p._id,
             title: p.title || `${p.cardType || 'Card'} ●●●● ${p.last4 || '••••'}`,
@@ -108,9 +118,14 @@ const CheckoutScreen = ({ navigation }) => {
             expiry: p.expiry,
             icon: 'card-outline'
           }));
-          setPaymentMethods([flwOption, ...remotePayments]);
+        }
+
+        const allOptions = [walletOption, flwOption, ...remotePayments];
+        setPaymentMethods(allOptions);
+        if (walletBalance >= total) {
+          setSelectedPaymentId('wallet');
         } else {
-          setPaymentMethods([flwOption]);
+          setSelectedPaymentId('flutterwave');
         }
       }
     } catch (err) {
@@ -232,8 +247,15 @@ const CheckoutScreen = ({ navigation }) => {
         customerPhone: profile?.phone || "08123456789"
       };
 
-      // Handle Flutterwave Hosted Checkout
-      if (selectedPaymentId === 'flutterwave') {
+      // Handle Wallet or Flutterwave Hosted Checkout
+      if (selectedPaymentId === 'wallet') {
+        const currentBalance = profile?.walletBalance || 0;
+        if (currentBalance < total) {
+          throw new Error(`Insufficient wallet balance. You have ₦${currentBalance.toLocaleString()}, but the order is ₦${total.toLocaleString()}. Please top up your wallet in Profile.`);
+        }
+        orderPayload.paymentMethod = 'Wallet';
+      } else if (selectedPaymentId === 'flutterwave') {
+        orderPayload.paymentMethod = 'Flutterwave';
         const flwRes = await initFlutterwaveCheckout({
           amount: total,
           email: profile?.email || 'customer@denishng.com',
@@ -257,6 +279,8 @@ const CheckoutScreen = ({ navigation }) => {
         } else {
           throw new Error('Could not generate Flutterwave payment link');
         }
+      } else {
+        orderPayload.paymentMethod = 'Card';
       }
 
       // Place the verified order
@@ -338,36 +362,52 @@ const CheckoutScreen = ({ navigation }) => {
           {paymentMethods.map((method) => {
             const methodId = method.id || method._id;
             const expired = isCardExpired(method.expiry || method.sub);
+            const isWallet = method.type === 'wallet';
+            const isInsufficient = isWallet && (profile?.walletBalance ?? 0) < total;
+            const isDisabled = expired || isInsufficient;
+
             return (
               <TouchableOpacity 
                 key={methodId}
                 style={[
                   styles.payOption, 
                   selectedPaymentId === methodId && styles.selectedItem,
-                  expired && { opacity: 0.6, backgroundColor: '#FFF5F5' }
+                  isDisabled && { opacity: 0.6, backgroundColor: '#FFF5F5' }
                 ]}
                 onPress={() => {
                   if (expired) {
                     Alert.alert('Card Expired', 'This card has expired and cannot be used. Please choose another payment method or add an active card.');
                     return;
                   }
+                  if (isInsufficient) {
+                    Alert.alert(
+                      'Insufficient Balance', 
+                      `Your wallet has ₦${(profile?.walletBalance ?? 0).toLocaleString()}, but this order is ₦${total.toLocaleString()}. Please top up your wallet in your Profile or choose another payment method.`
+                    );
+                    return;
+                  }
                   setSelectedPaymentId(methodId);
                 }}
               >
-                <Ionicons name={method.icon} size={20} color={expired ? '#E53E3E' : Colors.primary} />
+                <Ionicons name={method.icon} size={20} color={isDisabled ? '#E53E3E' : (isWallet ? '#FF8C00' : Colors.primary)} />
                 <View style={styles.payInfo}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={[styles.payTitle, expired && { color: '#E53E3E' }]}>{method.title}</Text>
+                    <Text style={[styles.payTitle, isDisabled && { color: '#E53E3E' }]}>{method.title}</Text>
                     {expired && (
                       <View style={{ backgroundColor: '#FED7D7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
                         <Text style={{ fontSize: 10, color: '#C53030', fontWeight: '700' }}>Expired</Text>
                       </View>
                     )}
+                    {isInsufficient && (
+                      <View style={{ backgroundColor: '#FED7D7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 10, color: '#C53030', fontWeight: '700' }}>Insufficient</Text>
+                      </View>
+                    )}
                   </View>
-                  {method.sub ? <Text style={[styles.paySub, expired && { color: '#E53E3E' }]}>{method.sub}</Text> : null}
+                  {method.sub ? <Text style={[styles.paySub, isDisabled && { color: '#E53E3E' }]}>{method.sub}</Text> : null}
                 </View>
-                <View style={[styles.radio, selectedPaymentId === methodId && styles.radioActive, expired && { borderColor: '#E2E8F0' }]}>
-                  {selectedPaymentId === methodId && !expired && <View style={styles.radioInner} />}
+                <View style={[styles.radio, selectedPaymentId === methodId && styles.radioActive, isDisabled && { borderColor: '#E2E8F0' }]}>
+                  {selectedPaymentId === methodId && !isDisabled && <View style={styles.radioInner} />}
                 </View>
               </TouchableOpacity>
             );

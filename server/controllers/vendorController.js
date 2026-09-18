@@ -193,10 +193,7 @@ const requestVendorPayout = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Vendor not found' });
     }
 
-    const currentBalance = typeof vendor.earnings?.availableBalance === 'number'
-      ? vendor.earnings.availableBalance
-      : 248500;
-
+    const currentBalance = Number(vendor.earnings?.availableBalance || 0);
     if (payoutAmount > currentBalance) {
       return res.status(400).json({
         success: false,
@@ -205,65 +202,173 @@ const requestVendorPayout = async (req, res) => {
     }
 
     const bankName = vendor.payoutAccount?.bank || 'Access Bank';
-    const accountNumber = vendor.payoutAccount?.accountNumber || '0123456789';
-    const accountName = vendor.payoutAccount?.accountName || vendor.businessName || vendor.name;
+    const accountNumber = vendor.payoutAccount?.accountNumber;
+    if (!accountNumber || String(accountNumber).trim().length < 10) {
+      return res.status(400).json({ success: false, error: 'Vendor payout account details are missing or invalid' });
+    }
 
-    const { resolveBankCode, initiatePayoutTransfer } = require('../utils/payoutService');
+    const { resolveBankCode, verifyPayoutAccount, initiatePayoutTransfer } = require('../utils/payoutService');
     const bankCode = resolveBankCode(bankName, vendor.payoutAccount?.bankCode);
-    const reference = `VND_TRF_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
+    // 1. Pre-transfer Bank Account Verification with Flutterwave
+    const verification = await verifyPayoutAccount({ accountNumber, bankCode });
+    if (!verification.valid) {
+      return res.status(400).json({
+        success: false,
+        error: `Bank account verification failed: ${verification.message}`
+      });
+    }
+
+    const accountName = verification.accountName || vendor.payoutAccount?.accountName || vendor.businessName || vendor.name;
+    const reference = `VND_MAN_${vendor._id}_${Date.now()}`;
+
+    // 2. Atomically deduct available balance
+    const updatedVendor = await (require('../models/Vendor')).findOneAndUpdate(
+      {
+        _id: vendor._id,
+        'earnings.availableBalance': { $gte: payoutAmount }
+      },
+      {
+        $inc: { 'earnings.availableBalance': -payoutAmount }
+      },
+      { new: true }
+    );
+
+    if (!updatedVendor) {
+      return res.status(400).json({ success: false, error: 'Available balance changed concurrently. Please try again.' });
+    }
+
+    // 3. Create Payout entry in PENDING state
+    const Payout = require('../models/Payout');
+    const payoutRecord = await Payout.create({
+      providerType: 'Vendor',
+      providerId: vendor._id,
+      providerName: vendor.businessName || vendor.name,
+      amount: payoutAmount,
+      currency: 'NGN',
+      bank: {
+        name: bankName,
+        code: bankCode,
+        accountNumber,
+        accountName,
+      },
+      reference,
+      status: 'PENDING',
+      narration: `Connecta Vendor Payout - ${vendor.businessName || vendor.name}`,
+      cycle: 'manual',
+      initiatedBy: 'vendor_dashboard',
+      processedAt: new Date(),
+    });
+
+    // 4. Initiate transfer with Flutterwave Transfer API
     const flwTransfer = await initiatePayoutTransfer({
       accountBank: bankCode,
-      accountNumber: accountNumber,
+      accountNumber,
       amount: payoutAmount,
-      narration: `Denish Vendor Payout - ${vendor.businessName || vendor.name}`,
-      reference: reference,
+      narration: `Connecta Vendor Payout - ${vendor.businessName || vendor.name}`,
+      reference,
       recipientName: accountName,
     });
 
-    // Deduct balance
-    const newBalance = Math.max(0, currentBalance - payoutAmount);
-    vendor.earnings = {
-      ...(vendor.earnings?.toObject ? vendor.earnings.toObject() : vendor.earnings),
-      availableBalance: newBalance,
-    };
-    vendor.markModified('earnings');
-    await vendor.save();
+    payoutRecord.flwTransferId = flwTransfer.transferId || null;
+    payoutRecord.fee = flwTransfer.fee || 0;
+    payoutRecord.flwResponse = flwTransfer.raw || flwTransfer.rawError || null;
 
     const Transaction = require('../models/Transaction');
-    const transaction = await Transaction.create({
-      type: 'Vendor Payout',
-      from: 'Denish Platform Wallet',
-      to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
-      amount: payoutAmount,
-      method: 'Bank Transfer',
-      status: flwTransfer.status || 'Completed',
-      reference: reference,
-    });
 
-    try {
-      const Notification = require('../models/Notification');
-      await Notification.create({
-        title: 'Payout Initiated 🎉',
-        message: `Payout of ₦${payoutAmount.toLocaleString()} to ${bankName} (${accountNumber}) has been initiated. Ref: ${reference}`,
-        type: 'payout',
-        recipient: 'vendor',
-        read: false,
-      });
-    } catch (notifErr) {
-      console.warn('Vendor payout notification notice:', notifErr.message);
-    }
+    if (flwTransfer.status === 'SUCCESSFUL') {
+      payoutRecord.status = 'SUCCESSFUL';
+      payoutRecord.completedAt = new Date();
+      await payoutRecord.save();
 
-    res.status(200).json({
-      success: true,
-      message: `₦${payoutAmount.toLocaleString()} payout initiated to ${bankName} (${accountNumber}).`,
-      data: {
-        transaction,
-        availableBalance: newBalance,
+      const transaction = await Transaction.create({
+        type: 'Vendor Payout',
+        from: 'Connecta Platform Wallet',
+        to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
+        amount: payoutAmount,
+        method: 'Bank Transfer',
+        status: 'Completed',
         reference,
-        mode: flwTransfer.mode,
+      });
+
+      try {
+        const Notification = require('../models/Notification');
+        await Notification.create({
+          title: 'Payout Successful 🎉',
+          message: `Payout of ₦${payoutAmount.toLocaleString()} to ${bankName} (${accountNumber}) has been sent. Ref: ${reference}`,
+          type: 'payout',
+          recipient: 'vendor',
+          read: false,
+        });
+      } catch (notifErr) { /* non-fatal */ }
+
+      return res.status(200).json({
+        success: true,
+        message: `₦${payoutAmount.toLocaleString()} payout sent to ${bankName} (${accountNumber}).`,
+        reference,
+        status: 'SUCCESSFUL',
+        data: {
+          transaction,
+          availableBalance: updatedVendor.earnings.availableBalance,
+          payout: payoutRecord,
+        }
+      });
+
+    } else if (flwTransfer.status === 'PROCESSING') {
+      payoutRecord.status = 'PROCESSING';
+      if (flwTransfer.isUncertain) {
+        payoutRecord.failureReason = flwTransfer.failureReason;
       }
-    });
+      await payoutRecord.save();
+
+      const transaction = await Transaction.create({
+        type: 'Vendor Payout',
+        from: 'Connecta Platform Wallet',
+        to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
+        amount: payoutAmount,
+        method: 'Bank Transfer',
+        status: 'Pending',
+        reference,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `₦${payoutAmount.toLocaleString()} payout queued for processing. Reference: ${reference}`,
+        reference,
+        status: 'PROCESSING',
+        data: {
+          transaction,
+          availableBalance: updatedVendor.earnings.availableBalance,
+          payout: payoutRecord,
+        }
+      });
+
+    } else {
+      // Explicit failure - REFUND vendor balance immediately
+      payoutRecord.status = 'FAILED';
+      payoutRecord.failureReason = flwTransfer.failureReason || 'Flutterwave rejected transfer';
+      await payoutRecord.save();
+
+      await (require('../models/Vendor')).findByIdAndUpdate(vendor._id, {
+        $inc: { 'earnings.availableBalance': payoutAmount }
+      });
+
+      await Transaction.create({
+        type: 'Vendor Payout',
+        from: 'Connecta Platform Wallet',
+        to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
+        amount: payoutAmount,
+        method: 'Bank Transfer',
+        status: 'Failed',
+        reference,
+      });
+
+      return res.status(400).json({
+        success: false,
+        error: `Payout failed: ${flwTransfer.failureReason || 'Declined by bank'}. Your balance has been restored.`,
+        reference,
+      });
+    }
   } catch (error) {
     console.error('requestVendorPayout error:', error);
     res.status(500).json({ success: false, error: error.message });

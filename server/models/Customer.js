@@ -23,6 +23,11 @@ const customerSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  walletBalance: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   address: String,
   addresses: [{
     label: String,

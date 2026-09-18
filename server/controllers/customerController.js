@@ -115,6 +115,32 @@ const placeOrder = async (req, res) => {
     const vendorDoc = await Vendor.findById(validVendorId);
     const resolvedVendorName = vendorDoc ? (vendorDoc.businessName || vendorDoc.name) : 'Unknown Vendor';
 
+    const paymentMethod = req.body.paymentMethod || 'Card';
+    if (paymentMethod && paymentMethod.toLowerCase() === 'wallet') {
+      if (!customer) {
+        return res.status(400).json({ success: false, error: 'Customer account required for wallet payments' });
+      }
+      if ((customer.walletBalance || 0) < finalTotal) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Insufficient wallet balance. Balance: ₦${(customer.walletBalance || 0).toLocaleString()}, Order: ₦${finalTotal.toLocaleString()}` 
+        });
+      }
+      customer.walletBalance -= finalTotal;
+      await customer.save();
+
+      const Transaction = require('../models/Transaction');
+      await Transaction.create({
+        type: 'Order Payment',
+        from: `${customer.name} (Wallet)`,
+        to: resolvedVendorName,
+        amount: finalTotal,
+        method: 'Wallet',
+        status: 'Completed',
+        reference: `ORD-WAL-${generatedOrderId}`
+      });
+    }
+
     const newOrder = await Order.create({
       orderId: generatedOrderId,
       customerId: resolvedCustomerId,
@@ -126,6 +152,7 @@ const placeOrder = async (req, res) => {
       items: formattedItems,
       total: finalTotal,
       totalAmount: finalTotal,
+      paymentMethod: paymentMethod,
       status: 'pending'
     });
 
@@ -603,15 +630,20 @@ const flutterwaveWebhook = async (req, res) => {
     }
 
     const payload = req.body;
-    console.log('FLUTTERWAVE WEBHOOK RECEIVED:', payload?.event || payload?.type);
+    const eventType = payload?.event || payload?.type || payload?.['event.type'];
+    console.log('FLUTTERWAVE WEBHOOK RECEIVED:', eventType);
 
-    if (payload?.type === 'charge.completed' && payload?.data?.status === 'succeeded') {
+    if (eventType === 'charge.completed' && payload?.data?.status === 'succeeded') {
       const { reference, id, amount } = payload.data;
       console.log(`Order with reference ${reference} paid successfully (Amount: ₦${amount})`);
+    } else if (eventType === 'transfer.completed' || eventType === 'Transfer') {
+      const { handleFlutterwaveTransferWebhook } = require('../utils/payoutScheduler');
+      await handleFlutterwaveTransferWebhook(payload);
     }
 
     res.sendStatus(200);
   } catch (error) {
+    console.error('flutterwaveWebhook error:', error);
     res.status(500).send(error.message);
   }
 };
@@ -675,6 +707,87 @@ const markAllCustomerNotificationsRead = async (req, res) => {
   }
 };
 
+// ─── Customer Wallet ─────────────────────────────────────────────────────────
+const getCustomerWallet = async (req, res) => {
+  try {
+    const customer = await getCurrentCustomer(req);
+    if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+
+    const Transaction = require('../models/Transaction');
+    const transactions = await Transaction.find({
+      $or: [
+        { from: customer.name },
+        { to: customer.name },
+        { to: 'Denish Customer Wallet' },
+        { from: `${customer.name} (Wallet)` }
+      ]
+    }).sort({ createdAt: -1 }).limit(30);
+
+    res.status(200).json({
+      success: true,
+      balance: customer.walletBalance || 0,
+      loyaltyPoints: customer.loyaltyPoints || 0,
+      transactions,
+    });
+  } catch (error) {
+    console.error('getCustomerWallet error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const fundCustomerWallet = async (req, res) => {
+  try {
+    const { amount, paymentMethod, reference } = req.body;
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount <= 0) {
+      return res.status(400).json({ success: false, error: 'Please enter a valid amount' });
+    }
+
+    const customer = await getCurrentCustomer(req);
+    if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+
+    customer.walletBalance = (customer.walletBalance || 0) + numAmount;
+    await customer.save();
+
+    const txRef = reference || `WAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    const Transaction = require('../models/Transaction');
+    const transaction = await Transaction.create({
+      type: 'Wallet Top-up',
+      from: customer.name,
+      to: 'Denish Customer Wallet',
+      amount: numAmount,
+      method: paymentMethod || 'Flutterwave',
+      status: 'Completed',
+      reference: txRef,
+    });
+
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        title: 'Wallet Credited 💳',
+        message: `Your wallet has been funded with ₦${numAmount.toLocaleString()}. Available balance: ₦${customer.walletBalance.toLocaleString()}.`,
+        type: 'payment',
+        recipient: 'customer',
+        read: false,
+      });
+    } catch (nErr) {
+      console.warn('Failed to send wallet notification:', nErr.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `₦${numAmount.toLocaleString()} credited to wallet successfully`,
+      balance: customer.walletBalance,
+      transaction,
+      data: customer,
+    });
+  } catch (error) {
+    console.error('fundCustomerWallet error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getRestaurants,
   getRestaurantDetails,
@@ -700,5 +813,7 @@ module.exports = {
   flutterwaveWebhook,
   getCustomerNotifications,
   markCustomerNotificationRead,
-  markAllCustomerNotificationsRead
+  markAllCustomerNotificationsRead,
+  getCustomerWallet,
+  fundCustomerWallet
 };

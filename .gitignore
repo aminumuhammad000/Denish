@@ -6,3 +6,5 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 admin-old/
+error.jpeg
+*.log

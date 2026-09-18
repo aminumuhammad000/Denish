@@ -57,6 +57,7 @@ export interface User {
   status: "Active" | "Suspended";
   orders: number;
   spentEarned: string;
+  walletBalance?: number;
   rating: number;
   complaints: number;
   lastActive: string;
@@ -391,6 +392,7 @@ export const useAdminStore = create<AdminState>()(
               status: u.status || "Active",
               orders: u.ordersCount || 0,
               spentEarned: "₦" + (u.totalSpent || 0).toLocaleString(),
+              walletBalance: typeof u.walletBalance === "number" ? u.walletBalance : 0,
               rating: typeof u.rating === "number" ? u.rating : 0,
               complaints: 0,
               lastActive: "Today",

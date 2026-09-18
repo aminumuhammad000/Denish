@@ -41,7 +41,9 @@ const {
   approveDriver,
   getPayoutOverviewAdmin,
   triggerNightlyVendorPayoutsAdmin,
-  triggerWeeklyRiderPayoutsAdmin
+  triggerWeeklyRiderPayoutsAdmin,
+  triggerReconciliationAdmin,
+  getAllPayoutsAdmin,
 } = require('../controllers/adminController');
 const { upload } = require('../config/cloudinary');
 const { getVendorMenuById } = require('../controllers/menuController');
@@ -83,9 +85,13 @@ router.get('/settings', getSettings);
 router.put('/settings', updateSettings);
 
 // Payout Management routes
+router.get('/payouts', getAllPayoutsAdmin);
 router.get('/payouts/status', getPayoutOverviewAdmin);
 router.post('/payouts/process-nightly-vendors', triggerNightlyVendorPayoutsAdmin);
+router.post('/payouts/vendors/trigger', triggerNightlyVendorPayoutsAdmin);
 router.post('/payouts/process-weekly-riders', triggerWeeklyRiderPayoutsAdmin);
+router.post('/payouts/drivers/trigger', triggerWeeklyRiderPayoutsAdmin);
+router.post('/payouts/reconcile', triggerReconciliationAdmin);
 
 router.get('/banners', getBanners);
 router.post('/banners', addBanner);

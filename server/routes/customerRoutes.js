@@ -7,7 +7,8 @@ const {
   getChatThreads, getMessages, sendMessage, initiateCall, getIncomingCall, 
   getCallStatus, respondCall, initializeFlutterwavePayment, 
   verifyFlutterwavePayment, flutterwaveWebhook,
-  getCustomerNotifications, markCustomerNotificationRead, markAllCustomerNotificationsRead
+  getCustomerNotifications, markCustomerNotificationRead, markAllCustomerNotificationsRead,
+  getCustomerWallet, fundCustomerWallet
 } = require('../controllers/customerController');
 const { upload } = require('../config/cloudinary');
 
@@ -17,6 +18,8 @@ router.get('/search', search);
 router.post('/order', placeOrder);
 router.get('/profile', getCustomerProfile);
 router.put('/profile', updateCustomerProfile);
+router.get('/wallet', getCustomerWallet);
+router.post('/wallet/fund', fundCustomerWallet);
 router.post('/add-address', addAddress);
 router.delete('/address/:addressId', deleteAddress);
 router.post('/add-payment-method', addPaymentMethod);

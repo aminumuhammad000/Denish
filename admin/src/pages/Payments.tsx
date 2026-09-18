@@ -40,7 +40,7 @@ export default function PaymentsPage() {
   const cashFlowData = last7Days.map(dateStr => {
     const dayTransactions = transactionsList.filter(t => new Date(t.date).toLocaleDateString() === dateStr);
     const inflow = dayTransactions
-      .filter(t => t.type === "Order Payment" && (t.status === "Completed" as any))
+      .filter(t => (t.type === "Order Payment" || t.type.includes("Wallet")) && (t.status === "Completed" as any))
       .reduce((sum, t) => sum + (parseInt(String(t.amount).replace(/[^\d]/g, ""), 10) || 0), 0);
     const outflow = dayTransactions
       .filter(t => (t.type.includes("Payout") || t.type.includes("Refund")) && t.status === "Completed")
@@ -66,7 +66,7 @@ export default function PaymentsPage() {
 
   // Dynamic calculations
   const inflowNum = transactionsList
-    .filter(t => t.type === "Order Payment" && t.status === "Completed")
+    .filter(t => (t.type === "Order Payment" || t.type.includes("Wallet")) && t.status === "Completed")
     .reduce((sum, t) => sum + (parseInt(String(t.amount).replace(/[^\d]/g, ""), 10) || 0), 0);
 
   const outflowNum = transactionsList
@@ -91,6 +91,8 @@ export default function PaymentsPage() {
 
     if (!matchesSearch) return false;
     if (activeTab === "All Transactions") return true;
+    if (activeTab === "Wallet Top-ups") return txn.type.includes("Wallet");
+    if (activeTab === "Order Payments") return txn.type.includes("Order");
     return txn.type === activeTab.slice(0, -1);
   });
 
@@ -249,7 +251,7 @@ export default function PaymentsPage() {
 
           {/* Filters */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full pb-1">
-            {['All Transactions', 'Vendor Payouts', 'Driver Payouts'].map((tab) => (
+            {['All Transactions', 'Order Payments', 'Wallet Top-ups', 'Vendor Payouts', 'Driver Payouts'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}

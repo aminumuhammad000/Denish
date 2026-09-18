@@ -120,6 +120,11 @@ const getDriverEarnings = async (req, res) => {
       });
     }
 
+    // Release any 7-day matured driver earnings first
+    const { releaseMaturedDriverEarnings } = require('../utils/payoutScheduler');
+    await releaseMaturedDriverEarnings();
+    driver = (await Driver.findById(driver._id)) || driver;
+
     // Fetch all delivered orders
     const deliveredOrders = await Order.find({ status: 'delivered' }).sort({ createdAt: -1 });
     const withdrawals = await Transaction.find({ type: 'Driver Payout' }).sort({ createdAt: -1 });
@@ -131,7 +136,8 @@ const getDriverEarnings = async (req, res) => {
     const totalWithdrawalsSum = withdrawals.reduce((sum, w) => sum + (w.amount || 0), 0);
 
     const totalEarned = (driver.earnings?.totalEarned || 0) + orderEarningsSum;
-    const availableBalance = typeof driver.earnings?.availableBalance === 'number' ? driver.earnings.availableBalance : 38500;
+    const availableBalance = typeof driver.earnings?.availableBalance === 'number' ? driver.earnings.availableBalance : 0;
+    const pendingBalance = typeof driver.earnings?.pendingBalance === 'number' ? driver.earnings.pendingBalance : 0;
 
     // Calculate Today, This Week, This Month totals
     const now = new Date();
@@ -184,7 +190,9 @@ const getDriverEarnings = async (req, res) => {
     const allTxns = [...orderTxns, ...wTxns].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const earningsData = {
-      availableBalance: typeof driver.earnings?.availableBalance === 'number' ? driver.earnings.availableBalance : 0,
+      availableBalance,
+      pendingBalance,
+      unpaidEarnings: driver.earnings?.unpaidEarnings || [],
       totalEarned,
       totalTrips,
       todayEarned,
@@ -198,7 +206,7 @@ const getDriverEarnings = async (req, res) => {
         day: 'Sunday',
         time: '23:59 WAT',
         frequencyText: 'Every Sunday at 11:59 PM',
-        description: 'Automated weekly payouts are processed every Sunday night directly to your registered bank account.'
+        description: 'Automated weekly payouts are processed every Sunday night directly to your registered bank account for earnings held beyond the 7-day maturity period.'
       },
     };
 
@@ -215,78 +223,191 @@ const withdrawEarnings = async (req, res) => {
     const rawAmount = req.body.amount;
     const amount = typeof rawAmount === 'number' ? rawAmount : parseFloat(String(rawAmount || '').replace(/[^0-9.]/g, ''));
 
-    const driver = await Driver.findOne();
+    let driver = await getCurrentDriver(req);
     if (!driver) return res.status(404).json({ success: false, error: 'Driver not found' });
 
-    const balance = driver.earnings?.availableBalance ?? 0;
+    // Release any 7-day matured earnings first
+    const { releaseMaturedDriverEarnings } = require('../utils/payoutScheduler');
+    await releaseMaturedDriverEarnings();
+    driver = (await Driver.findById(driver._id)) || driver;
+
+    const balance = Number(driver.earnings?.availableBalance || 0);
     if (!amount || isNaN(amount) || amount <= 0) {
       return res.status(400).json({ success: false, error: 'Please enter a valid withdrawal amount' });
     }
     if (amount > balance) {
-      return res.status(400).json({ success: false, error: `Insufficient balance. Available: ₦${balance.toLocaleString()}` });
+      return res.status(400).json({ success: false, error: `Insufficient available balance. Available: ₦${balance.toLocaleString()}` });
     }
 
-    const { resolveBankCode, initiatePayoutTransfer } = require('../utils/payoutService');
     const bankName = driver.bank?.name || 'GTBank';
-    const accountNumber = driver.bank?.accountNumber || '0123456789';
-    const bankCode = resolveBankCode(bankName, driver.bank?.bankCode || driver.bank?.code);
-    const reference = `DRV_TRF_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const accountNumber = driver.bank?.accountNumber;
+    if (!accountNumber || String(accountNumber).trim().length < 10) {
+      return res.status(400).json({ success: false, error: 'Driver bank account details are missing or invalid' });
+    }
 
+    const { resolveBankCode, verifyPayoutAccount, initiatePayoutTransfer } = require('../utils/payoutService');
+    const bankCode = resolveBankCode(bankName, driver.bank?.bankCode || driver.bank?.code);
+
+    // 1. Verify account details with Flutterwave resolve API
+    const verification = await verifyPayoutAccount({ accountNumber, bankCode });
+    if (!verification.valid) {
+      return res.status(400).json({
+        success: false,
+        error: `Bank verification failed: ${verification.message}`
+      });
+    }
+
+    const accountName = verification.accountName || driver.bank?.accountName || driver.name;
+    const reference = `DRV_MAN_${driver._id}_${Date.now()}`;
+
+    // 2. Atomically deduct availableBalance to avoid race conditions
+    const updatedDriver = await Driver.findOneAndUpdate(
+      {
+        _id: driver._id,
+        'earnings.availableBalance': { $gte: amount }
+      },
+      {
+        $inc: { 'earnings.availableBalance': -amount },
+        $set: { 'earnings.lastPayoutAt': new Date() }
+      },
+      { new: true }
+    );
+
+    if (!updatedDriver) {
+      return res.status(400).json({ success: false, error: 'Balance changed concurrently. Please try again.' });
+    }
+
+    // 3. Create initial Payout record in PENDING state
+    const Payout = require('../models/Payout');
+    const payoutRecord = await Payout.create({
+      providerType: 'Driver',
+      providerId: driver._id,
+      providerName: driver.name,
+      amount: amount,
+      currency: 'NGN',
+      bank: {
+        name: bankName,
+        code: bankCode,
+        accountNumber,
+        accountName,
+      },
+      reference,
+      status: 'PENDING',
+      narration: `Connecta Rider Withdrawal - ${driver.name}`,
+      cycle: 'manual',
+      initiatedBy: 'driver_app',
+      processedAt: new Date(),
+    });
+
+    // 4. Submit transfer to Flutterwave Transfer API
     const flwTransfer = await initiatePayoutTransfer({
       accountBank: bankCode,
-      accountNumber: accountNumber,
-      amount: amount,
-      narration: `Denish Driver Payout to ${driver.name}`,
-      reference: reference,
-      recipientName: driver.bank?.accountName || driver.name,
-    });
-
-    // Deduct balance in DB
-    const newBalance = Math.max(0, balance - amount);
-    driver.earnings = {
-      ...(driver.earnings?.toObject ? driver.earnings.toObject() : driver.earnings),
-      availableBalance: newBalance
-    };
-    driver.markModified('earnings');
-    await driver.save();
-
-    // Create Transaction Log in MongoDB
-    const Transaction = require('../models/Transaction');
-    const transaction = await Transaction.create({
-      type: 'Driver Payout',
-      from: 'Denish Platform Wallet',
-      to: `${driver.name} (${bankName} - ${accountNumber})`,
-      amount: amount,
-      method: 'Bank Transfer',
-      status: flwTransfer.status || 'Completed',
-      reference: reference,
-    });
-
-    // Create in-app Notification
-    try {
-      const Notification = require('../models/Notification');
-      await Notification.create({
-        title: 'Withdrawal Initiated 🎉',
-        message: `Your withdrawal of ₦${amount.toLocaleString()} to ${bankName} (${accountNumber}) has been submitted. Reference: ${reference}`,
-        type: 'payout',
-        recipient: 'driver',
-        read: false,
-      });
-    } catch (notifErr) {
-      console.warn('Driver payout notification notice:', notifErr.message);
-    }
-
-    res.status(200).json({
-      success: true,
-      message: `₦${amount.toLocaleString()} payout initiated to ${bankName} (${accountNumber}).`,
-      newBalance: driver.earnings.availableBalance,
+      accountNumber,
+      amount,
+      narration: `Connecta Rider Payout - ${driver.name}`,
       reference,
-      mode: flwTransfer.mode,
-      data: {
-        transaction,
-        availableBalance: newBalance,
-      }
+      recipientName: accountName,
     });
+
+    payoutRecord.flwTransferId = flwTransfer.transferId || null;
+    payoutRecord.fee = flwTransfer.fee || 0;
+    payoutRecord.flwResponse = flwTransfer.raw || flwTransfer.rawError || null;
+
+    const Transaction = require('../models/Transaction');
+
+    if (flwTransfer.status === 'SUCCESSFUL') {
+      payoutRecord.status = 'SUCCESSFUL';
+      payoutRecord.completedAt = new Date();
+      await payoutRecord.save();
+
+      const transaction = await Transaction.create({
+        type: 'Driver Payout',
+        from: 'Connecta Platform Wallet',
+        to: `${driver.name} (${bankName} - ${accountNumber})`,
+        amount: amount,
+        method: 'Bank Transfer',
+        status: 'Completed',
+        reference,
+      });
+
+      try {
+        const Notification = require('../models/Notification');
+        await Notification.create({
+          title: 'Withdrawal Successful 🎉',
+          message: `Your withdrawal of ₦${amount.toLocaleString()} to ${bankName} (${accountNumber}) has been sent. Reference: ${reference}`,
+          type: 'payout',
+          recipient: 'driver',
+          read: false,
+        });
+      } catch (notifErr) { /* non-fatal */ }
+
+      return res.status(200).json({
+        success: true,
+        message: `₦${amount.toLocaleString()} payout sent to ${bankName} (${accountNumber}).`,
+        reference,
+        status: 'SUCCESSFUL',
+        data: {
+          transaction,
+          availableBalance: updatedDriver.earnings.availableBalance,
+          payout: payoutRecord,
+        }
+      });
+
+    } else if (flwTransfer.status === 'PROCESSING') {
+      payoutRecord.status = 'PROCESSING';
+      if (flwTransfer.isUncertain) {
+        payoutRecord.failureReason = flwTransfer.failureReason;
+      }
+      await payoutRecord.save();
+
+      const transaction = await Transaction.create({
+        type: 'Driver Payout',
+        from: 'Connecta Platform Wallet',
+        to: `${driver.name} (${bankName} - ${accountNumber})`,
+        amount: amount,
+        method: 'Bank Transfer',
+        status: 'Pending',
+        reference,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `₦${amount.toLocaleString()} withdrawal queued for processing. Reference: ${reference}`,
+        reference,
+        status: 'PROCESSING',
+        data: {
+          transaction,
+          availableBalance: updatedDriver.earnings.availableBalance,
+          payout: payoutRecord,
+        }
+      });
+
+    } else {
+      // Explicit Failure -> Refund balance immediately
+      payoutRecord.status = 'FAILED';
+      payoutRecord.failureReason = flwTransfer.failureReason || 'Flutterwave transfer failed';
+      await payoutRecord.save();
+
+      await Driver.findByIdAndUpdate(driver._id, {
+        $inc: { 'earnings.availableBalance': amount }
+      });
+
+      await Transaction.create({
+        type: 'Driver Payout',
+        from: 'Connecta Platform Wallet',
+        to: `${driver.name} (${bankName} - ${accountNumber})`,
+        amount: amount,
+        method: 'Bank Transfer',
+        status: 'Failed',
+        reference,
+      });
+
+      return res.status(400).json({
+        success: false,
+        error: `Withdrawal failed: ${flwTransfer.failureReason || 'Declined by bank'}. Your balance has been restored.`,
+        reference,
+      });
+    }
   } catch (error) {
     console.error('withdrawEarnings error:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -544,16 +665,28 @@ const updateOrderStatus = async (req, res) => {
     order.status = status;
     await order.save();
 
-    // If order status is marked as 'delivered', update driver earnings in DB
+    // If order status is marked as 'delivered', update driver earnings in DB with 7-day maturity period
     if (status === 'delivered') {
       const driver = await Driver.findOne();
       if (driver) {
         const fee = order.deliveryFee || 850;
-        driver.earnings = {
-          totalEarned: (driver.earnings?.totalEarned || 0) + fee,
-          availableBalance: (driver.earnings?.availableBalance || 0) + fee,
-          totalTrips: (driver.earnings?.totalTrips || 0) + 1,
-        };
+        const now = new Date();
+        const eligibleAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from delivery
+
+        if (!driver.earnings) driver.earnings = {};
+        if (!driver.earnings.unpaidEarnings) driver.earnings.unpaidEarnings = [];
+
+        driver.earnings.totalEarned = (driver.earnings.totalEarned || 0) + fee;
+        driver.earnings.pendingBalance = (driver.earnings.pendingBalance || 0) + fee;
+        driver.earnings.totalTrips = (driver.earnings.totalTrips || 0) + 1;
+        driver.earnings.unpaidEarnings.push({
+          amount: fee,
+          orderId: order.orderId,
+          earnedAt: now,
+          eligibleAt: eligibleAt,
+          status: 'pending',
+        });
+
         driver.markModified('earnings');
         await driver.save();
       }

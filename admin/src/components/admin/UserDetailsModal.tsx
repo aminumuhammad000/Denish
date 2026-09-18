@@ -184,13 +184,25 @@ export function UserDetailsModal({ user, onClose, onUpdateUser }: UserDetailsMod
         </div>
 
         {/* 4. Money Card Container (63px) */}
-        <div className="h-[63px] bg-[#F8F8F8] rounded-[8px] px-[28px] flex flex-col justify-center">
-          <p className="text-[12px] font-medium text-[#A0A0A0] mb-0.5 leading-none">
-            {user.role === "Driver" ? "Total Earned" : "Total Spent"}
-          </p>
-          <p className="text-[20px] font-semibold text-[#212121] leading-none">
-            {user.spentEarned === "-" ? "₦0" : user.spentEarned}
-          </p>
+        <div className="h-[63px] bg-[#F8F8F8] rounded-[8px] px-[24px] flex items-center justify-between">
+          <div>
+            <p className="text-[12px] font-medium text-[#A0A0A0] mb-0.5 leading-none">
+              {user.role === "Driver" ? "Total Earned" : "Total Spent"}
+            </p>
+            <p className="text-[20px] font-semibold text-[#212121] leading-none">
+              {user.spentEarned === "-" ? "₦0" : user.spentEarned}
+            </p>
+          </div>
+          {user.role === "Customer" && (
+            <div className="text-right">
+              <p className="text-[12px] font-medium text-[#A0A0A0] mb-0.5 leading-none">
+                Wallet Balance
+              </p>
+              <p className="text-[20px] font-semibold text-[#29A378] leading-none">
+                ₦{(user.walletBalance || 0).toLocaleString()}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 5. Action Buttons Container (42px) */}

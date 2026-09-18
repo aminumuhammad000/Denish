@@ -827,6 +827,46 @@ const triggerWeeklyRiderPayoutsAdmin = async (req, res) => {
   }
 };
 
+const triggerReconciliationAdmin = async (req, res) => {
+  try {
+    const { reconcilePendingPayouts } = require('../utils/payoutScheduler');
+    const result = await reconcilePendingPayouts();
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const getAllPayoutsAdmin = async (req, res) => {
+  try {
+    const Payout = require('../models/Payout');
+    const { providerType, status, cycle, limit = 50, page = 1 } = req.query;
+    const filter = {};
+    if (providerType) filter.providerType = providerType;
+    if (status) filter.status = status;
+    if (cycle) filter.cycle = cycle;
+
+    const parsedLimit = Math.max(1, parseInt(limit, 10) || 50);
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const [payouts, total] = await Promise.all([
+      Payout.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parsedLimit),
+      Payout.countDocuments(filter)
+    ]);
+
+    res.status(200).json({
+      success: true,
+      payouts,
+      total,
+      page: parsedPage,
+      totalPages: Math.ceil(total / parsedLimit)
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllOrders,
@@ -868,7 +908,9 @@ module.exports = {
   approveDriver,
   getPayoutOverviewAdmin,
   triggerNightlyVendorPayoutsAdmin,
-  triggerWeeklyRiderPayoutsAdmin
+  triggerWeeklyRiderPayoutsAdmin,
+  triggerReconciliationAdmin,
+  getAllPayoutsAdmin,
 };
 
 

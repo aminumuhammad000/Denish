@@ -48,7 +48,16 @@ const driverSchema = new mongoose.Schema({
   earnings: {
     totalEarned: { type: Number, default: 0 },
     availableBalance: { type: Number, default: 0 },
+    pendingBalance: { type: Number, default: 0 },
     totalTrips: { type: Number, default: 0 },
+    lastPayoutAt: { type: Date },
+    unpaidEarnings: [{
+      amount: { type: Number, required: true },
+      orderId: { type: String },
+      earnedAt: { type: Date, default: Date.now },
+      eligibleAt: { type: Date },
+      status: { type: String, enum: ['pending', 'eligible', 'paid'], default: 'pending' },
+    }]
   },
   resetPasswordOTP: String,
   resetPasswordExpires: Date,

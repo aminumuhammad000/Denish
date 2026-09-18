@@ -514,6 +514,26 @@ export const verifyFlutterwaveCheckout = async (payload) => {
   }
 };
 
+export const fetchCustomerWallet = async () => {
+  try {
+    const response = await api.get('/customer/wallet');
+    return response.data;
+  } catch (error) {
+    console.error('API fetchCustomerWallet error:', error);
+    throw error;
+  }
+};
+
+export const fundCustomerWallet = async (payload) => {
+  try {
+    const response = await api.post('/customer/wallet/fund', payload);
+    return response.data;
+  } catch (error) {
+    console.error('API fundCustomerWallet error:', error);
+    throw error;
+  }
+};
+
 export const fetchOrderTracking = async (orderId) => {
   try {
     const response = await api.get(`/customer/order/${orderId}/tracking`);
