@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Audio } from 'expo-av';
+import { playRingtone, stopRingtone } from '../utils/callAudio';
 import { respondCallSession } from '../services/api';
 
 const IncomingCallScreen = ({ route, navigation }) => {
@@ -39,37 +39,23 @@ const IncomingCallScreen = ({ route, navigation }) => {
     playIncomingRingtone();
 
     return () => {
-      stopRingtone();
+      stopIncomingRingtone();
     };
   }, []);
 
   const playIncomingRingtone = async () => {
     try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        interruptionModeIOS: 1,
-        shouldDuckAndroid: true,
-        interruptionModeAndroid: 1,
-        playThroughEarpieceAndroid: false
-      });
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: 'https://cdn.freesound.org/previews/536/536420_11861866-lq.mp3' },
-        { shouldPlay: true, isLooping: true, volume: 1.0 }
-      );
-      soundRef.current = sound;
-      await sound.setVolumeAsync(1.0);
-      await sound.playAsync();
+      const player = await playRingtone();
+      soundRef.current = player;
     } catch (e) {
       console.log('Incoming ringtone error:', e);
     }
   };
 
-  const stopRingtone = async () => {
+  const stopIncomingRingtone = async () => {
     try {
       if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
+        await stopRingtone(soundRef.current);
         soundRef.current = null;
       }
     } catch (e) {
@@ -78,7 +64,7 @@ const IncomingCallScreen = ({ route, navigation }) => {
   };
 
   const handleAcceptCall = async () => {
-    stopRingtone();
+    stopIncomingRingtone();
     try {
       await respondCallSession({ callId, action: 'accept' });
     } catch(e) {}
@@ -93,7 +79,7 @@ const IncomingCallScreen = ({ route, navigation }) => {
   };
 
   const handleDeclineCall = async () => {
-    stopRingtone();
+    stopIncomingRingtone();
     try {
       await respondCallSession({ callId, action: 'decline' });
     } catch(e) {}

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Audio } from 'expo-av';
+import { playRingtone, stopRingtone } from '../utils/callAudio';
 import { initiateCallSession, respondCallSession, fetchCallStatus } from '../services/api';
 
 const CallingScreen = ({ route, navigation }) => {
@@ -79,22 +79,8 @@ const CallingScreen = ({ route, navigation }) => {
 
   const playRingtoneSound = async () => {
     try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        interruptionModeIOS: 1, // InterruptionModeIOS.DoNotMix
-        shouldDuckAndroid: true,
-        interruptionModeAndroid: 1, // InterruptionModeAndroid.DoNotMix
-        playThroughEarpieceAndroid: false
-      });
-      
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: 'https://cdn.freesound.org/previews/536/536420_11861866-lq.mp3' },
-        { shouldPlay: true, isLooping: true, volume: 1.0 }
-      );
-      soundRef.current = sound;
-      await sound.setVolumeAsync(1.0);
-      await sound.playAsync();
+      const player = await playRingtone();
+      soundRef.current = player;
     } catch (e) {
       console.log('Ringtone audio play error:', e);
     }
@@ -103,8 +89,7 @@ const CallingScreen = ({ route, navigation }) => {
   const stopRingtoneSound = async () => {
     try {
       if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
+        await stopRingtone(soundRef.current);
         soundRef.current = null;
       }
     } catch (e) {
