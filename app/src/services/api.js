@@ -24,8 +24,13 @@ api.interceptors.request.use(async (config) => {
       const u = session.user || session.vendor || session.driver;
       if (u) {
         config.headers['X-User-Id'] = u._id;
+        config.headers['X-Vendor-Id'] = u._id;
         config.headers['X-User-Email'] = u.email;
+        config.headers['X-Vendor-Email'] = u.email;
         config.headers['X-User-Role'] = session.role || 'customer';
+        if (session.token) {
+          config.headers['Authorization'] = `Bearer ${session.token}`;
+        }
       }
     }
   } catch (e) {
@@ -132,6 +137,16 @@ export const updateVendorMenuItem = async (id, itemData) => {
     return response.data;
   } catch (error) {
     console.error('API updateVendorMenuItem error:', error);
+    throw error;
+  }
+};
+
+export const deleteVendorMenuItem = async (id) => {
+  try {
+    const response = await api.delete(`/vendor/menu/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('API deleteVendorMenuItem error:', error);
     throw error;
   }
 };

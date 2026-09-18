@@ -1408,11 +1408,20 @@ var require_vendorController = __commonJS({
     var Order = require_Order();
     var mongoose = require("mongoose");
     var getCurrentVendor = async (req) => {
-      const userId = req.headers["x-user-id"];
-      const userEmail = req.headers["x-user-email"];
+      const userId = req.headers["x-vendor-id"] || req.headers["x-user-id"];
+      const userEmail = req.headers["x-vendor-email"] || req.headers["x-user-email"];
       if (userId && mongoose.Types.ObjectId.isValid(userId)) {
         const vendor = await Vendor.findById(userId);
         if (vendor) return vendor;
+      }
+      const auth = req.headers.authorization || req.headers.token;
+      if (auth) {
+        const tokenStr = auth.replace(/^Bearer\s+/i, "").trim();
+        const match = tokenStr.match(/(?:fake-jwt-token-for-|vend-token-)?([a-f0-9]{24})/i);
+        if (match && match[1] && mongoose.Types.ObjectId.isValid(match[1])) {
+          const vendor = await Vendor.findById(match[1]);
+          if (vendor) return vendor;
+        }
       }
       if (userEmail) {
         const vendor = await Vendor.findOne({ email: userEmail });
@@ -1428,6 +1437,10 @@ var require_vendorController = __commonJS({
       }
       if (req.query && req.query.email) {
         const vendor = await Vendor.findOne({ email: req.query.email });
+        if (vendor) return vendor;
+      }
+      if (req.query && req.query.vendorId && mongoose.Types.ObjectId.isValid(req.query.vendorId)) {
+        const vendor = await Vendor.findById(req.query.vendorId);
         if (vendor) return vendor;
       }
       return await Vendor.findOne();
@@ -1811,7 +1824,8 @@ var require_vendorController = __commonJS({
       getVendorTransactions,
       getVendorNotifications,
       markVendorNotificationRead,
-      markAllVendorNotificationsRead
+      markAllVendorNotificationsRead,
+      getCurrentVendor
     };
   }
 });
@@ -1821,9 +1835,10 @@ var require_orderController = __commonJS({
   "controllers/orderController.js"(exports2, module2) {
     var Order = require_Order();
     var Vendor = require_Vendor();
+    var { getCurrentVendor } = require_vendorController();
     var getVendorOrders = async (req, res) => {
       try {
-        let vendor = await Vendor.findOne();
+        let vendor = await getCurrentVendor(req);
         if (!vendor) {
           return res.status(404).json({ success: false, error: "Vendor not found" });
         }
@@ -1885,24 +1900,26 @@ var require_menuController = __commonJS({
   "controllers/menuController.js"(exports2, module2) {
     var MenuItem = require_MenuItem();
     var Vendor = require_Vendor();
+    var { getCurrentVendor } = require_vendorController();
     var getVendorMenu = async (req, res) => {
       try {
-        let vendor = await Vendor.findOne();
+        const vendor = await getCurrentVendor(req);
         if (!vendor) return res.status(404).json({ success: false, error: "Vendor not found" });
-        let menuItems = await MenuItem.find({ vendorId: vendor._id });
-        if (menuItems.length === 0) {
-          const demoItems = [
-            { vendorId: vendor._id, name: "Suya Platter", description: "Spicy grilled beef skewers with onions", price: 3500, stock: 8, available: true, category: "Grills", image: "https://res.cloudinary.com/dq4mxuz72/image/upload/v1717410000/suya.jpg" },
-            { vendorId: vendor._id, name: "Pepper Soup", description: "Hot and spicy beef pepper soup", price: 3500, stock: 0, available: false, category: "Soups", image: "https://res.cloudinary.com/dq4mxuz72/image/upload/v1717410000/soup.jpg" },
-            { vendorId: vendor._id, name: "Jollof Rice", description: "Classic Nigerian Jollof", price: 4500, stock: 20, available: true, category: "Rice", image: "https://res.cloudinary.com/dq4mxuz72/image/upload/v1717410000/jollof.jpg" },
-            { vendorId: vendor._id, name: "Fried Rice", description: "Savory fried rice with mixed veggies", price: 4e3, stock: 15, available: true, category: "Rice", image: "https://res.cloudinary.com/dq4mxuz72/image/upload/v1717410000/fried_rice.jpg" },
-            { vendorId: vendor._id, name: "Puff Puff (6pcs)", description: "Sweet, fluffy fried dough", price: 1e3, stock: 3, available: true, category: "Snacks", image: "https://res.cloudinary.com/dq4mxuz72/image/upload/v1717410000/puff_puff.jpg" }
-          ];
-          menuItems = await MenuItem.insertMany(demoItems);
-        }
-        const categories = ["All", "Rice", "Soups", "Grills", "Drinks", "Snacks"];
-        res.status(200).json({ success: true, data: { items: menuItems, categories, status: vendor.status } });
+        const menuItems = await MenuItem.find({ vendorId: vendor._id }).sort({ createdAt: -1 });
+        const defaultCategories = ["All", "Rice", "Soups", "Grills", "Drinks", "Snacks", "Desserts", "Sides"];
+        const itemCategories = menuItems.map((i) => i.category).filter(Boolean);
+        const combinedCategories = Array.from(/* @__PURE__ */ new Set([...defaultCategories, ...itemCategories]));
+        res.status(200).json({
+          success: true,
+          data: {
+            items: menuItems,
+            categories: combinedCategories,
+            status: vendor.status,
+            vendorName: vendor.businessName || vendor.name
+          }
+        });
       } catch (error) {
+        console.error("getVendorMenu error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
@@ -1937,46 +1954,94 @@ var require_menuController = __commonJS({
           }
         });
       } catch (error) {
+        console.error("getVendorMenuById error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
     var toggleMenuItem = async (req, res) => {
       try {
+        const vendor = await getCurrentVendor(req);
         const item = await MenuItem.findById(req.params.id);
         if (!item) return res.status(404).json({ success: false, message: "Item not found" });
+        if (vendor && item.vendorId && item.vendorId.toString() !== vendor._id.toString()) {
+          return res.status(403).json({ success: false, error: "Unauthorized to modify this menu item" });
+        }
         item.available = !item.available;
         await item.save();
         res.status(200).json({ success: true, data: item });
       } catch (error) {
+        console.error("toggleMenuItem error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
     var addMenuItem = async (req, res) => {
       try {
-        const vendor = await Vendor.findOne();
+        const vendor = await getCurrentVendor(req);
+        if (!vendor) return res.status(404).json({ success: false, error: "Vendor not found" });
         const { name, description, price, stock, category, image, available } = req.body;
+        if (!name || name.trim() === "") {
+          return res.status(400).json({ success: false, error: "Item name is required" });
+        }
+        const parsedPrice = Number(price);
+        if (isNaN(parsedPrice) || parsedPrice <= 0) {
+          return res.status(400).json({ success: false, error: "Valid price is required" });
+        }
         const newItem = await MenuItem.create({
           vendorId: vendor._id,
-          name,
-          description,
-          price,
-          stock,
-          category,
-          image,
-          available
+          name: name.trim(),
+          description: description ? description.trim() : "",
+          price: parsedPrice,
+          stock: stock !== void 0 && !isNaN(Number(stock)) ? Number(stock) : 10,
+          category: category ? category.trim() : "Rice",
+          image: image || "",
+          available: available !== void 0 ? Boolean(available) : true
         });
         res.status(201).json({ success: true, data: newItem });
       } catch (error) {
+        console.error("addMenuItem error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
     var updateMenuItem = async (req, res) => {
       try {
         const { id } = req.params;
-        const updatedItem = await MenuItem.findByIdAndUpdate(id, req.body, { new: true });
-        if (!updatedItem) return res.status(404).json({ success: false, error: "Item not found" });
+        const vendor = await getCurrentVendor(req);
+        if (!vendor) return res.status(404).json({ success: false, error: "Vendor not found" });
+        const item = await MenuItem.findById(id);
+        if (!item) return res.status(404).json({ success: false, error: "Item not found" });
+        if (item.vendorId && item.vendorId.toString() !== vendor._id.toString()) {
+          return res.status(403).json({ success: false, error: "Unauthorized to update this menu item" });
+        }
+        const { name, description, price, stock, category, image, available } = req.body;
+        const updateData = {};
+        if (name !== void 0) updateData.name = name.trim();
+        if (description !== void 0) updateData.description = description.trim();
+        if (price !== void 0 && !isNaN(Number(price))) updateData.price = Number(price);
+        if (stock !== void 0 && !isNaN(Number(stock))) updateData.stock = Number(stock);
+        if (category !== void 0) updateData.category = category.trim();
+        if (image !== void 0) updateData.image = image;
+        if (available !== void 0) updateData.available = Boolean(available);
+        const updatedItem = await MenuItem.findByIdAndUpdate(id, updateData, { new: true });
         res.status(200).json({ success: true, data: updatedItem });
       } catch (error) {
+        console.error("updateMenuItem error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var deleteMenuItem = async (req, res) => {
+      try {
+        const { id } = req.params;
+        const vendor = await getCurrentVendor(req);
+        if (!vendor) return res.status(404).json({ success: false, error: "Vendor not found" });
+        const item = await MenuItem.findById(id);
+        if (!item) return res.status(404).json({ success: false, error: "Item not found" });
+        if (item.vendorId && item.vendorId.toString() !== vendor._id.toString()) {
+          return res.status(403).json({ success: false, error: "Unauthorized to delete this menu item" });
+        }
+        await MenuItem.findByIdAndDelete(id);
+        res.status(200).json({ success: true, message: "Menu item deleted successfully", id });
+      } catch (error) {
+        console.error("deleteMenuItem error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
@@ -1985,7 +2050,8 @@ var require_menuController = __commonJS({
       getVendorMenuById,
       toggleMenuItem,
       addMenuItem,
-      updateMenuItem
+      updateMenuItem,
+      deleteMenuItem
     };
   }
 });
@@ -2029,7 +2095,7 @@ var require_vendorRoutes = __commonJS({
       markAllVendorNotificationsRead
     } = require_vendorController();
     var { getVendorOrders } = require_orderController();
-    var { getVendorMenu, toggleMenuItem, addMenuItem, updateMenuItem } = require_menuController();
+    var { getVendorMenu, toggleMenuItem, addMenuItem, updateMenuItem, deleteMenuItem } = require_menuController();
     var { upload } = require_cloudinary();
     router.get("/dashboard", getVendorDashboard);
     router.put("/profile", updateVendorProfile);
@@ -2039,6 +2105,7 @@ var require_vendorRoutes = __commonJS({
     router.get("/menu", getVendorMenu);
     router.post("/menu", addMenuItem);
     router.put("/menu/:id", updateMenuItem);
+    router.delete("/menu/:id", deleteMenuItem);
     router.put("/menu/:id/toggle", toggleMenuItem);
     router.get("/transactions", getVendorTransactions);
     router.get("/notifications", getVendorNotifications);

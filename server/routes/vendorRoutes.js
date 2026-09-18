@@ -6,7 +6,7 @@ const {
   getVendorNotifications, markVendorNotificationRead, markAllVendorNotificationsRead 
 } = require('../controllers/vendorController');
 const { getVendorOrders } = require('../controllers/orderController');
-const { getVendorMenu, toggleMenuItem, addMenuItem, updateMenuItem } = require('../controllers/menuController');
+const { getVendorMenu, toggleMenuItem, addMenuItem, updateMenuItem, deleteMenuItem } = require('../controllers/menuController');
 const { upload } = require('../config/cloudinary');
 
 router.get('/dashboard', getVendorDashboard);
@@ -17,6 +17,7 @@ router.patch('/orders/:orderId/status', updateVendorOrderStatus);
 router.get('/menu', getVendorMenu);
 router.post('/menu', addMenuItem);
 router.put('/menu/:id', updateMenuItem);
+router.delete('/menu/:id', deleteMenuItem);
 router.put('/menu/:id/toggle', toggleMenuItem);
 router.get('/transactions', getVendorTransactions);
 

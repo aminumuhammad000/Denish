@@ -1,9 +1,10 @@
 const Order = require('../models/Order');
 const Vendor = require('../models/Vendor');
+const { getCurrentVendor } = require('./vendorController');
 
 const getVendorOrders = async (req, res) => {
   try {
-    let vendor = await Vendor.findOne();
+    let vendor = await getCurrentVendor(req);
     if (!vendor) {
       return res.status(404).json({ success: false, error: 'Vendor not found' });
     }

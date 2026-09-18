@@ -3,12 +3,24 @@ const Order = require('../models/Order');
 const mongoose = require('mongoose');
 
 const getCurrentVendor = async (req) => {
-  const userId = req.headers['x-user-id'];
-  const userEmail = req.headers['x-user-email'];
+  const userId = req.headers['x-vendor-id'] || req.headers['x-user-id'];
+  const userEmail = req.headers['x-vendor-email'] || req.headers['x-user-email'];
+
   if (userId && mongoose.Types.ObjectId.isValid(userId)) {
     const vendor = await Vendor.findById(userId);
     if (vendor) return vendor;
   }
+
+  const auth = req.headers.authorization || req.headers.token;
+  if (auth) {
+    const tokenStr = auth.replace(/^Bearer\s+/i, '').trim();
+    const match = tokenStr.match(/(?:fake-jwt-token-for-|vend-token-)?([a-f0-9]{24})/i);
+    if (match && match[1] && mongoose.Types.ObjectId.isValid(match[1])) {
+      const vendor = await Vendor.findById(match[1]);
+      if (vendor) return vendor;
+    }
+  }
+
   if (userEmail) {
     const vendor = await Vendor.findOne({ email: userEmail });
     if (vendor) return vendor;
@@ -23,6 +35,10 @@ const getCurrentVendor = async (req) => {
   }
   if (req.query && req.query.email) {
     const vendor = await Vendor.findOne({ email: req.query.email });
+    if (vendor) return vendor;
+  }
+  if (req.query && req.query.vendorId && mongoose.Types.ObjectId.isValid(req.query.vendorId)) {
+    const vendor = await Vendor.findById(req.query.vendorId);
     if (vendor) return vendor;
   }
   return await Vendor.findOne();
@@ -467,4 +483,5 @@ module.exports = {
   getVendorNotifications,
   markVendorNotificationRead,
   markAllVendorNotificationsRead,
+  getCurrentVendor
 };

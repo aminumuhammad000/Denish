@@ -8,18 +8,21 @@ import * as ImagePicker from 'expo-image-picker';
 import { addVendorMenuItem, updateVendorMenuItem, uploadItemImage } from '../../services/api';
 
 const ItemFormScreen = ({ navigation, route }) => {
-  const { isEdit, item, categories = ['Main'] } = route.params || {};
-  // Filter out "All" from categories
-  const selectableCats = categories.filter(c => c !== 'All');
+  const { isEdit, item, categories = ['Rice', 'Soups', 'Grills', 'Drinks', 'Snacks', 'Desserts', 'Sides'] } = route.params || {};
+  // Filter out "All" from categories and ensure standard list
+  const defaultList = ['Rice', 'Soups', 'Grills', 'Drinks', 'Snacks', 'Desserts', 'Sides'];
+  const initialCats = Array.from(new Set([...categories.filter(c => c && c !== 'All'), ...defaultList]));
 
+  const [availableCats, setAvailableCats] = useState(initialCats);
+  const [customCat, setCustomCat] = useState('');
   const [loading, setLoading] = useState(false);
   const [catModalVisible, setCatModalVisible] = useState(false);
   const [form, setForm] = useState({
     name: item?.name || '',
     description: item?.description || '',
     price: item?.price?.toString() || '',
-    stock: item?.stock?.toString() || '0',
-    category: item?.category || selectableCats[0] || 'Main',
+    stock: item?.stock?.toString() || '10',
+    category: item?.category || initialCats[0] || 'Rice',
     image: item?.image || null,
     available: item?.available ?? true
   });
@@ -82,6 +85,17 @@ const ItemFormScreen = ({ navigation, route }) => {
     setCatModalVisible(false);
   };
 
+  const handleAddCustomCategory = () => {
+    const trimmed = customCat.trim();
+    if (!trimmed) return;
+    if (!availableCats.includes(trimmed)) {
+      setAvailableCats(prev => [...prev, trimmed]);
+    }
+    setForm({ ...form, category: trimmed });
+    setCustomCat('');
+    setCatModalVisible(false);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -124,11 +138,11 @@ const ItemFormScreen = ({ navigation, route }) => {
 
           <View style={styles.row}>
             <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-              <Text style={styles.inputLabel}>Price (₦)</Text>
+              <Text style={styles.inputLabel}>Price (₦) *</Text>
               <TextInput 
                 style={styles.input} 
                 keyboardType="numeric" 
-                placeholder="3,500"
+                placeholder="3500"
                 value={form.price}
                 onChangeText={v => setForm({...form, price: v})}
               />
@@ -138,7 +152,7 @@ const ItemFormScreen = ({ navigation, route }) => {
               <TextInput 
                 style={styles.input} 
                 keyboardType="numeric" 
-                placeholder="24"
+                placeholder="10"
                 value={form.stock}
                 onChangeText={v => setForm({...form, stock: v})}
               />
@@ -146,7 +160,7 @@ const ItemFormScreen = ({ navigation, route }) => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Category</Text>
+            <Text style={styles.inputLabel}>Category *</Text>
             <TouchableOpacity style={styles.mockPicker} onPress={() => setCatModalVisible(true)}>
               <Text style={styles.pickerText}>{form.category}</Text>
               <Ionicons name="chevron-down" size={16} color="#666" />
@@ -200,8 +214,27 @@ const ItemFormScreen = ({ navigation, route }) => {
                 <Ionicons name="close" size={24} color="#000" />
               </TouchableOpacity>
             </View>
+
+            {/* Custom Category Input */}
+            <View style={styles.customCatRow}>
+              <TextInput
+                style={styles.customCatInput}
+                placeholder="Or type custom category..."
+                placeholderTextColor="#999"
+                value={customCat}
+                onChangeText={setCustomCat}
+              />
+              <TouchableOpacity 
+                style={[styles.customCatAddBtn, !customCat.trim() && { opacity: 0.5 }]} 
+                disabled={!customCat.trim()}
+                onPress={handleAddCustomCategory}
+              >
+                <Text style={styles.customCatAddText}>Use</Text>
+              </TouchableOpacity>
+            </View>
+
             <FlatList 
-              data={selectableCats}
+              data={availableCats}
               keyExtractor={item => item}
               renderItem={({ item }) => (
                 <TouchableOpacity 
@@ -299,6 +332,36 @@ const styles = StyleSheet.create({
   catModalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '60%' },
   catModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   catModalTitle: { fontSize: 18, fontWeight: 'bold' },
+  customCatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    gap: 8,
+  },
+  customCatInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: '#FAFAFA',
+    color: '#333'
+  },
+  customCatAddBtn: {
+    backgroundColor: '#FF8C00',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  customCatAddText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14
+  },
   catItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderColor: '#F5F5F5' },
   catItemActive: { backgroundColor: '#FFF9F2' },
   catItemText: { fontSize: 16, color: '#333' },

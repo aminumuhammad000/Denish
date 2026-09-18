@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Image, TextInput, Modal
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Image, TextInput, Modal, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
-import { getVendorMenu, toggleVendorMenuItem } from '../../services/api';
+import { getVendorMenu, toggleVendorMenuItem, deleteVendorMenuItem } from '../../services/api';
 
 const MenuScreen = ({ navigation }) => {
   const [selectedCat, setSelectedCat] = useState('All');
@@ -49,6 +49,30 @@ const MenuScreen = ({ navigation }) => {
     navigation.navigate('ItemForm', { isEdit: true, item, categories });
   };
 
+  const handleDeleteItem = (item) => {
+    Alert.alert(
+      'Delete Menu Item',
+      `Are you sure you want to delete "${item.name}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setItems(prev => prev.filter(i => i._id !== item._id));
+              await deleteVendorMenuItem(item._id);
+            } catch (err) {
+              console.error('Failed to delete item', err);
+              Alert.alert('Error', 'Failed to delete menu item. Please try again.');
+              fetchMenu();
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const toggleAvailable = async (id) => {
     if (isPending) return;
     setItems(items.map(item => item._id === id ? { ...item, available: !item.available } : item));
@@ -78,7 +102,7 @@ const MenuScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <View style={styles.headerText}>
@@ -160,7 +184,7 @@ const MenuScreen = ({ navigation }) => {
                 <TouchableOpacity style={styles.miniBtn} onPress={() => handleOpenEdit(item)}>
                   <Ionicons name="create-outline" size={20} color="#666" />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.miniBtn}>
+                <TouchableOpacity style={styles.miniBtn} onPress={() => handleDeleteItem(item)}>
                   <Ionicons name="trash-outline" size={16} color="#FF6F61" />
                 </TouchableOpacity>
               </View>
