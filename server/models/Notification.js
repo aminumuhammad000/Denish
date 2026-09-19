@@ -19,6 +19,11 @@ const NotificationSchema = new mongoose.Schema({
     enum: ['admin', 'driver', 'vendor', 'customer', 'all'],
     default: 'admin'
   },
+  userId: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+    index: true
+  },
   read: {
     type: Boolean,
     default: false

@@ -189,6 +189,30 @@ const getDriverEarnings = async (req, res) => {
 
     const allTxns = [...orderTxns, ...wTxns].sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    const Payout = require('../models/Payout');
+    const activeQueuedPayout = await Payout.findOne({
+      providerId: driver._id,
+      status: 'QUEUED',
+      scheduledFor: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+
+    let queuedPayoutData = null;
+    if (activeQueuedPayout) {
+      const nowMs = Date.now();
+      const targetMs = new Date(activeQueuedPayout.scheduledFor).getTime();
+      const countdownSeconds = Math.max(0, Math.floor((targetMs - nowMs) / 1000));
+      queuedPayoutData = {
+        _id: activeQueuedPayout._id,
+        amount: activeQueuedPayout.amount,
+        bank: activeQueuedPayout.bank,
+        reference: activeQueuedPayout.reference,
+        status: activeQueuedPayout.status,
+        scheduledFor: activeQueuedPayout.scheduledFor.toISOString(),
+        estimatedLandingTime: activeQueuedPayout.estimatedLandingTime || 'Sunday at 11:59 PM WAT',
+        countdownSeconds,
+      };
+    }
+
     const earningsData = {
       availableBalance,
       pendingBalance,
@@ -201,6 +225,7 @@ const getDriverEarnings = async (req, res) => {
       weeklyData,
       recentTransactions: allTxns,
       bank: driver.bank || null,
+      activeQueuedPayout: queuedPayoutData,
       payoutSchedule: {
         cycle: 'weekly',
         day: 'Sunday',
@@ -245,22 +270,15 @@ const withdrawEarnings = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Driver bank account details are missing or invalid' });
     }
 
-    const { resolveBankCode, verifyPayoutAccount, initiatePayoutTransfer } = require('../utils/payoutService');
+    const { resolveBankCode } = require('../utils/payoutService');
+    const { getNextDriverPayoutLanding } = require('../utils/payoutScheduler');
     const bankCode = resolveBankCode(bankName, driver.bank?.bankCode || driver.bank?.code);
+    const accountName = driver.bank?.accountName || driver.name;
 
-    // 1. Verify account details with Flutterwave resolve API
-    const verification = await verifyPayoutAccount({ accountNumber, bankCode });
-    if (!verification.valid) {
-      return res.status(400).json({
-        success: false,
-        error: `Bank verification failed: ${verification.message}`
-      });
-    }
+    const { landingDate, estimatedLandingTime, countdownSeconds } = getNextDriverPayoutLanding();
+    const reference = `DRV_QUEUE_${driver._id}_${Date.now()}`;
 
-    const accountName = verification.accountName || driver.bank?.accountName || driver.name;
-    const reference = `DRV_MAN_${driver._id}_${Date.now()}`;
-
-    // 2. Atomically deduct availableBalance to avoid race conditions
+    // 1. Atomically deduct availableBalance to avoid race conditions
     const updatedDriver = await Driver.findOneAndUpdate(
       {
         _id: driver._id,
@@ -277,7 +295,7 @@ const withdrawEarnings = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Balance changed concurrently. Please try again.' });
     }
 
-    // 3. Create initial Payout record in PENDING state
+    // 2. Create initial Payout record in QUEUED state
     const Payout = require('../models/Payout');
     const payoutRecord = await Payout.create({
       providerType: 'Driver',
@@ -292,122 +310,39 @@ const withdrawEarnings = async (req, res) => {
         accountName,
       },
       reference,
-      status: 'PENDING',
+      status: 'QUEUED',
       narration: `Connecta Rider Withdrawal - ${driver.name}`,
-      cycle: 'manual',
+      cycle: 'weekly_driver',
       initiatedBy: 'driver_app',
-      processedAt: new Date(),
+      scheduledFor: landingDate,
+      estimatedLandingTime,
     });
 
-    // 4. Submit transfer to Flutterwave Transfer API
-    const flwTransfer = await initiatePayoutTransfer({
-      accountBank: bankCode,
-      accountNumber,
-      amount,
-      narration: `Connecta Rider Payout - ${driver.name}`,
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        title: 'Withdrawal Initiated ⏳',
+        message: `Your withdrawal of ₦${amount.toLocaleString()} to ${bankName} (${accountNumber}) has been initiated. Funds will land in your account ${estimatedLandingTime.toLowerCase()}. Reference: ${reference}`,
+        type: 'payout',
+        recipient: 'driver',
+        userId: driver._id,
+        read: false,
+      });
+    } catch (notifErr) { /* non-fatal */ }
+
+    return res.status(200).json({
+      success: true,
+      message: `₦${amount.toLocaleString()} withdrawal initiated! Funds will land in your bank account ${estimatedLandingTime.toLowerCase()}.`,
+      status: 'QUEUED',
       reference,
-      recipientName: accountName,
-    });
-
-    payoutRecord.flwTransferId = flwTransfer.transferId || null;
-    payoutRecord.fee = flwTransfer.fee || 0;
-    payoutRecord.flwResponse = flwTransfer.raw || flwTransfer.rawError || null;
-
-    const Transaction = require('../models/Transaction');
-
-    if (flwTransfer.status === 'SUCCESSFUL') {
-      payoutRecord.status = 'SUCCESSFUL';
-      payoutRecord.completedAt = new Date();
-      await payoutRecord.save();
-
-      const transaction = await Transaction.create({
-        type: 'Driver Payout',
-        from: 'Connecta Platform Wallet',
-        to: `${driver.name} (${bankName} - ${accountNumber})`,
-        amount: amount,
-        method: 'Bank Transfer',
-        status: 'Completed',
-        reference,
-      });
-
-      try {
-        const Notification = require('../models/Notification');
-        await Notification.create({
-          title: 'Withdrawal Successful 🎉',
-          message: `Your withdrawal of ₦${amount.toLocaleString()} to ${bankName} (${accountNumber}) has been sent. Reference: ${reference}`,
-          type: 'payout',
-          recipient: 'driver',
-          read: false,
-        });
-      } catch (notifErr) { /* non-fatal */ }
-
-      return res.status(200).json({
-        success: true,
-        message: `₦${amount.toLocaleString()} payout sent to ${bankName} (${accountNumber}).`,
-        reference,
-        status: 'SUCCESSFUL',
-        data: {
-          transaction,
-          availableBalance: updatedDriver.earnings.availableBalance,
-          payout: payoutRecord,
-        }
-      });
-
-    } else if (flwTransfer.status === 'PROCESSING') {
-      payoutRecord.status = 'PROCESSING';
-      if (flwTransfer.isUncertain) {
-        payoutRecord.failureReason = flwTransfer.failureReason;
+      data: {
+        payout: payoutRecord,
+        scheduledFor: landingDate.toISOString(),
+        countdownSeconds,
+        estimatedLandingTime,
+        availableBalance: updatedDriver.earnings.availableBalance,
       }
-      await payoutRecord.save();
-
-      const transaction = await Transaction.create({
-        type: 'Driver Payout',
-        from: 'Connecta Platform Wallet',
-        to: `${driver.name} (${bankName} - ${accountNumber})`,
-        amount: amount,
-        method: 'Bank Transfer',
-        status: 'Pending',
-        reference,
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: `₦${amount.toLocaleString()} withdrawal queued for processing. Reference: ${reference}`,
-        reference,
-        status: 'PROCESSING',
-        data: {
-          transaction,
-          availableBalance: updatedDriver.earnings.availableBalance,
-          payout: payoutRecord,
-        }
-      });
-
-    } else {
-      // Explicit Failure -> Refund balance immediately
-      payoutRecord.status = 'FAILED';
-      payoutRecord.failureReason = flwTransfer.failureReason || 'Flutterwave transfer failed';
-      await payoutRecord.save();
-
-      await Driver.findByIdAndUpdate(driver._id, {
-        $inc: { 'earnings.availableBalance': amount }
-      });
-
-      await Transaction.create({
-        type: 'Driver Payout',
-        from: 'Connecta Platform Wallet',
-        to: `${driver.name} (${bankName} - ${accountNumber})`,
-        amount: amount,
-        method: 'Bank Transfer',
-        status: 'Failed',
-        reference,
-      });
-
-      return res.status(400).json({
-        success: false,
-        error: `Withdrawal failed: ${flwTransfer.failureReason || 'Declined by bank'}. Your balance has been restored.`,
-        reference,
-      });
-    }
+    });
   } catch (error) {
     console.error('withdrawEarnings error:', error);
     res.status(500).json({ success: false, error: error.message });

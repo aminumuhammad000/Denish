@@ -711,22 +711,15 @@ export const getAppNotifications = async (preferredRole) => {
     let role = preferredRole;
     if (!role) {
       const session = await getAuthSession();
-      role = session?.role || 'driver';
+      role = session?.role || 'customer';
     }
-    let endpoint = '/driver/notifications';
-    if (role === 'customer') endpoint = '/customer/notifications';
+    let endpoint = '/customer/notifications';
+    if (role === 'driver') endpoint = '/driver/notifications';
     else if (role === 'vendor') endpoint = '/vendor/notifications';
 
-    try {
-      const response = await api.get(endpoint);
-      if (response.data && response.data.success !== false) {
-        return response.data;
-      }
-    } catch (e) {
-      if (endpoint !== '/driver/notifications') {
-        const fallback = await api.get('/driver/notifications');
-        return fallback.data;
-      }
+    const response = await api.get(endpoint);
+    if (response.data && response.data.success !== false) {
+      return response.data;
     }
     return { success: true, data: [] };
   } catch (error) {
@@ -740,22 +733,14 @@ export const markAppNotificationRead = async (id, preferredRole) => {
     let role = preferredRole;
     if (!role) {
       const session = await getAuthSession();
-      role = session?.role || 'driver';
+      role = session?.role || 'customer';
     }
-    let endpoint = `/driver/notifications/${id}/read`;
-    if (role === 'customer') endpoint = `/customer/notifications/${id}/read`;
+    let endpoint = `/customer/notifications/${id}/read`;
+    if (role === 'driver') endpoint = `/driver/notifications/${id}/read`;
     else if (role === 'vendor') endpoint = `/vendor/notifications/${id}/read`;
 
-    try {
-      const response = await api.patch(endpoint);
-      return response.data;
-    } catch (e) {
-      if (endpoint !== `/driver/notifications/${id}/read`) {
-        const fallback = await api.patch(`/driver/notifications/${id}/read`);
-        return fallback.data;
-      }
-    }
-    return { success: false };
+    const response = await api.patch(endpoint);
+    return response.data;
   } catch (error) {
     console.error('API markAppNotificationRead error:', error);
     return { success: false };
@@ -767,22 +752,14 @@ export const markAllAppNotificationsRead = async (preferredRole) => {
     let role = preferredRole;
     if (!role) {
       const session = await getAuthSession();
-      role = session?.role || 'driver';
+      role = session?.role || 'customer';
     }
-    let endpoint = '/driver/notifications/read-all';
-    if (role === 'customer') endpoint = '/customer/notifications/read-all';
+    let endpoint = '/customer/notifications/read-all';
+    if (role === 'driver') endpoint = '/driver/notifications/read-all';
     else if (role === 'vendor') endpoint = '/vendor/notifications/read-all';
 
-    try {
-      const response = await api.patch(endpoint);
-      return response.data;
-    } catch (e) {
-      if (endpoint !== '/driver/notifications/read-all') {
-        const fallback = await api.patch('/driver/notifications/read-all');
-        return fallback.data;
-      }
-    }
-    return { success: false };
+    const response = await api.patch(endpoint);
+    return response.data;
   } catch (error) {
     console.error('API markAllAppNotificationsRead error:', error);
     return { success: false };

@@ -398,15 +398,15 @@ export default function SettingsPage() {
     setProcessingVendorPayout(true);
     try {
       const apiBase = import.meta.env.VITE_API_BASE_URL || "https://api.denishng.com/api";
-      const res = await fetch(`${apiBase}/admin/payouts/process-daily-vendors`, {
+      const res = await fetch(`${apiBase}/admin/payouts/process-nightly-vendors`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(`Daily vendor payouts processed! ${data.processedCount} vendor(s) paid (₦${(data.totalAmount || 0).toLocaleString()}).`);
+        toast.success(`Nightly vendor payouts processed! ${data.processedCount} vendor(s) paid (₦${(data.totalAmount || 0).toLocaleString()}).`);
       } else {
-        toast.error(data.error || "Failed to process daily vendor payouts");
+        toast.error(data.error || "Failed to process nightly vendor payouts");
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to trigger vendor payout");
@@ -1242,18 +1242,18 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Vendor Payout (24-Hour Cycle) */}
+              {/* Vendor Payout (Nightly Cycle) */}
               <div className="flex flex-col gap-3 p-4 bg-[#FBFBFA] border border-[#EAEAEA] rounded-[10px] max-w-[650px]">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[18px]">⚡</span>
+                    <span className="text-[18px]">🌙</span>
                     <div>
                       <h4 className="text-[14px] font-semibold text-[#191C1C]">Vendor Payout Schedule</h4>
-                      <p className="text-[12px] text-[#747475]">Processed automatically every 24 hours at 6:00 PM</p>
+                      <p className="text-[12px] text-[#747475]">Processed automatically every night at 11:00 PM WAT</p>
                     </div>
                   </div>
                   <span className="px-2.5 py-1 bg-[#FFF4E4] text-[#F9811F] text-[12px] font-semibold rounded-full border border-[#FFE2BF]">
-                    Daily at 6:00 PM (24h)
+                    Nightly at 11:00 PM
                   </span>
                 </div>
 
@@ -1286,7 +1286,7 @@ export default function SettingsPage() {
                           Processing...
                         </>
                       ) : (
-                        "Process 24h Payout Now"
+                        "Process Nightly Payout Now"
                       )}
                     </button>
                   </div>

@@ -215,7 +215,7 @@ const CustomerHomeScreen = ({ navigation }) => {
                 </View>
               </TouchableOpacity>
               <View style={styles.headerActions}>
-                <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.roundBtn}>
+                <TouchableOpacity onPress={() => navigation.navigate('Notifications', { role: 'customer' })} style={styles.roundBtn}>
                   <Ionicons name="notifications-outline" size={22} color="#FFF" />
                   {unreadNotifCount > 0 && <View style={styles.notifBadge} />}
                 </TouchableOpacity>

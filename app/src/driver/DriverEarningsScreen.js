@@ -65,6 +65,42 @@ const TransactionItem = ({ type, date, amount, status, isWithdrawal = false }) =
   );
 };
 
+const useCountdown = (targetDateStr) => {
+  const [timeLeft, setTimeLeft] = useState(() => {
+    if (!targetDateStr) return null;
+    const diff = new Date(targetDateStr).getTime() - Date.now();
+    return Math.max(0, diff);
+  });
+
+  useEffect(() => {
+    if (!targetDateStr) return;
+    const calculate = () => {
+      const diff = new Date(targetDateStr).getTime() - Date.now();
+      setTimeLeft(Math.max(0, diff));
+    };
+    calculate();
+    const interval = setInterval(calculate, 1000);
+    return () => clearInterval(interval);
+  }, [targetDateStr]);
+
+  if (timeLeft === null) return { days: 0, hours: '00', minutes: '00', seconds: '00', isFinished: true };
+
+  const totalSeconds = Math.floor(timeLeft / 1000);
+  const days = Math.floor(totalSeconds / (3600 * 24));
+  const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return {
+    timeLeft,
+    days,
+    hours: String(hours).padStart(2, '0'),
+    minutes: String(minutes).padStart(2, '0'),
+    seconds: String(seconds).padStart(2, '0'),
+    isFinished: timeLeft <= 0,
+  };
+};
+
 const WithdrawModal = ({ visible, onClose, balance, bank, onWithdraw }) => {
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -100,12 +136,18 @@ const WithdrawModal = ({ visible, onClose, balance, bank, onWithdraw }) => {
           </View>
 
           <View style={styles.modalTitleContainer}>
-            <Text style={styles.modalTitle}>Withdraw earnings</Text>
-            <Text style={styles.modalSubtitle} numberOfLines={1} ellipsizeMode="tail">
+            <Text style={styles.modalTitle}>Initiate Withdrawal</Text>
+            <Text style={styles.modalSubtitle} numberOfLines={2} ellipsizeMode="tail">
               {bank?.accountNumber 
                 ? `Funds will be sent to ${bank.name || 'Bank'} (${bank.accountNumber})`
                 : 'Funds will be sent to your registered payout account'}
             </Text>
+            <View style={styles.modalScheduleBadge}>
+              <Ionicons name="information-circle-outline" size={13} color="#059669" />
+              <Text style={styles.modalScheduleText}>
+                Weekly settlement: lands every Sunday at 11:59 PM WAT with live countdown tracking.
+              </Text>
+            </View>
           </View>
 
           <View style={styles.modalContent}>
@@ -129,7 +171,7 @@ const WithdrawModal = ({ visible, onClose, balance, bank, onWithdraw }) => {
 
           <View style={styles.modalFooter}>
             <TouchableOpacity style={styles.mainWithdrawBtn} onPress={handleWithdraw} disabled={loading}>
-              {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.mainWithdrawBtnText}>Withdraw</Text>}
+              {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.mainWithdrawBtnText}>Initiate Withdrawal</Text>}
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalCancelBtn} onPress={onClose}>
               <Text style={styles.modalCancelBtnText}>Cancel</Text>
@@ -170,6 +212,9 @@ const DriverEarningsScreen = ({ navigation }) => {
     }
   };
 
+  const activePayout = realEarnings?.activeQueuedPayout;
+  const countdown = useCountdown(activePayout?.scheduledFor);
+
   const handleWithdrawSuccess = async (amount) => {
     try {
       const numericAmt = parseFloat(String(amount).replace(/[^0-9.]/g, ''));
@@ -179,7 +224,11 @@ const DriverEarningsScreen = ({ navigation }) => {
       }
       const res = await withdrawEarnings(numericAmt);
       if (res && res.success) {
-        Alert.alert('Withdrawal Initiated 🎉', res.message);
+        const landingNotice = res.data?.estimatedLandingTime || 'Sunday at 11:59 PM WAT';
+        Alert.alert(
+          'Withdrawal Initiated ⏳',
+          `₦${numericAmt.toLocaleString()} has been queued! Your funds will land in your bank account ${landingNotice.toLowerCase()}. Watch the live countdown timer on your dashboard.`
+        );
         await fetchEarnings();
       } else {
         Alert.alert('Error', res?.error || res?.message || 'Withdrawal failed');
@@ -188,8 +237,6 @@ const DriverEarningsScreen = ({ navigation }) => {
       Alert.alert('Error', e.message || 'Could not process withdrawal');
     }
   };
-
-
 
   // Mock data for earnings chart
   const chartDays = [
@@ -228,9 +275,66 @@ const DriverEarningsScreen = ({ navigation }) => {
           </View>
           <TouchableOpacity style={styles.withdrawBtn} onPress={() => setModalVisible(true)}>
             <Ionicons name="download-outline" size={20} color="#333" />
-            <Text style={styles.withdrawText}>Withdraw</Text>
+            <Text style={styles.withdrawText}>
+              {activePayout ? 'Withdraw More' : 'Withdraw'}
+            </Text>
           </TouchableOpacity>
         </View>
+
+        {/* ACTIVE QUEUED PAYOUT COUNTDOWN CARD */}
+        {activePayout && (
+          <View style={styles.driverTimerCard}>
+            <View style={styles.driverTimerHeader}>
+              <View style={styles.driverTimerBadge}>
+                <Ionicons name="time" size={14} color="#10B981" />
+                <Text style={styles.driverTimerBadgeText}>Withdrawal Initiated</Text>
+              </View>
+              <Text style={styles.driverTimerMeta}>Weekly Settlement (WAT)</Text>
+            </View>
+
+            <Text style={styles.driverTimerTitle}>Funds Landing in Bank Account</Text>
+            <Text style={styles.driverTimerAmount}>
+              ₦{Number(activePayout.amount || 0).toLocaleString()}
+            </Text>
+            <Text style={styles.driverTimerSub}>
+              Scheduled for {activePayout.estimatedLandingTime || 'Sunday at 11:59 PM WAT'}
+            </Text>
+
+            {/* Countdown Unit Boxes */}
+            <View style={styles.driverDigitsRow}>
+              {countdown.days > 0 && (
+                <>
+                  <View style={styles.driverDigitBox}>
+                    <Text style={styles.driverDigitNum}>{countdown.days}</Text>
+                    <Text style={styles.driverDigitLabel}>Days</Text>
+                  </View>
+                  <Text style={styles.driverDigitColon}>:</Text>
+                </>
+              )}
+              <View style={styles.driverDigitBox}>
+                <Text style={styles.driverDigitNum}>{countdown.hours}</Text>
+                <Text style={styles.driverDigitLabel}>Hours</Text>
+              </View>
+              <Text style={styles.driverDigitColon}>:</Text>
+              <View style={styles.driverDigitBox}>
+                <Text style={styles.driverDigitNum}>{countdown.minutes}</Text>
+                <Text style={styles.driverDigitLabel}>Minutes</Text>
+              </View>
+              <Text style={styles.driverDigitColon}>:</Text>
+              <View style={styles.driverDigitBox}>
+                <Text style={styles.driverDigitNum}>{countdown.seconds}</Text>
+                <Text style={styles.driverDigitLabel}>Seconds</Text>
+              </View>
+            </View>
+
+            <View style={styles.driverTimerFooter}>
+              <Ionicons name="shield-checkmark" size={14} color="#10B981" />
+              <Text style={styles.driverTimerFooterText} numberOfLines={1} ellipsizeMode="tail">
+                Reserved for {realEarnings?.bank?.name || activePayout.bank?.name || 'Bank'} ({realEarnings?.bank?.accountNumber || activePayout.bank?.accountNumber || 'Account'})
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* INCOME CHART SECTION */}
         <View style={styles.chartSection}>
@@ -420,6 +524,108 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
   },
+
+  // Driver Active Queued Payout Timer Card
+  driverTimerCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 22,
+    padding: 20,
+    marginBottom: 25,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  driverTimerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  driverTimerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    gap: 5,
+  },
+  driverTimerBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  driverTimerMeta: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  driverTimerTitle: {
+    fontSize: 13,
+    color: '#CBD5E1',
+    fontWeight: '500',
+  },
+  driverTimerAmount: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginVertical: 4,
+  },
+  driverTimerSub: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 16,
+  },
+  driverDigitsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    marginBottom: 14,
+  },
+  driverDigitBox: {
+    alignItems: 'center',
+    minWidth: 54,
+  },
+  driverDigitNum: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#10B981',
+    letterSpacing: 1,
+  },
+  driverDigitLabel: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '600',
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
+  driverDigitColon: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#10B981',
+    marginHorizontal: 6,
+    marginBottom: 12,
+  },
+  driverTimerFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingTop: 12,
+  },
+  driverTimerFooterText: {
+    fontSize: 12,
+    color: '#E2E8F0',
+    flex: 1,
+  },
+
   chartSection: {
     backgroundColor: '#FFF',
     borderRadius: 22,
@@ -644,6 +850,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#94A3B8',
     marginTop: 4,
+  },
+  modalScheduleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  modalScheduleText: {
+    fontSize: 10,
+    color: '#059669',
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 14,
   },
   modalContent: {
     marginVertical: 10,

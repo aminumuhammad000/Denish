@@ -16,6 +16,7 @@ const {
 let isVendorPayoutRunning = false;
 let isDriverPayoutRunning = false;
 let isReconciliationRunning = false;
+let isQueuedPayoutRunning = false;
 
 // In-memory execution state for admin telemetry
 let lastVendorRun = null;
@@ -24,6 +25,7 @@ let lastReconcileRun = null;
 let vendorCronJob = null;
 let driverCronJob = null;
 let reconcileCronJob = null;
+let queuedTickerJob = null;
 
 /**
  * Release Matured Driver Earnings (7-Day Holding Rule)
@@ -95,6 +97,9 @@ const processDailyVendorPayouts = async ({ isManual = false, initiatedBy = 'syst
   console.log(`[PayoutScheduler] Starting Daily 24-Hour Vendor Payout (Date: ${dateKey}, Type: ${isManual ? 'MANUAL: ' + initiatedBy : 'SCHEDULED'})...`);
 
   try {
+    // Process any queued payouts whose timer has arrived first
+    await processDueQueuedPayouts();
+
     const settings = await Settings.findOne();
     const minThreshold = Number(settings?.payments?.vendorMinThreshold || 5000);
 
@@ -114,13 +119,13 @@ const processDailyVendorPayouts = async ({ isManual = false, initiatedBy = 'syst
       if (balance < minThreshold) continue;
 
       const vendorName = vendor.businessName || vendor.name || 'Vendor';
-      const reference = `VND_24H_${vendor._id.toString()}_${dateKey}`;
+      const reference = `VND_NIGHT_${vendor._id.toString()}_${dateKey}`;
 
-      // A. Check for existing Payout with this reference or legacy format (Idempotency)
+      // A. Check for existing Payout with this reference or 24h format (Idempotency)
       const existingPayout = await Payout.findOne({ 
         $or: [
           { reference },
-          { reference: `VND_NIGHT_${vendor._id.toString()}_${dateKey}` }
+          { reference: `VND_24H_${vendor._id.toString()}_${dateKey}` }
         ]
       });
       if (existingPayout && ['SUCCESSFUL', 'PROCESSING'].includes(existingPayout.status)) {
@@ -219,8 +224,8 @@ const processDailyVendorPayouts = async ({ isManual = false, initiatedBy = 'syst
         },
         reference,
         status: 'PENDING',
-        narration: `Connecta 24h Vendor Payout - ${vendorName}`,
-        cycle: 'daily_vendor',
+        narration: `Denish Nightly Vendor Payout - ${vendorName}`,
+        cycle: 'nightly_vendor',
         initiatedBy,
         processedAt: new Date(),
       });
@@ -230,7 +235,7 @@ const processDailyVendorPayouts = async ({ isManual = false, initiatedBy = 'syst
         accountBank: bankCode,
         accountNumber,
         amount: balance,
-        narration: `Connecta Payout - ${vendorName}`,
+        narration: `Denish Payout - ${vendorName}`,
         reference,
         recipientName: accountName,
       });
@@ -248,7 +253,7 @@ const processDailyVendorPayouts = async ({ isManual = false, initiatedBy = 'syst
 
         await Transaction.create({
           type: 'Vendor Payout',
-          from: 'Connecta Platform Wallet',
+          from: 'Denish Platform Wallet',
           to: `${vendorName} (${bankName} - ${accountNumber})`,
           amount: balance,
           method: 'Bank Transfer',
@@ -258,10 +263,11 @@ const processDailyVendorPayouts = async ({ isManual = false, initiatedBy = 'syst
 
         try {
           await Notification.create({
-            title: 'Daily Payout Successful 🎉',
-            message: `Your 24-hour payout of ₦${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
+            title: 'Nightly Payout Successful 🌙',
+            message: `Your nightly payout of ₦${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
             type: 'payout',
             recipient: 'vendor',
+            userId: vendor._id,
             read: false,
           });
         } catch (nErr) { /* non-fatal */ }
@@ -420,6 +426,9 @@ const processWeeklyRiderPayouts = async ({ isManual = false, initiatedBy = 'syst
     // 1. Release any 7-day matured earnings from pending to available
     await releaseMaturedDriverEarnings();
 
+    // 2. Process any queued rider withdrawals whose timer has arrived
+    await processDueQueuedPayouts();
+
     const settings = await Settings.findOne();
     const minThreshold = Number(settings?.payments?.riderMinThreshold || 1000);
 
@@ -575,7 +584,7 @@ const processWeeklyRiderPayouts = async ({ isManual = false, initiatedBy = 'syst
 
         await Transaction.create({
           type: 'Driver Payout',
-          from: 'Connecta Platform Wallet',
+          from: 'Denish Platform Wallet',
           to: `${driverName} (${bankName} - ${accountNumber})`,
           amount: balance,
           method: 'Bank Transfer',
@@ -589,6 +598,7 @@ const processWeeklyRiderPayouts = async ({ isManual = false, initiatedBy = 'syst
             message: `Your weekly payout of ₦${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
             type: 'payout',
             recipient: 'driver',
+            userId: driver._id,
             read: false,
           });
         } catch (nErr) { /* non-fatal */ }
@@ -781,6 +791,218 @@ const reconcilePendingPayouts = async () => {
 };
 
 /**
+ * Calculate the next landing date for Vendor (Nightly at 23:00 WAT)
+ */
+const getNextVendorPayoutLanding = () => {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Africa/Lagos',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(now).reduce((acc, p) => ({ ...acc, [p.type]: p.value }), {});
+  
+  const year = parseInt(parts.year, 10);
+  const month = parseInt(parts.month, 10) - 1;
+  const day = parseInt(parts.day, 10);
+  const hour = parseInt(parts.hour, 10);
+
+  // 23:00 WAT is 22:00 UTC
+  let landingUtc = Date.UTC(year, month, day, 22, 0, 0, 0);
+  if (hour >= 23) {
+    landingUtc += 24 * 60 * 60 * 1000;
+  }
+
+  const landingDate = new Date(landingUtc);
+  const isTonight = hour < 23;
+  const estimatedLandingTime = isTonight ? 'Tonight at 11:00 PM WAT' : 'Tomorrow at 11:00 PM WAT';
+  const countdownSeconds = Math.max(0, Math.floor((landingDate.getTime() - Date.now()) / 1000));
+
+  return { landingDate, estimatedLandingTime, countdownSeconds };
+};
+
+/**
+ * Calculate the next landing date for Rider / Driver (Weekly on Sunday at 23:59:59 WAT)
+ */
+const getNextDriverPayoutLanding = () => {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Africa/Lagos',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(now).reduce((acc, p) => ({ ...acc, [p.type]: p.value }), {});
+
+  const year = parseInt(parts.year, 10);
+  const month = parseInt(parts.month, 10) - 1;
+  const day = parseInt(parts.day, 10);
+  const hour = parseInt(parts.hour, 10);
+  const minute = parseInt(parts.minute, 10);
+  const weekday = parts.weekday;
+
+  const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+  const currentDayOfWeek = dayMap[weekday] ?? 0;
+
+  let daysUntilSunday = (7 - currentDayOfWeek) % 7;
+  if (currentDayOfWeek === 0 && (hour >= 23 && minute >= 59)) {
+    daysUntilSunday = 7;
+  }
+
+  // 23:59:59 WAT is 22:59:59 UTC
+  const landingUtc = Date.UTC(year, month, day + daysUntilSunday, 22, 59, 59, 0);
+  const landingDate = new Date(landingUtc);
+  const isThisSunday = daysUntilSunday === 0;
+  const estimatedLandingTime = isThisSunday ? 'Tonight (Sunday) at 11:59 PM WAT' : 'Sunday at 11:59 PM WAT';
+  const countdownSeconds = Math.max(0, Math.floor((landingDate.getTime() - Date.now()) / 1000));
+
+  return { landingDate, estimatedLandingTime, countdownSeconds };
+};
+
+/**
+ * Process Queued Payouts whose scheduled landing time has arrived (scheduledFor <= now)
+ */
+const processDueQueuedPayouts = async () => {
+  if (isQueuedPayoutRunning) return;
+  isQueuedPayoutRunning = true;
+  try {
+    const now = new Date();
+    const duePayouts = await Payout.find({
+      status: 'QUEUED',
+      scheduledFor: { $lte: now }
+    }).limit(20);
+
+    if (!duePayouts || duePayouts.length === 0) return;
+
+    console.log(`[PayoutScheduler] Processing ${duePayouts.length} due queued payouts whose timer has finished...`);
+
+    for (const payout of duePayouts) {
+      // Atomically transition from QUEUED to PROCESSING to avoid race condition
+      const locked = await Payout.findOneAndUpdate(
+        { _id: payout._id, status: 'QUEUED' },
+        { $set: { status: 'PROCESSING', processedAt: new Date() } },
+        { new: true }
+      );
+      if (!locked) continue;
+
+      console.log(`[PayoutScheduler] Executing transfer for queued payout ${locked.reference} (₦${locked.amount.toLocaleString()} to ${locked.bank?.name})...`);
+
+      const flwTransfer = await initiatePayoutTransfer({
+        accountBank: locked.bank?.code,
+        accountNumber: locked.bank?.accountNumber,
+        amount: locked.amount,
+        narration: locked.narration || `Connecta Payout - ${locked.providerName}`,
+        reference: locked.reference,
+        recipientName: locked.bank?.accountName || locked.providerName,
+      });
+
+      locked.flwTransferId = flwTransfer.transferId || null;
+      locked.fee = flwTransfer.fee || 0;
+      locked.flwResponse = flwTransfer.raw || flwTransfer.rawError || null;
+
+      if (flwTransfer.status === 'SUCCESSFUL') {
+        locked.status = 'SUCCESSFUL';
+        locked.completedAt = new Date();
+        await locked.save();
+
+        await Transaction.create({
+          type: locked.providerType === 'Vendor' ? 'Vendor Payout' : 'Driver Payout',
+          from: 'Connecta Platform Wallet',
+          to: `${locked.providerName} (${locked.bank?.name} - ${locked.bank?.accountNumber})`,
+          amount: locked.amount,
+          method: 'Bank Transfer',
+          status: 'Completed',
+          reference: locked.reference,
+        });
+
+        try {
+          await Notification.create({
+            title: 'Payout Delivered 🎉',
+            message: `Your scheduled payout of ₦${locked.amount.toLocaleString()} has landed in your ${locked.bank?.name} account (${locked.bank?.accountNumber}).`,
+            type: 'payout',
+            recipient: locked.providerType.toLowerCase(),
+            userId: locked.providerId,
+            read: false,
+          });
+        } catch (ne) { /* non-fatal */ }
+
+        console.log(`[PayoutScheduler] ✓ Queued payout ${locked.reference} delivered successfully.`);
+
+      } else if (flwTransfer.status === 'PROCESSING') {
+        locked.status = 'PROCESSING';
+        if (flwTransfer.isUncertain) locked.failureReason = flwTransfer.failureReason;
+        await locked.save();
+
+        await Transaction.create({
+          type: locked.providerType === 'Vendor' ? 'Vendor Payout' : 'Driver Payout',
+          from: 'Connecta Platform Wallet',
+          to: `${locked.providerName} (${locked.bank?.name} - ${locked.bank?.accountNumber})`,
+          amount: locked.amount,
+          method: 'Bank Transfer',
+          status: 'Pending',
+          reference: locked.reference,
+        });
+
+        console.log(`[PayoutScheduler] ⏳ Queued payout ${locked.reference} is PROCESSING by Flutterwave.`);
+
+      } else {
+        // FAILED: Refund balance back to provider!
+        locked.status = 'FAILED';
+        locked.failureReason = flwTransfer.failureReason || 'Transfer failed at payment provider';
+        await locked.save();
+
+        if (locked.providerType === 'Vendor') {
+          await Vendor.findByIdAndUpdate(locked.providerId, {
+            $inc: { 'earnings.availableBalance': locked.amount }
+          });
+        } else if (locked.providerType === 'Driver') {
+          await Driver.findByIdAndUpdate(locked.providerId, {
+            $inc: { 'earnings.availableBalance': locked.amount }
+          });
+        }
+
+        await Transaction.create({
+          type: locked.providerType === 'Vendor' ? 'Vendor Payout' : 'Driver Payout',
+          from: 'Connecta Platform Wallet',
+          to: `${locked.providerName} (${locked.bank?.name} - ${locked.bank?.accountNumber})`,
+          amount: locked.amount,
+          method: 'Bank Transfer',
+          status: 'Failed',
+          reference: locked.reference,
+        });
+
+        try {
+          await Notification.create({
+            title: 'Payout Failed & Refunded ⚠️',
+            message: `Your payout of ₦${locked.amount.toLocaleString()} could not be delivered (${locked.failureReason}). Your funds were refunded to your available balance.`,
+            type: 'payout',
+            recipient: locked.providerType.toLowerCase(),
+            userId: locked.providerId,
+            read: false,
+          });
+        } catch (ne) { /* non-fatal */ }
+
+        console.warn(`[PayoutScheduler] ✕ Queued payout ${locked.reference} failed: ${locked.failureReason}. Balance refunded.`);
+      }
+    }
+  } catch (err) {
+    console.error('[PayoutScheduler] Error in processDueQueuedPayouts:', err.message);
+  } finally {
+    isQueuedPayoutRunning = false;
+  }
+};
+
+/**
  * Handle Flutterwave Webhook for transfer.completed
  */
 const handleFlutterwaveTransferWebhook = async (webhookPayload) => {
@@ -824,6 +1046,7 @@ const handleFlutterwaveTransferWebhook = async (webhookPayload) => {
         message: `Your payout of ₦${payout.amount.toLocaleString()} has been confirmed and delivered to your bank account. Ref: ${payout.reference}`,
         type: 'payout',
         recipient: payout.providerType.toLowerCase(),
+        userId: payout.providerId,
         read: false,
       });
     } catch (e) { /* non-fatal */ }
@@ -862,6 +1085,7 @@ const handleFlutterwaveTransferWebhook = async (webhookPayload) => {
         message: `Your payout of ₦${payout.amount.toLocaleString()} was ${status.toLowerCase()} by the bank (${reason}). Your balance was refunded back to your account.`,
         type: 'payout',
         recipient: payout.providerType.toLowerCase(),
+        userId: payout.providerId,
         read: false,
       });
     } catch (e) { /* non-fatal */ }
@@ -899,9 +1123,9 @@ const getPayoutScheduleStatus = async () => {
   return {
     timezone: 'Africa/Lagos',
     vendorPayout: {
-      cycle: '24_hours',
-      scheduleText: 'Every day at 6:00 PM WAT (24-Hour Daily Settlement)',
-      cronExpression: '0 18 * * *',
+      cycle: 'nightly',
+      scheduleText: 'Every night at 11:00 PM WAT (Nightly Settlement)',
+      cronExpression: '0 23 * * *',
       minThreshold: vendorThreshold,
       eligibleCount: eligibleVendors.length,
       pendingTotalAmount: pendingVendorsTotal,
@@ -909,7 +1133,7 @@ const getPayoutScheduleStatus = async () => {
     },
     riderPayout: {
       cycle: 'weekly',
-      scheduleText: 'Every Sunday at 11:59 PM WAT (7-day holding maturity rule)',
+      scheduleText: 'Every Sunday at 11:59 PM WAT (Weekly Settlement)',
       cronExpression: '59 23 * * 0',
       minThreshold: riderThreshold,
       eligibleCount: eligibleDrivers.length,
@@ -931,17 +1155,17 @@ const getPayoutScheduleStatus = async () => {
 const initPayoutScheduler = () => {
   console.log('[PayoutScheduler] Initializing automated payout cron jobs (Timezone: Africa/Lagos)...');
 
-  // 1. Vendor 24-Hour Payout: 18:00 (6:00 PM WAT) every day
+  // 1. Vendor Nightly Payout: 23:00 (11:00 PM WAT) every night
   if (vendorCronJob) vendorCronJob.stop();
   vendorCronJob = cron.schedule(
-    '0 18 * * *',
+    '0 23 * * *',
     async () => {
-      console.log('[PayoutScheduler] Cron triggered: Running Daily 24-Hour Vendor Payout (6:00 PM WAT)...');
-      await processDailyVendorPayouts({ isManual: false, initiatedBy: 'cron_24h_daily' });
+      console.log('[PayoutScheduler] Cron triggered: Running Nightly Vendor Payout (11:00 PM WAT)...');
+      await processNightlyVendorPayouts({ isManual: false, initiatedBy: 'cron_nightly' });
     },
     { scheduled: true, timezone: 'Africa/Lagos' }
   );
-  console.log('[PayoutScheduler] ✓ Daily 24-Hour Vendor Payout scheduled (18:00 / 6:00 PM WAT Daily)');
+  console.log('[PayoutScheduler] ✓ Nightly Vendor Payout scheduled (23:00 / 11:00 PM WAT Nightly)');
 
   // 2. Rider Weekly Payout: 23:59 WAT every Sunday
   if (driverCronJob) driverCronJob.stop();
@@ -966,6 +1190,21 @@ const initPayoutScheduler = () => {
     { scheduled: true, timezone: 'Africa/Lagos' }
   );
   console.log('[PayoutScheduler] ✓ Payout Reconciliation scheduled (Every 30 minutes)');
+
+  // 4. Queued Payout Landing Checker: Every minute
+  if (queuedTickerJob) queuedTickerJob.stop();
+  queuedTickerJob = cron.schedule(
+    '* * * * *',
+    async () => {
+      try {
+        await processDueQueuedPayouts();
+      } catch (tickerErr) {
+        console.error('[PayoutScheduler] Error in queued payout ticker:', tickerErr.message);
+      }
+    },
+    { scheduled: true, timezone: 'Africa/Lagos' }
+  );
+  console.log('[PayoutScheduler] ✓ Queued Payout Landing Checker scheduled (Every minute)');
 };
 
 module.exports = {
@@ -977,4 +1216,7 @@ module.exports = {
   handleFlutterwaveTransferWebhook,
   getPayoutScheduleStatus,
   initPayoutScheduler,
+  processDueQueuedPayouts,
+  getNextVendorPayoutLanding,
+  getNextDriverPayoutLanding,
 };

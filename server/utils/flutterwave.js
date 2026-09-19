@@ -9,9 +9,9 @@ let tokenExpiry = 0;
  * Otherwise, uses FLW_CLIENT_ID and FLW_CLIENT_SECRET to obtain an OAuth Bearer token.
  */
 const getFlutterwaveAuthHeader = async () => {
-  const secretKey = process.env.FLW_SECRET_KEY;
-  if (secretKey && secretKey.startsWith('FLWSECK')) {
-    return `Bearer ${secretKey}`;
+  const rawKey = (process.env.FLW_SECRET_KEY || '').trim().replace(/^["']|["']$/g, '');
+  if (rawKey && rawKey.length > 5) {
+    return rawKey.startsWith('Bearer ') ? rawKey : `Bearer ${rawKey}`;
   }
 
   const now = Date.now();
@@ -19,8 +19,8 @@ const getFlutterwaveAuthHeader = async () => {
     return `Bearer ${cachedToken}`;
   }
 
-  const clientId = process.env.FLW_CLIENT_ID;
-  const clientSecret = process.env.FLW_CLIENT_SECRET;
+  const clientId = (process.env.FLW_CLIENT_ID || '').trim().replace(/^["']|["']$/g, '');
+  const clientSecret = (process.env.FLW_CLIENT_SECRET || '').trim().replace(/^["']|["']$/g, '');
 
   if (clientId && clientSecret) {
     try {
@@ -31,7 +31,7 @@ const getFlutterwaveAuthHeader = async () => {
           client_secret: clientSecret,
           grant_type: 'client_credentials',
         }),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 10000 }
       );
 
       if (response.data && response.data.access_token) {
@@ -45,7 +45,7 @@ const getFlutterwaveAuthHeader = async () => {
     }
   }
 
-  return `Bearer ${secretKey || ''}`;
+  return `Bearer ${rawKey || ''}`;
 };
 
 const getFlutterwaveKeys = () => {

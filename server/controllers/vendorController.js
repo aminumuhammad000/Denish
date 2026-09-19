@@ -87,6 +87,30 @@ const getVendorDashboard = async (req, res) => {
       amount: dayTotals[day],
     }));
 
+    const Payout = require('../models/Payout');
+    const activeQueuedPayout = await Payout.findOne({
+      providerId: vendor._id,
+      status: 'QUEUED',
+      scheduledFor: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+
+    let queuedPayoutData = null;
+    if (activeQueuedPayout) {
+      const nowMs = Date.now();
+      const targetMs = new Date(activeQueuedPayout.scheduledFor).getTime();
+      const countdownSeconds = Math.max(0, Math.floor((targetMs - nowMs) / 1000));
+      queuedPayoutData = {
+        _id: activeQueuedPayout._id,
+        amount: activeQueuedPayout.amount,
+        bank: activeQueuedPayout.bank,
+        reference: activeQueuedPayout.reference,
+        status: activeQueuedPayout.status,
+        scheduledFor: activeQueuedPayout.scheduledFor.toISOString(),
+        estimatedLandingTime: activeQueuedPayout.estimatedLandingTime || 'Tonight at 11:00 PM WAT',
+        countdownSeconds,
+      };
+    }
+
     const customData = {
       ...vendor.toObject(),
       storeOpen: vendor.status === 'Approved',
@@ -97,11 +121,12 @@ const getVendorDashboard = async (req, res) => {
         avgOrders: vendor.earnings?.avgOrders ?? Math.round(avgOrderValue),
       },
       payoutSchedule: {
-        cycle: '24_hours',
-        time: '18:00 WAT',
-        frequencyText: 'Daily at 6:00 PM (24-Hour Settlement)',
-        description: 'Automated 24-hour daily settlement at 6:00 PM directly to your registered bank account.'
+        cycle: 'nightly',
+        time: '23:00 WAT',
+        frequencyText: 'Nightly at 11:00 PM (Nightly Settlement)',
+        description: 'Automated nightly settlement at 11:00 PM directly to your registered bank account.'
       },
+      activeQueuedPayout: queuedPayoutData,
       stats,
       todayRevenue: totalRevenue,
       delivered: deliveredCount,
@@ -231,22 +256,15 @@ const requestVendorPayout = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Vendor payout account details are missing or invalid' });
     }
 
-    const { resolveBankCode, verifyPayoutAccount, initiatePayoutTransfer } = require('../utils/payoutService');
+    const { resolveBankCode } = require('../utils/payoutService');
+    const { getNextVendorPayoutLanding } = require('../utils/payoutScheduler');
     const bankCode = resolveBankCode(bankName, vendor.payoutAccount?.bankCode);
+    const accountName = vendor.payoutAccount?.accountName || vendor.businessName || vendor.name;
 
-    // 1. Pre-transfer Bank Account Verification with Flutterwave
-    const verification = await verifyPayoutAccount({ accountNumber, bankCode });
-    if (!verification.valid) {
-      return res.status(400).json({
-        success: false,
-        error: `Bank account verification failed: ${verification.message}`
-      });
-    }
+    const { landingDate, estimatedLandingTime, countdownSeconds } = getNextVendorPayoutLanding();
+    const reference = `VND_QUEUE_${vendor._id}_${Date.now()}`;
 
-    const accountName = verification.accountName || vendor.payoutAccount?.accountName || vendor.businessName || vendor.name;
-    const reference = `VND_MAN_${vendor._id}_${Date.now()}`;
-
-    // 2. Atomically deduct available balance
+    // 1. Atomically deduct available balance
     const updatedVendor = await (require('../models/Vendor')).findOneAndUpdate(
       {
         _id: vendor._id,
@@ -262,7 +280,7 @@ const requestVendorPayout = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Available balance changed concurrently. Please try again.' });
     }
 
-    // 3. Create Payout entry in PENDING state
+    // 2. Create Payout entry in QUEUED state
     const Payout = require('../models/Payout');
     const payoutRecord = await Payout.create({
       providerType: 'Vendor',
@@ -277,122 +295,39 @@ const requestVendorPayout = async (req, res) => {
         accountName,
       },
       reference,
-      status: 'PENDING',
+      status: 'QUEUED',
       narration: `Connecta Vendor Payout - ${vendor.businessName || vendor.name}`,
-      cycle: 'manual',
+      cycle: 'nightly_vendor',
       initiatedBy: 'vendor_dashboard',
-      processedAt: new Date(),
+      scheduledFor: landingDate,
+      estimatedLandingTime,
     });
 
-    // 4. Initiate transfer with Flutterwave Transfer API
-    const flwTransfer = await initiatePayoutTransfer({
-      accountBank: bankCode,
-      accountNumber,
-      amount: payoutAmount,
-      narration: `Connecta Vendor Payout - ${vendor.businessName || vendor.name}`,
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        title: 'Payout Initiated ⏳',
+        message: `Payout of ₦${payoutAmount.toLocaleString()} to ${bankName} (${accountNumber}) initiated. Funds will land in your account ${estimatedLandingTime.toLowerCase()}. Ref: ${reference}`,
+        type: 'payout',
+        recipient: 'vendor',
+        userId: vendor._id,
+        read: false,
+      });
+    } catch (notifErr) { /* non-fatal */ }
+
+    return res.status(200).json({
+      success: true,
+      message: `₦${payoutAmount.toLocaleString()} payout initiated! Funds will land in your account ${estimatedLandingTime.toLowerCase()}.`,
+      status: 'QUEUED',
       reference,
-      recipientName: accountName,
-    });
-
-    payoutRecord.flwTransferId = flwTransfer.transferId || null;
-    payoutRecord.fee = flwTransfer.fee || 0;
-    payoutRecord.flwResponse = flwTransfer.raw || flwTransfer.rawError || null;
-
-    const Transaction = require('../models/Transaction');
-
-    if (flwTransfer.status === 'SUCCESSFUL') {
-      payoutRecord.status = 'SUCCESSFUL';
-      payoutRecord.completedAt = new Date();
-      await payoutRecord.save();
-
-      const transaction = await Transaction.create({
-        type: 'Vendor Payout',
-        from: 'Connecta Platform Wallet',
-        to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
-        amount: payoutAmount,
-        method: 'Bank Transfer',
-        status: 'Completed',
-        reference,
-      });
-
-      try {
-        const Notification = require('../models/Notification');
-        await Notification.create({
-          title: 'Payout Successful 🎉',
-          message: `Payout of ₦${payoutAmount.toLocaleString()} to ${bankName} (${accountNumber}) has been sent. Ref: ${reference}`,
-          type: 'payout',
-          recipient: 'vendor',
-          read: false,
-        });
-      } catch (notifErr) { /* non-fatal */ }
-
-      return res.status(200).json({
-        success: true,
-        message: `₦${payoutAmount.toLocaleString()} payout sent to ${bankName} (${accountNumber}).`,
-        reference,
-        status: 'SUCCESSFUL',
-        data: {
-          transaction,
-          availableBalance: updatedVendor.earnings.availableBalance,
-          payout: payoutRecord,
-        }
-      });
-
-    } else if (flwTransfer.status === 'PROCESSING') {
-      payoutRecord.status = 'PROCESSING';
-      if (flwTransfer.isUncertain) {
-        payoutRecord.failureReason = flwTransfer.failureReason;
+      data: {
+        payout: payoutRecord,
+        scheduledFor: landingDate.toISOString(),
+        countdownSeconds,
+        estimatedLandingTime,
+        availableBalance: updatedVendor.earnings.availableBalance,
       }
-      await payoutRecord.save();
-
-      const transaction = await Transaction.create({
-        type: 'Vendor Payout',
-        from: 'Connecta Platform Wallet',
-        to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
-        amount: payoutAmount,
-        method: 'Bank Transfer',
-        status: 'Pending',
-        reference,
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: `₦${payoutAmount.toLocaleString()} payout queued for processing. Reference: ${reference}`,
-        reference,
-        status: 'PROCESSING',
-        data: {
-          transaction,
-          availableBalance: updatedVendor.earnings.availableBalance,
-          payout: payoutRecord,
-        }
-      });
-
-    } else {
-      // Explicit failure - REFUND vendor balance immediately
-      payoutRecord.status = 'FAILED';
-      payoutRecord.failureReason = flwTransfer.failureReason || 'Flutterwave rejected transfer';
-      await payoutRecord.save();
-
-      await (require('../models/Vendor')).findByIdAndUpdate(vendor._id, {
-        $inc: { 'earnings.availableBalance': payoutAmount }
-      });
-
-      await Transaction.create({
-        type: 'Vendor Payout',
-        from: 'Connecta Platform Wallet',
-        to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
-        amount: payoutAmount,
-        method: 'Bank Transfer',
-        status: 'Failed',
-        reference,
-      });
-
-      return res.status(400).json({
-        success: false,
-        error: `Payout failed: ${flwTransfer.failureReason || 'Declined by bank'}. Your balance has been restored.`,
-        reference,
-      });
-    }
+    });
   } catch (error) {
     console.error('requestVendorPayout error:', error);
     res.status(500).json({ success: false, error: error.message });

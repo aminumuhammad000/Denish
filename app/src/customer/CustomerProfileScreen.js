@@ -113,7 +113,7 @@ const CustomerProfileScreen = ({ navigation }) => {
       });
 
       if (!flwRes.success || !flwRes.data?.link) {
-        throw new Error(flwRes.message || 'Could not initiate Flutterwave payment link');
+        throw new Error(flwRes.error || flwRes.message || 'Could not initiate Flutterwave payment link');
       }
 
       const checkoutUrl = flwRes.data.link;
@@ -152,7 +152,8 @@ const CustomerProfileScreen = ({ navigation }) => {
         // ONLY update walletBalance to the verified balance returned by backend
         setProfile(prev => ({
           ...prev,
-          walletBalance: fundRes.balance
+          walletBalance: fundRes.balance,
+          loyaltyPoints: typeof fundRes.loyaltyPoints === 'number' ? fundRes.loyaltyPoints : prev?.loyaltyPoints
         }));
         setWalletModalVisible(false);
         setFundAmount('');

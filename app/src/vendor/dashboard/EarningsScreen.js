@@ -7,6 +7,42 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { getVendorDashboardData, getVendorTransactions } from '../../services/api';
 
+const useCountdown = (targetDateStr) => {
+  const [timeLeft, setTimeLeft] = useState(() => {
+    if (!targetDateStr) return null;
+    const diff = new Date(targetDateStr).getTime() - Date.now();
+    return Math.max(0, diff);
+  });
+
+  useEffect(() => {
+    if (!targetDateStr) return;
+    const calculate = () => {
+      const diff = new Date(targetDateStr).getTime() - Date.now();
+      setTimeLeft(Math.max(0, diff));
+    };
+    calculate();
+    const interval = setInterval(calculate, 1000);
+    return () => clearInterval(interval);
+  }, [targetDateStr]);
+
+  if (timeLeft === null) return { hours: '00', minutes: '00', seconds: '00', days: 0, isFinished: true };
+
+  const totalSeconds = Math.floor(timeLeft / 1000);
+  const days = Math.floor(totalSeconds / (3600 * 24));
+  const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return {
+    timeLeft,
+    days,
+    hours: String(hours).padStart(2, '0'),
+    minutes: String(minutes).padStart(2, '0'),
+    seconds: String(seconds).padStart(2, '0'),
+    isFinished: timeLeft <= 0,
+  };
+};
+
 const EarningsScreen = ({ navigation }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -65,11 +101,14 @@ const EarningsScreen = ({ navigation }) => {
   const totalOrders = typeof data.earnings?.totalOrders === 'number' ? data.earnings.totalOrders : (data.earnings?.totalOrders ?? 0);
   const avgOrders = typeof data.earnings?.avgOrders === 'number' ? data.earnings.avgOrders : (data.earnings?.avgOrders ?? 0);
 
+  const activePayout = data?.activeQueuedPayout;
+  const countdown = useCountdown(activePayout?.scheduledFor);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color="#1a1a1a" />
         </TouchableOpacity>
         <View>
@@ -84,17 +123,70 @@ const EarningsScreen = ({ navigation }) => {
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available balance</Text>
           <Text style={styles.balanceAmount}>₦{availableBalance.toLocaleString()}</Text>
-          <Text style={styles.balanceMeta}>Min payout ₦5,000 | 24-hour settlement daily at 6:00 PM</Text>
+          <Text style={styles.balanceMeta}>Nightly settlement daily at 11:00 PM WAT</Text>
           <TouchableOpacity
             style={styles.payoutBtn}
             onPress={() => navigation.navigate('RequestPayout', {
               availableBalance,
               payoutAccount: data.payoutAccount,
+              activeQueuedPayout: data.activeQueuedPayout,
             })}
           >
-            <Text style={styles.payoutBtnText}>Request payout</Text>
+            <Text style={styles.payoutBtnText}>
+              {activePayout ? 'View Payout Timer' : 'Request payout'}
+            </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Live Active Queued Payout Banner */}
+        {activePayout && (
+          <TouchableOpacity
+            style={styles.activePayoutBanner}
+            activeOpacity={0.88}
+            onPress={() => navigation.navigate('RequestPayout', {
+              availableBalance,
+              payoutAccount: data.payoutAccount,
+              activeQueuedPayout: data.activeQueuedPayout,
+            })}
+          >
+            <View style={styles.activePayoutTop}>
+              <View style={styles.activePayoutTag}>
+                <Ionicons name="time" size={13} color="#FF8C00" />
+                <Text style={styles.activePayoutTagText}>Payout Initiated</Text>
+              </View>
+              <Text style={styles.activePayoutAmount}>
+                ₦{Number(activePayout.amount || 0).toLocaleString()}
+              </Text>
+            </View>
+
+            <View style={styles.countdownRow}>
+              <Text style={styles.countdownPrompt}>Landing in your account in:</Text>
+              <View style={styles.timerPills}>
+                <View style={styles.pillBox}>
+                  <Text style={styles.pillNumber}>{countdown.hours}</Text>
+                  <Text style={styles.pillLabel}>h</Text>
+                </View>
+                <Text style={styles.pillSep}>:</Text>
+                <View style={styles.pillBox}>
+                  <Text style={styles.pillNumber}>{countdown.minutes}</Text>
+                  <Text style={styles.pillLabel}>m</Text>
+                </View>
+                <Text style={styles.pillSep}>:</Text>
+                <View style={styles.pillBox}>
+                  <Text style={styles.pillNumber}>{countdown.seconds}</Text>
+                  <Text style={styles.pillLabel}>s</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.activePayoutFooter}>
+              <Text style={styles.activePayoutNotice} numberOfLines={1} ellipsizeMode="tail">
+                {activePayout.estimatedLandingTime || 'Tonight at 11:00 PM WAT'} • Tap to view countdown
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color="#FF8C00" />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Stat Cards */}
         <View style={styles.statsRow}>
@@ -275,6 +367,99 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   payoutBtnText: { color: '#FF8C00', fontSize: 13, fontWeight: '600' },
+
+  // Active Payout Banner with Live Timer
+  activePayoutBanner: {
+    backgroundColor: '#0F172A',
+    marginHorizontal: 14,
+    marginBottom: 14,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  activePayoutTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  activePayoutTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 140, 0, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  activePayoutTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FF8C00',
+  },
+  activePayoutAmount: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  countdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  countdownPrompt: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    fontWeight: '500',
+  },
+  timerPills: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pillBox: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    backgroundColor: 'rgba(255, 140, 0, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  pillNumber: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FF8C00',
+  },
+  pillLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FF8C00',
+    marginLeft: 1,
+  },
+  pillSep: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FF8C00',
+    marginHorizontal: 3,
+  },
+  activePayoutFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  activePayoutNotice: {
+    fontSize: 11,
+    color: '#94A3B8',
+    flex: 1,
+  },
 
   // Stat Row
   statsRow: { flexDirection: 'row', paddingHorizontal: 14, gap: 10, marginBottom: 14 },

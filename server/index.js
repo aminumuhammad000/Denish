@@ -10,6 +10,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const driverRoutes = require('./routes/driverRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const { initPayoutScheduler } = require('./utils/payoutScheduler');
+const { flutterwaveWebhook } = require('./controllers/customerController');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,6 +48,12 @@ app.use('/api/customer', customerRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/driver', driverRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Direct top-level webhook endpoints for Flutterwave
+app.post('/api/webhook', flutterwaveWebhook);
+app.post('/api/flw-webhook', flutterwaveWebhook);
+app.post('/webhook', flutterwaveWebhook);
+app.post('/flw-webhook', flutterwaveWebhook);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running normally' });

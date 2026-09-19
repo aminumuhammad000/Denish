@@ -553,6 +553,108 @@ var require_Order = __commonJS({
   }
 });
 
+// models/Payout.js
+var require_Payout = __commonJS({
+  "models/Payout.js"(exports2, module2) {
+    var mongoose = require("mongoose");
+    var payoutSchema = new mongoose.Schema({
+      providerType: {
+        type: String,
+        enum: ["Vendor", "Driver"],
+        required: true,
+        index: true
+      },
+      providerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        refPath: "providerType",
+        index: true
+      },
+      providerName: {
+        type: String,
+        required: true
+      },
+      amount: {
+        type: Number,
+        required: true,
+        min: [1, "Payout amount must be greater than zero"]
+      },
+      currency: {
+        type: String,
+        default: "NGN"
+      },
+      bank: {
+        name: { type: String, default: "" },
+        code: { type: String, default: "" },
+        accountNumber: { type: String, default: "" },
+        accountName: { type: String, default: "" }
+      },
+      reference: {
+        type: String,
+        required: true,
+        unique: true,
+        index: true
+      },
+      flwTransferId: {
+        type: Number,
+        index: true,
+        sparse: true
+      },
+      status: {
+        type: String,
+        enum: ["QUEUED", "PENDING", "PROCESSING", "SUCCESSFUL", "FAILED", "REVERSED"],
+        default: "PENDING",
+        index: true
+      },
+      scheduledFor: {
+        type: Date,
+        index: true
+      },
+      estimatedLandingTime: {
+        type: String,
+        default: null
+      },
+      narration: {
+        type: String,
+        default: "Connecta Payout"
+      },
+      fee: {
+        type: Number,
+        default: 0
+      },
+      flwResponse: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null
+      },
+      failureReason: {
+        type: String,
+        default: null
+      },
+      retryCount: {
+        type: Number,
+        default: 0
+      },
+      cycle: {
+        type: String,
+        enum: ["daily_vendor", "24h_vendor", "nightly_vendor", "weekly_driver", "manual"],
+        required: true,
+        index: true
+      },
+      initiatedBy: {
+        type: String,
+        default: "system"
+      },
+      processedAt: {
+        type: Date
+      },
+      completedAt: {
+        type: Date
+      }
+    }, { timestamps: true });
+    module2.exports = mongoose.model("Payout", payoutSchema);
+  }
+});
+
 // config/email.js
 var require_email = __commonJS({
   "config/email.js"(exports2, module2) {
@@ -916,16 +1018,16 @@ var require_flutterwave = __commonJS({
     var cachedToken = null;
     var tokenExpiry = 0;
     var getFlutterwaveAuthHeader = async () => {
-      const secretKey = process.env.FLW_SECRET_KEY;
-      if (secretKey && secretKey.startsWith("FLWSECK")) {
-        return `Bearer ${secretKey}`;
+      const rawKey = (process.env.FLW_SECRET_KEY || "").trim().replace(/^["']|["']$/g, "");
+      if (rawKey && rawKey.length > 5) {
+        return rawKey.startsWith("Bearer ") ? rawKey : `Bearer ${rawKey}`;
       }
       const now = Date.now();
       if (cachedToken && tokenExpiry > now + 6e4) {
         return `Bearer ${cachedToken}`;
       }
-      const clientId = process.env.FLW_CLIENT_ID;
-      const clientSecret = process.env.FLW_CLIENT_SECRET;
+      const clientId = (process.env.FLW_CLIENT_ID || "").trim().replace(/^["']|["']$/g, "");
+      const clientSecret = (process.env.FLW_CLIENT_SECRET || "").trim().replace(/^["']|["']$/g, "");
       if (clientId && clientSecret) {
         try {
           const response = await axios.post(
@@ -935,7 +1037,7 @@ var require_flutterwave = __commonJS({
               client_secret: clientSecret,
               grant_type: "client_credentials"
             }),
-            { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+            { headers: { "Content-Type": "application/x-www-form-urlencoded" }, timeout: 1e4 }
           );
           if (response.data && response.data.access_token) {
             cachedToken = response.data.access_token;
@@ -947,7 +1049,7 @@ var require_flutterwave = __commonJS({
           console.warn("Flutterwave OAuth token error:", err.response?.data || err.message);
         }
       }
-      return `Bearer ${secretKey || ""}`;
+      return `Bearer ${rawKey || ""}`;
     };
     var getFlutterwaveKeys = () => {
       return {
@@ -1234,97 +1336,73 @@ var require_payoutService = __commonJS({
   }
 });
 
-// models/Payout.js
-var require_Payout = __commonJS({
-  "models/Payout.js"(exports2, module2) {
+// models/Driver.js
+var require_Driver = __commonJS({
+  "models/Driver.js"(exports2, module2) {
     var mongoose = require("mongoose");
-    var payoutSchema = new mongoose.Schema({
-      providerType: {
+    var driverSchema = new mongoose.Schema({
+      name: { type: String, required: true },
+      email: { type: String, required: true, unique: true },
+      phone: { type: String, required: true, unique: true },
+      password: { type: String, required: true },
+      profilePic: { type: String, default: null },
+      vehicleType: {
         type: String,
-        enum: ["Vendor", "Driver"],
-        required: true,
-        index: true
+        enum: ["Bike", "Bicycle", "Car", "Motorcycle"],
+        default: "Motorcycle"
       },
-      providerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        refPath: "providerType",
-        index: true
-      },
-      providerName: {
-        type: String,
-        required: true
-      },
-      amount: {
-        type: Number,
-        required: true,
-        min: [1, "Payout amount must be greater than zero"]
-      },
-      currency: {
-        type: String,
-        default: "NGN"
+      vehicle: {
+        type: { type: String, default: "" },
+        make: { type: String, default: "" },
+        plate: { type: String, default: "" },
+        color: { type: String, default: "" }
       },
       bank: {
         name: { type: String, default: "" },
-        code: { type: String, default: "" },
-        accountNumber: { type: String, default: "" },
-        accountName: { type: String, default: "" }
+        bankCode: { type: String, default: "" },
+        accountName: { type: String, default: "" },
+        accountNumber: { type: String, default: "" }
       },
-      reference: {
-        type: String,
-        required: true,
-        unique: true,
-        index: true
-      },
-      flwTransferId: {
-        type: Number,
-        index: true,
-        sparse: true
+      documents: {
+        nationalId: { type: String, default: null },
+        vehiclePhoto: { type: String, default: null },
+        license: { type: String, default: null }
       },
       status: {
         type: String,
-        enum: ["PENDING", "PROCESSING", "SUCCESSFUL", "FAILED", "REVERSED"],
-        default: "PENDING",
-        index: true
+        enum: ["Pending", "Active", "Suspended"],
+        default: "Pending"
       },
-      narration: {
-        type: String,
-        default: "Connecta Payout"
+      isVerified: {
+        type: Boolean,
+        default: false
       },
-      fee: {
-        type: Number,
-        default: 0
+      isWarned: {
+        type: Boolean,
+        default: false
       },
-      flwResponse: {
-        type: mongoose.Schema.Types.Mixed,
-        default: null
+      isSuspended: {
+        type: Boolean,
+        default: false
       },
-      failureReason: {
-        type: String,
-        default: null
+      earnings: {
+        totalEarned: { type: Number, default: 0 },
+        availableBalance: { type: Number, default: 0 },
+        pendingBalance: { type: Number, default: 0 },
+        totalTrips: { type: Number, default: 0 },
+        lastPayoutAt: { type: Date },
+        unpaidEarnings: [{
+          amount: { type: Number, required: true },
+          orderId: { type: String },
+          earnedAt: { type: Date, default: Date.now },
+          eligibleAt: { type: Date },
+          status: { type: String, enum: ["pending", "eligible", "paid"], default: "pending" }
+        }]
       },
-      retryCount: {
-        type: Number,
-        default: 0
-      },
-      cycle: {
-        type: String,
-        enum: ["daily_vendor", "24h_vendor", "nightly_vendor", "weekly_driver", "manual"],
-        required: true,
-        index: true
-      },
-      initiatedBy: {
-        type: String,
-        default: "system"
-      },
-      processedAt: {
-        type: Date
-      },
-      completedAt: {
-        type: Date
-      }
+      resetPasswordOTP: String,
+      resetPasswordExpires: Date
     }, { timestamps: true });
-    module2.exports = mongoose.model("Payout", payoutSchema);
+    module2.exports = mongoose.model("Driver", driverSchema);
   }
 });
 
@@ -1392,12 +1470,1073 @@ var require_Notification = __commonJS({
         enum: ["admin", "driver", "vendor", "customer", "all"],
         default: "admin"
       },
+      userId: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+        index: true
+      },
       read: {
         type: Boolean,
         default: false
       }
     }, { timestamps: true });
     module2.exports = mongoose.model("Notification", NotificationSchema);
+  }
+});
+
+// models/Settings.js
+var require_Settings = __commonJS({
+  "models/Settings.js"(exports2, module2) {
+    var mongoose = require("mongoose");
+    var settingsSchema = new mongoose.Schema({
+      profile: {
+        fullName: { type: String, default: "Denish Admin" },
+        email: { type: String, default: "denishadmin@gmail.com" },
+        phone: { type: String, default: "+234 813 048 5734" }
+      },
+      platform: {
+        platformName: { type: String, default: "Denish" },
+        currency: { type: String, default: "NGN" },
+        deliveryModel: { type: String, enum: ["flat", "distance"], default: "flat" },
+        baseFee: { type: String, default: "500" },
+        commission: { type: String, default: "15" },
+        deliveryFeeCommission: { type: String, default: "5" },
+        autoCancelMin: { type: Number, default: 60 },
+        deliveryDeadlineMin: { type: Number, default: 40 }
+      },
+      notifications: {
+        vendorEmails: { type: Boolean, default: true },
+        disputeAlerts: { type: Boolean, default: true },
+        smsAlerts: { type: Boolean, default: false },
+        notificationEmail: { type: String, default: "denishadmin@gmail.com" }
+      },
+      payments: {
+        gateway: { type: String, default: "Flutterwave" },
+        vendorPayoutCycle: { type: String, default: "nightly" },
+        // nightly (daily at 11:00 PM WAT)
+        vendorPayoutTime: { type: String, default: "23:00" },
+        // 11:00 PM WAT
+        riderPayoutCycle: { type: String, default: "weekly" },
+        // weekly
+        riderPayoutDay: { type: String, default: "Sunday" },
+        // Every Sunday
+        riderPayoutTime: { type: String, default: "23:59" },
+        // 11:59 PM WAT
+        vendorMinThreshold: { type: String, default: "5000" },
+        // ₦5,000
+        riderMinThreshold: { type: String, default: "1000" },
+        // ₦1,000
+        autoPayoutEnabled: { type: Boolean, default: true },
+        payoutCycle: { type: String, default: "24_hours" },
+        // legacy fallback
+        minThreshold: { type: String, default: "5000" }
+        // legacy fallback
+      },
+      security: {
+        twoFactor: { type: Boolean, default: true },
+        sessions: [{
+          id: { type: String, default: "" },
+          device: { type: String, default: "" },
+          browser: { type: String, default: "" },
+          location: { type: String, default: "" },
+          ip: { type: String, default: "" },
+          lastActive: { type: String, default: "" },
+          current: { type: Boolean, default: false }
+        }]
+      },
+      system: {
+        maintenanceMode: { type: Boolean, default: false }
+      }
+    }, { timestamps: true });
+    module2.exports = mongoose.model("Settings", settingsSchema);
+  }
+});
+
+// utils/payoutScheduler.js
+var require_payoutScheduler = __commonJS({
+  "utils/payoutScheduler.js"(exports2, module2) {
+    var cron = require("node-cron");
+    var Vendor = require_Vendor();
+    var Driver = require_Driver();
+    var Payout = require_Payout();
+    var Transaction = require_Transaction();
+    var Notification = require_Notification();
+    var Settings = require_Settings();
+    var {
+      resolveBankCode,
+      verifyPayoutAccount,
+      initiatePayoutTransfer,
+      checkTransferStatus
+    } = require_payoutService();
+    var isVendorPayoutRunning = false;
+    var isDriverPayoutRunning = false;
+    var isReconciliationRunning = false;
+    var isQueuedPayoutRunning = false;
+    var lastVendorRun = null;
+    var lastDriverRun = null;
+    var lastReconcileRun = null;
+    var vendorCronJob = null;
+    var driverCronJob = null;
+    var reconcileCronJob = null;
+    var queuedTickerJob = null;
+    var releaseMaturedDriverEarnings = async () => {
+      try {
+        const now = /* @__PURE__ */ new Date();
+        const drivers = await Driver.find({
+          "earnings.unpaidEarnings": { $elemMatch: { status: "pending", eligibleAt: { $lte: now } } }
+        });
+        let totalMaturedCount = 0;
+        let totalMaturedAmount = 0;
+        for (const driver of drivers) {
+          if (!driver.earnings?.unpaidEarnings || !Array.isArray(driver.earnings.unpaidEarnings)) continue;
+          let maturedForDriver = 0;
+          for (const entry of driver.earnings.unpaidEarnings) {
+            if (entry.status === "pending" && entry.eligibleAt && entry.eligibleAt <= now) {
+              entry.status = "eligible";
+              maturedForDriver += Number(entry.amount || 0);
+              totalMaturedCount++;
+            }
+          }
+          if (maturedForDriver > 0) {
+            driver.earnings.availableBalance = (driver.earnings.availableBalance || 0) + maturedForDriver;
+            driver.earnings.pendingBalance = Math.max(0, (driver.earnings.pendingBalance || 0) - maturedForDriver);
+            driver.markModified("earnings");
+            await driver.save();
+            totalMaturedAmount += maturedForDriver;
+          }
+        }
+        if (totalMaturedCount > 0) {
+          console.log(`[PayoutScheduler] Released \u20A6${totalMaturedAmount.toLocaleString()} across ${totalMaturedCount} matured driver delivery earnings (>= 7 days).`);
+        }
+      } catch (err) {
+        console.error("[PayoutScheduler] releaseMaturedDriverEarnings error:", err.message);
+      }
+    };
+    var processDailyVendorPayouts = async ({ isManual = false, initiatedBy = "system" } = {}) => {
+      if (isVendorPayoutRunning) {
+        console.warn("[PayoutScheduler] Vendor payout is already running. Skipping concurrent trigger.");
+        return { success: false, message: "Vendor payout job is already in progress" };
+      }
+      isVendorPayoutRunning = true;
+      const startTime = /* @__PURE__ */ new Date();
+      const dateKey = startTime.toISOString().slice(0, 10).replace(/-/g, "");
+      console.log(`[PayoutScheduler] Starting Daily 24-Hour Vendor Payout (Date: ${dateKey}, Type: ${isManual ? "MANUAL: " + initiatedBy : "SCHEDULED"})...`);
+      try {
+        await processDueQueuedPayouts();
+        const settings = await Settings.findOne();
+        const minThreshold = Number(settings?.payments?.vendorMinThreshold || 5e3);
+        const eligibleVendors = await Vendor.find({
+          status: { $in: ["Approved", "approved", "Active", "active"] },
+          "earnings.availableBalance": { $gte: minThreshold }
+        });
+        console.log(`[PayoutScheduler] Found ${eligibleVendors.length} vendors with availableBalance >= \u20A6${minThreshold.toLocaleString()}`);
+        const results = [];
+        let totalPaidOut = 0;
+        for (const vendor of eligibleVendors) {
+          const balance = Number(vendor.earnings?.availableBalance || 0);
+          if (balance < minThreshold) continue;
+          const vendorName = vendor.businessName || vendor.name || "Vendor";
+          const reference = `VND_NIGHT_${vendor._id.toString()}_${dateKey}`;
+          const existingPayout = await Payout.findOne({
+            $or: [
+              { reference },
+              { reference: `VND_24H_${vendor._id.toString()}_${dateKey}` }
+            ]
+          });
+          if (existingPayout && ["SUCCESSFUL", "PROCESSING"].includes(existingPayout.status)) {
+            console.log(`[PayoutScheduler] Payout ${reference} already exists with status ${existingPayout.status}. Skipping.`);
+            results.push({
+              vendorId: vendor._id,
+              vendorName,
+              amount: balance,
+              status: `Skipped - Already ${existingPayout.status}`,
+              reference,
+              success: existingPayout.status === "SUCCESSFUL"
+            });
+            continue;
+          }
+          const activePending = await Payout.findOne({
+            providerId: vendor._id,
+            status: "PROCESSING"
+          });
+          if (activePending) {
+            console.warn(`[PayoutScheduler] Vendor ${vendorName} has an ongoing PROCESSING payout (${activePending.reference}). Skipping.`);
+            results.push({
+              vendorId: vendor._id,
+              vendorName,
+              amount: balance,
+              status: "Skipped - Active Payout In Progress",
+              reference: activePending.reference,
+              success: false
+            });
+            continue;
+          }
+          const accountNumber = vendor.payoutAccount?.accountNumber;
+          const bankName = vendor.payoutAccount?.bank || "Access Bank";
+          const bankCode = resolveBankCode(bankName, vendor.payoutAccount?.bankCode);
+          if (!accountNumber || String(accountNumber).trim().length < 10) {
+            console.warn(`[PayoutScheduler] Vendor ${vendorName} has invalid account number (${accountNumber}). Skipping.`);
+            results.push({
+              vendorId: vendor._id,
+              vendorName,
+              amount: balance,
+              status: "Failed - Invalid Account Number",
+              success: false
+            });
+            continue;
+          }
+          const verification = await verifyPayoutAccount({ accountNumber, bankCode });
+          if (!verification.valid) {
+            console.warn(`[PayoutScheduler] Bank account verification failed for ${vendorName}: ${verification.message}`);
+            results.push({
+              vendorId: vendor._id,
+              vendorName,
+              amount: balance,
+              status: `Failed - Bank Verification: ${verification.message}`,
+              success: false
+            });
+            continue;
+          }
+          const accountName = verification.accountName || vendor.payoutAccount?.accountName || vendorName;
+          const updatedVendor = await Vendor.findOneAndUpdate(
+            {
+              _id: vendor._id,
+              "earnings.availableBalance": { $gte: balance }
+            },
+            {
+              $inc: { "earnings.availableBalance": -balance }
+            },
+            { new: true }
+          );
+          if (!updatedVendor) {
+            console.warn(`[PayoutScheduler] Vendor ${vendorName} balance changed concurrently. Skipping.`);
+            continue;
+          }
+          let payoutRecord = await Payout.create({
+            providerType: "Vendor",
+            providerId: vendor._id,
+            providerName: vendorName,
+            amount: balance,
+            currency: "NGN",
+            bank: {
+              name: bankName,
+              code: bankCode,
+              accountNumber,
+              accountName
+            },
+            reference,
+            status: "PENDING",
+            narration: `Denish Nightly Vendor Payout - ${vendorName}`,
+            cycle: "nightly_vendor",
+            initiatedBy,
+            processedAt: /* @__PURE__ */ new Date()
+          });
+          const transferResult = await initiatePayoutTransfer({
+            accountBank: bankCode,
+            accountNumber,
+            amount: balance,
+            narration: `Denish Payout - ${vendorName}`,
+            reference,
+            recipientName: accountName
+          });
+          payoutRecord.flwTransferId = transferResult.transferId || null;
+          payoutRecord.fee = transferResult.fee || 0;
+          payoutRecord.flwResponse = transferResult.raw || transferResult.rawError || null;
+          if (transferResult.status === "SUCCESSFUL") {
+            payoutRecord.status = "SUCCESSFUL";
+            payoutRecord.completedAt = /* @__PURE__ */ new Date();
+            await payoutRecord.save();
+            await Transaction.create({
+              type: "Vendor Payout",
+              from: "Denish Platform Wallet",
+              to: `${vendorName} (${bankName} - ${accountNumber})`,
+              amount: balance,
+              method: "Bank Transfer",
+              status: "Completed",
+              reference
+            });
+            try {
+              await Notification.create({
+                title: "Nightly Payout Successful \u{1F319}",
+                message: `Your nightly payout of \u20A6${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
+                type: "payout",
+                recipient: "vendor",
+                userId: vendor._id,
+                read: false
+              });
+            } catch (nErr) {
+            }
+            totalPaidOut += balance;
+            results.push({
+              vendorId: vendor._id,
+              vendorName,
+              amount: balance,
+              reference,
+              status: "SUCCESSFUL",
+              success: true
+            });
+          } else if (transferResult.status === "PROCESSING") {
+            payoutRecord.status = "PROCESSING";
+            if (transferResult.isUncertain) {
+              payoutRecord.failureReason = transferResult.failureReason;
+            }
+            await payoutRecord.save();
+            await Transaction.create({
+              type: "Vendor Payout",
+              from: "Connecta Platform Wallet",
+              to: `${vendorName} (${bankName} - ${accountNumber})`,
+              amount: balance,
+              method: "Bank Transfer",
+              status: "Pending",
+              reference
+            });
+            results.push({
+              vendorId: vendor._id,
+              vendorName,
+              amount: balance,
+              reference,
+              status: "PROCESSING (Queued on Flutterwave)",
+              success: true
+            });
+          } else {
+            console.warn(`[PayoutScheduler] Flutterwave transfer failed for ${vendorName}: ${transferResult.failureReason}. Refunding balance.`);
+            payoutRecord.status = "FAILED";
+            payoutRecord.failureReason = transferResult.failureReason || "Flutterwave rejected transfer";
+            await payoutRecord.save();
+            await Vendor.findByIdAndUpdate(vendor._id, {
+              $inc: { "earnings.availableBalance": balance }
+            });
+            await Transaction.create({
+              type: "Vendor Payout",
+              from: "Connecta Platform Wallet",
+              to: `${vendorName} (${bankName} - ${accountNumber})`,
+              amount: balance,
+              method: "Bank Transfer",
+              status: "Failed",
+              reference
+            });
+            try {
+              await Notification.create({
+                title: "Payout Failed & Refunded \u26A0\uFE0F",
+                message: `Your payout of \u20A6${balance.toLocaleString()} could not be processed (${transferResult.failureReason || "Transfer declined"}). Your balance of \u20A6${balance.toLocaleString()} was restored.`,
+                type: "payout",
+                recipient: "vendor",
+                read: false
+              });
+            } catch (nErr) {
+            }
+            results.push({
+              vendorId: vendor._id,
+              vendorName,
+              amount: balance,
+              reference,
+              status: "FAILED (Balance Refunded)",
+              failureReason: transferResult.failureReason,
+              success: false
+            });
+          }
+        }
+        lastVendorRun = {
+          timestamp: startTime,
+          durationMs: Date.now() - startTime.getTime(),
+          eligibleCount: eligibleVendors.length,
+          processedCount: results.filter((r) => r.success).length,
+          totalPaidOut,
+          isManual,
+          initiatedBy,
+          results
+        };
+        console.log(`[PayoutScheduler] Daily 24-Hour Vendor Payout complete: ${lastVendorRun.processedCount} processed, \u20A6${totalPaidOut.toLocaleString()} sent.`);
+        return {
+          success: true,
+          cycle: "daily_vendor",
+          dateKey,
+          ...lastVendorRun
+        };
+      } catch (err) {
+        console.error("[PayoutScheduler] Fatal error in processDailyVendorPayouts:", err);
+        lastVendorRun = {
+          timestamp: startTime,
+          durationMs: Date.now() - startTime.getTime(),
+          error: err.message,
+          success: false,
+          isManual,
+          initiatedBy
+        };
+        return { success: false, cycle: "daily_vendor", error: err.message };
+      } finally {
+        isVendorPayoutRunning = false;
+      }
+    };
+    var processNightlyVendorPayouts = processDailyVendorPayouts;
+    var processWeeklyRiderPayouts = async ({ isManual = false, initiatedBy = "system" } = {}) => {
+      if (isDriverPayoutRunning) {
+        console.warn("[PayoutScheduler] Driver payout is already running. Skipping concurrent trigger.");
+        return { success: false, message: "Driver payout job is already in progress" };
+      }
+      isDriverPayoutRunning = true;
+      const startTime = /* @__PURE__ */ new Date();
+      const d = new Date(Date.UTC(startTime.getFullYear(), startTime.getMonth(), startTime.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil(((d - yearStart) / 864e5 + 1) / 7);
+      const weekKey = `${d.getUTCFullYear()}W${String(weekNo).padStart(2, "0")}`;
+      console.log(`[PayoutScheduler] Starting Weekly Driver Payout (Week: ${weekKey}, Type: ${isManual ? "MANUAL: " + initiatedBy : "SCHEDULED"})...`);
+      try {
+        await releaseMaturedDriverEarnings();
+        await processDueQueuedPayouts();
+        const settings = await Settings.findOne();
+        const minThreshold = Number(settings?.payments?.riderMinThreshold || 1e3);
+        const eligibleDrivers = await Driver.find({
+          status: { $in: ["Active", "active"] },
+          "earnings.availableBalance": { $gte: minThreshold }
+        });
+        console.log(`[PayoutScheduler] Found ${eligibleDrivers.length} drivers with matured availableBalance >= \u20A6${minThreshold.toLocaleString()}`);
+        const results = [];
+        let totalPaidOut = 0;
+        for (const driver of eligibleDrivers) {
+          const balance = Number(driver.earnings?.availableBalance || 0);
+          if (balance < minThreshold) continue;
+          const driverName = driver.name || "Driver";
+          const reference = `DRV_WEEK_${driver._id.toString()}_${weekKey}`;
+          const existingPayout = await Payout.findOne({ reference });
+          if (existingPayout && ["SUCCESSFUL", "PROCESSING"].includes(existingPayout.status)) {
+            console.log(`[PayoutScheduler] Driver payout ${reference} already exists (${existingPayout.status}). Skipping.`);
+            results.push({
+              driverId: driver._id,
+              driverName,
+              amount: balance,
+              status: `Skipped - Already ${existingPayout.status}`,
+              reference,
+              success: existingPayout.status === "SUCCESSFUL"
+            });
+            continue;
+          }
+          const activePending = await Payout.findOne({
+            providerId: driver._id,
+            status: "PROCESSING"
+          });
+          if (activePending) {
+            console.warn(`[PayoutScheduler] Driver ${driverName} has ongoing PROCESSING payout (${activePending.reference}). Skipping.`);
+            results.push({
+              driverId: driver._id,
+              driverName,
+              amount: balance,
+              status: "Skipped - Active Payout In Progress",
+              reference: activePending.reference,
+              success: false
+            });
+            continue;
+          }
+          const accountNumber = driver.bank?.accountNumber;
+          const bankName = driver.bank?.name || "GTBank";
+          const bankCode = resolveBankCode(bankName, driver.bank?.bankCode || driver.bank?.code);
+          if (!accountNumber || String(accountNumber).trim().length < 10) {
+            console.warn(`[PayoutScheduler] Driver ${driverName} has invalid account number (${accountNumber}). Skipping.`);
+            results.push({
+              driverId: driver._id,
+              driverName,
+              amount: balance,
+              status: "Failed - Invalid Account Number",
+              success: false
+            });
+            continue;
+          }
+          const verification = await verifyPayoutAccount({ accountNumber, bankCode });
+          if (!verification.valid) {
+            console.warn(`[PayoutScheduler] Bank verification failed for ${driverName}: ${verification.message}`);
+            results.push({
+              driverId: driver._id,
+              driverName,
+              amount: balance,
+              status: `Failed - Bank Verification: ${verification.message}`,
+              success: false
+            });
+            continue;
+          }
+          const accountName = verification.accountName || driver.bank?.accountName || driverName;
+          const updatedDriver = await Driver.findOneAndUpdate(
+            {
+              _id: driver._id,
+              "earnings.availableBalance": { $gte: balance }
+            },
+            {
+              $inc: { "earnings.availableBalance": -balance },
+              $set: { "earnings.lastPayoutAt": /* @__PURE__ */ new Date() }
+            },
+            { new: true }
+          );
+          if (!updatedDriver) {
+            console.warn(`[PayoutScheduler] Driver ${driverName} balance changed concurrently. Skipping.`);
+            continue;
+          }
+          let payoutRecord = await Payout.create({
+            providerType: "Driver",
+            providerId: driver._id,
+            providerName: driverName,
+            amount: balance,
+            currency: "NGN",
+            bank: {
+              name: bankName,
+              code: bankCode,
+              accountNumber,
+              accountName
+            },
+            reference,
+            status: "PENDING",
+            narration: `Connecta Weekly Driver Payout - ${driverName}`,
+            cycle: "weekly_driver",
+            initiatedBy,
+            processedAt: /* @__PURE__ */ new Date()
+          });
+          const transferResult = await initiatePayoutTransfer({
+            accountBank: bankCode,
+            accountNumber,
+            amount: balance,
+            narration: `Connecta Rider Payout - ${driverName}`,
+            reference,
+            recipientName: accountName
+          });
+          payoutRecord.flwTransferId = transferResult.transferId || null;
+          payoutRecord.fee = transferResult.fee || 0;
+          payoutRecord.flwResponse = transferResult.raw || transferResult.rawError || null;
+          if (transferResult.status === "SUCCESSFUL") {
+            payoutRecord.status = "SUCCESSFUL";
+            payoutRecord.completedAt = /* @__PURE__ */ new Date();
+            await payoutRecord.save();
+            await Driver.updateOne(
+              { _id: driver._id },
+              { $set: { "earnings.unpaidEarnings.$[elem].status": "paid" } },
+              { arrayFilters: [{ "elem.status": "eligible" }] }
+            );
+            await Transaction.create({
+              type: "Driver Payout",
+              from: "Denish Platform Wallet",
+              to: `${driverName} (${bankName} - ${accountNumber})`,
+              amount: balance,
+              method: "Bank Transfer",
+              status: "Completed",
+              reference
+            });
+            try {
+              await Notification.create({
+                title: "Weekly Payout Successful \u{1F389}",
+                message: `Your weekly payout of \u20A6${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
+                type: "payout",
+                recipient: "driver",
+                userId: driver._id,
+                read: false
+              });
+            } catch (nErr) {
+            }
+            totalPaidOut += balance;
+            results.push({
+              driverId: driver._id,
+              driverName,
+              amount: balance,
+              reference,
+              status: "SUCCESSFUL",
+              success: true
+            });
+          } else if (transferResult.status === "PROCESSING") {
+            payoutRecord.status = "PROCESSING";
+            if (transferResult.isUncertain) {
+              payoutRecord.failureReason = transferResult.failureReason;
+            }
+            await payoutRecord.save();
+            await Transaction.create({
+              type: "Driver Payout",
+              from: "Connecta Platform Wallet",
+              to: `${driverName} (${bankName} - ${accountNumber})`,
+              amount: balance,
+              method: "Bank Transfer",
+              status: "Pending",
+              reference
+            });
+            results.push({
+              driverId: driver._id,
+              driverName,
+              amount: balance,
+              reference,
+              status: "PROCESSING (Queued on Flutterwave)",
+              success: true
+            });
+          } else {
+            console.warn(`[PayoutScheduler] Driver payout failed for ${driverName}: ${transferResult.failureReason}. Refunding balance.`);
+            payoutRecord.status = "FAILED";
+            payoutRecord.failureReason = transferResult.failureReason || "Flutterwave rejected transfer";
+            await payoutRecord.save();
+            await Driver.findByIdAndUpdate(driver._id, {
+              $inc: { "earnings.availableBalance": balance }
+            });
+            await Transaction.create({
+              type: "Driver Payout",
+              from: "Connecta Platform Wallet",
+              to: `${driverName} (${bankName} - ${accountNumber})`,
+              amount: balance,
+              method: "Bank Transfer",
+              status: "Failed",
+              reference
+            });
+            try {
+              await Notification.create({
+                title: "Payout Failed & Balance Restored \u26A0\uFE0F",
+                message: `Your weekly payout of \u20A6${balance.toLocaleString()} could not be processed (${transferResult.failureReason}). Your balance was restored.`,
+                type: "payout",
+                recipient: "driver",
+                read: false
+              });
+            } catch (nErr) {
+            }
+            results.push({
+              driverId: driver._id,
+              driverName,
+              amount: balance,
+              reference,
+              status: "FAILED (Balance Refunded)",
+              failureReason: transferResult.failureReason,
+              success: false
+            });
+          }
+        }
+        lastDriverRun = {
+          timestamp: startTime,
+          durationMs: Date.now() - startTime.getTime(),
+          eligibleCount: eligibleDrivers.length,
+          processedCount: results.filter((r) => r.success).length,
+          totalPaidOut,
+          isManual,
+          initiatedBy,
+          results
+        };
+        console.log(`[PayoutScheduler] Weekly Driver Payout complete: ${lastDriverRun.processedCount} processed, \u20A6${totalPaidOut.toLocaleString()} sent.`);
+        return {
+          success: true,
+          cycle: "weekly_driver",
+          weekKey,
+          ...lastDriverRun
+        };
+      } catch (err) {
+        console.error("[PayoutScheduler] Fatal error in processWeeklyRiderPayouts:", err);
+        lastDriverRun = {
+          timestamp: startTime,
+          durationMs: Date.now() - startTime.getTime(),
+          error: err.message,
+          success: false,
+          isManual,
+          initiatedBy
+        };
+        return { success: false, cycle: "weekly_driver", error: err.message };
+      } finally {
+        isDriverPayoutRunning = false;
+      }
+    };
+    var reconcilePendingPayouts = async () => {
+      if (isReconciliationRunning) return { success: false, message: "Reconciliation already running" };
+      isReconciliationRunning = true;
+      const startTime = /* @__PURE__ */ new Date();
+      try {
+        const pendingPayouts = await Payout.find({
+          status: "PROCESSING",
+          flwTransferId: { $ne: null }
+        }).limit(50);
+        let updatedCount = 0;
+        for (const payout of pendingPayouts) {
+          const flwStatusRes = await checkTransferStatus(payout.flwTransferId);
+          if (!flwStatusRes) continue;
+          if (flwStatusRes.status === "SUCCESSFUL") {
+            payout.status = "SUCCESSFUL";
+            payout.completedAt = /* @__PURE__ */ new Date();
+            await payout.save();
+            await Transaction.findOneAndUpdate(
+              { reference: payout.reference },
+              { status: "Completed" }
+            );
+            updatedCount++;
+            console.log(`[PayoutScheduler] Reconciled payout ${payout.reference} as SUCCESSFUL.`);
+          } else if (flwStatusRes.status === "FAILED") {
+            payout.status = "FAILED";
+            payout.failureReason = flwStatusRes.completeMessage || "Flutterwave confirmed failure during reconciliation";
+            await payout.save();
+            if (payout.providerType === "Vendor") {
+              await Vendor.findByIdAndUpdate(payout.providerId, {
+                $inc: { "earnings.availableBalance": payout.amount }
+              });
+            } else if (payout.providerType === "Driver") {
+              await Driver.findByIdAndUpdate(payout.providerId, {
+                $inc: { "earnings.availableBalance": payout.amount }
+              });
+            }
+            await Transaction.findOneAndUpdate(
+              { reference: payout.reference },
+              { status: "Failed" }
+            );
+            updatedCount++;
+            console.log(`[PayoutScheduler] Reconciled payout ${payout.reference} as FAILED. Refunded \u20A6${payout.amount.toLocaleString()}.`);
+          }
+        }
+        lastReconcileRun = {
+          timestamp: startTime,
+          checkedCount: pendingPayouts.length,
+          updatedCount
+        };
+        return { success: true, ...lastReconcileRun };
+      } catch (err) {
+        console.error("[PayoutScheduler] reconcilePendingPayouts error:", err.message);
+        return { success: false, error: err.message };
+      } finally {
+        isReconciliationRunning = false;
+      }
+    };
+    var getNextVendorPayoutLanding = () => {
+      const now = /* @__PURE__ */ new Date();
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Africa/Lagos",
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+        hour12: false
+      });
+      const parts = formatter.formatToParts(now).reduce((acc, p) => ({ ...acc, [p.type]: p.value }), {});
+      const year = parseInt(parts.year, 10);
+      const month = parseInt(parts.month, 10) - 1;
+      const day = parseInt(parts.day, 10);
+      const hour = parseInt(parts.hour, 10);
+      let landingUtc = Date.UTC(year, month, day, 22, 0, 0, 0);
+      if (hour >= 23) {
+        landingUtc += 24 * 60 * 60 * 1e3;
+      }
+      const landingDate = new Date(landingUtc);
+      const isTonight = hour < 23;
+      const estimatedLandingTime = isTonight ? "Tonight at 11:00 PM WAT" : "Tomorrow at 11:00 PM WAT";
+      const countdownSeconds = Math.max(0, Math.floor((landingDate.getTime() - Date.now()) / 1e3));
+      return { landingDate, estimatedLandingTime, countdownSeconds };
+    };
+    var getNextDriverPayoutLanding = () => {
+      const now = /* @__PURE__ */ new Date();
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Africa/Lagos",
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        weekday: "short",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+        hour12: false
+      });
+      const parts = formatter.formatToParts(now).reduce((acc, p) => ({ ...acc, [p.type]: p.value }), {});
+      const year = parseInt(parts.year, 10);
+      const month = parseInt(parts.month, 10) - 1;
+      const day = parseInt(parts.day, 10);
+      const hour = parseInt(parts.hour, 10);
+      const minute = parseInt(parts.minute, 10);
+      const weekday = parts.weekday;
+      const dayMap = { "Sun": 0, "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6 };
+      const currentDayOfWeek = dayMap[weekday] ?? 0;
+      let daysUntilSunday = (7 - currentDayOfWeek) % 7;
+      if (currentDayOfWeek === 0 && (hour >= 23 && minute >= 59)) {
+        daysUntilSunday = 7;
+      }
+      const landingUtc = Date.UTC(year, month, day + daysUntilSunday, 22, 59, 59, 0);
+      const landingDate = new Date(landingUtc);
+      const isThisSunday = daysUntilSunday === 0;
+      const estimatedLandingTime = isThisSunday ? "Tonight (Sunday) at 11:59 PM WAT" : "Sunday at 11:59 PM WAT";
+      const countdownSeconds = Math.max(0, Math.floor((landingDate.getTime() - Date.now()) / 1e3));
+      return { landingDate, estimatedLandingTime, countdownSeconds };
+    };
+    var processDueQueuedPayouts = async () => {
+      if (isQueuedPayoutRunning) return;
+      isQueuedPayoutRunning = true;
+      try {
+        const now = /* @__PURE__ */ new Date();
+        const duePayouts = await Payout.find({
+          status: "QUEUED",
+          scheduledFor: { $lte: now }
+        }).limit(20);
+        if (!duePayouts || duePayouts.length === 0) return;
+        console.log(`[PayoutScheduler] Processing ${duePayouts.length} due queued payouts whose timer has finished...`);
+        for (const payout of duePayouts) {
+          const locked = await Payout.findOneAndUpdate(
+            { _id: payout._id, status: "QUEUED" },
+            { $set: { status: "PROCESSING", processedAt: /* @__PURE__ */ new Date() } },
+            { new: true }
+          );
+          if (!locked) continue;
+          console.log(`[PayoutScheduler] Executing transfer for queued payout ${locked.reference} (\u20A6${locked.amount.toLocaleString()} to ${locked.bank?.name})...`);
+          const flwTransfer = await initiatePayoutTransfer({
+            accountBank: locked.bank?.code,
+            accountNumber: locked.bank?.accountNumber,
+            amount: locked.amount,
+            narration: locked.narration || `Connecta Payout - ${locked.providerName}`,
+            reference: locked.reference,
+            recipientName: locked.bank?.accountName || locked.providerName
+          });
+          locked.flwTransferId = flwTransfer.transferId || null;
+          locked.fee = flwTransfer.fee || 0;
+          locked.flwResponse = flwTransfer.raw || flwTransfer.rawError || null;
+          if (flwTransfer.status === "SUCCESSFUL") {
+            locked.status = "SUCCESSFUL";
+            locked.completedAt = /* @__PURE__ */ new Date();
+            await locked.save();
+            await Transaction.create({
+              type: locked.providerType === "Vendor" ? "Vendor Payout" : "Driver Payout",
+              from: "Connecta Platform Wallet",
+              to: `${locked.providerName} (${locked.bank?.name} - ${locked.bank?.accountNumber})`,
+              amount: locked.amount,
+              method: "Bank Transfer",
+              status: "Completed",
+              reference: locked.reference
+            });
+            try {
+              await Notification.create({
+                title: "Payout Delivered \u{1F389}",
+                message: `Your scheduled payout of \u20A6${locked.amount.toLocaleString()} has landed in your ${locked.bank?.name} account (${locked.bank?.accountNumber}).`,
+                type: "payout",
+                recipient: locked.providerType.toLowerCase(),
+                userId: locked.providerId,
+                read: false
+              });
+            } catch (ne) {
+            }
+            console.log(`[PayoutScheduler] \u2713 Queued payout ${locked.reference} delivered successfully.`);
+          } else if (flwTransfer.status === "PROCESSING") {
+            locked.status = "PROCESSING";
+            if (flwTransfer.isUncertain) locked.failureReason = flwTransfer.failureReason;
+            await locked.save();
+            await Transaction.create({
+              type: locked.providerType === "Vendor" ? "Vendor Payout" : "Driver Payout",
+              from: "Connecta Platform Wallet",
+              to: `${locked.providerName} (${locked.bank?.name} - ${locked.bank?.accountNumber})`,
+              amount: locked.amount,
+              method: "Bank Transfer",
+              status: "Pending",
+              reference: locked.reference
+            });
+            console.log(`[PayoutScheduler] \u23F3 Queued payout ${locked.reference} is PROCESSING by Flutterwave.`);
+          } else {
+            locked.status = "FAILED";
+            locked.failureReason = flwTransfer.failureReason || "Transfer failed at payment provider";
+            await locked.save();
+            if (locked.providerType === "Vendor") {
+              await Vendor.findByIdAndUpdate(locked.providerId, {
+                $inc: { "earnings.availableBalance": locked.amount }
+              });
+            } else if (locked.providerType === "Driver") {
+              await Driver.findByIdAndUpdate(locked.providerId, {
+                $inc: { "earnings.availableBalance": locked.amount }
+              });
+            }
+            await Transaction.create({
+              type: locked.providerType === "Vendor" ? "Vendor Payout" : "Driver Payout",
+              from: "Connecta Platform Wallet",
+              to: `${locked.providerName} (${locked.bank?.name} - ${locked.bank?.accountNumber})`,
+              amount: locked.amount,
+              method: "Bank Transfer",
+              status: "Failed",
+              reference: locked.reference
+            });
+            try {
+              await Notification.create({
+                title: "Payout Failed & Refunded \u26A0\uFE0F",
+                message: `Your payout of \u20A6${locked.amount.toLocaleString()} could not be delivered (${locked.failureReason}). Your funds were refunded to your available balance.`,
+                type: "payout",
+                recipient: locked.providerType.toLowerCase(),
+                userId: locked.providerId,
+                read: false
+              });
+            } catch (ne) {
+            }
+            console.warn(`[PayoutScheduler] \u2715 Queued payout ${locked.reference} failed: ${locked.failureReason}. Balance refunded.`);
+          }
+        }
+      } catch (err) {
+        console.error("[PayoutScheduler] Error in processDueQueuedPayouts:", err.message);
+      } finally {
+        isQueuedPayoutRunning = false;
+      }
+    };
+    var handleFlutterwaveTransferWebhook = async (webhookPayload) => {
+      const data = webhookPayload?.data;
+      if (!data) return { success: false, message: "No data in webhook" };
+      const transferId = data.id;
+      const reference = data.reference;
+      const status = String(data.status || "").toUpperCase();
+      const reason = data.complete_message || data.narration || "";
+      console.log(`[PayoutScheduler] Processing transfer webhook for ref ${reference} (Status: ${status}, ID: ${transferId})`);
+      const payout = await Payout.findOne({
+        $or: [{ reference }, { flwTransferId: transferId }]
+      });
+      if (!payout) {
+        console.warn(`[PayoutScheduler] No payout record found matching reference ${reference} / ID ${transferId}`);
+        return { success: false, message: "Payout not found" };
+      }
+      if (payout.status === status) {
+        return { success: true, message: "Already processed" };
+      }
+      if (status === "SUCCESSFUL") {
+        payout.status = "SUCCESSFUL";
+        payout.completedAt = /* @__PURE__ */ new Date();
+        await payout.save();
+        await Transaction.findOneAndUpdate(
+          { reference: payout.reference },
+          { status: "Completed" }
+        );
+        try {
+          await Notification.create({
+            title: "Payout Confirmed \u{1F389}",
+            message: `Your payout of \u20A6${payout.amount.toLocaleString()} has been confirmed and delivered to your bank account. Ref: ${payout.reference}`,
+            type: "payout",
+            recipient: payout.providerType.toLowerCase(),
+            userId: payout.providerId,
+            read: false
+          });
+        } catch (e) {
+        }
+        return { success: true, status: "SUCCESSFUL" };
+      } else if (status === "FAILED" || status === "REVERSED") {
+        const previousStatus = payout.status;
+        const wasAlreadyRefunded = previousStatus === "FAILED" || previousStatus === "REVERSED";
+        payout.status = status === "REVERSED" ? "REVERSED" : "FAILED";
+        payout.failureReason = reason || `Transfer was ${status.toLowerCase()} by Flutterwave`;
+        await payout.save();
+        if (!wasAlreadyRefunded) {
+          if (payout.providerType === "Vendor") {
+            await Vendor.findByIdAndUpdate(payout.providerId, {
+              $inc: { "earnings.availableBalance": payout.amount }
+            });
+          } else if (payout.providerType === "Driver") {
+            await Driver.findByIdAndUpdate(payout.providerId, {
+              $inc: { "earnings.availableBalance": payout.amount }
+            });
+          }
+        }
+        await Transaction.findOneAndUpdate(
+          { reference: payout.reference },
+          { status: "Failed" }
+        );
+        try {
+          await Notification.create({
+            title: `Payout ${status === "REVERSED" ? "Reversed" : "Failed"} \u26A0\uFE0F`,
+            message: `Your payout of \u20A6${payout.amount.toLocaleString()} was ${status.toLowerCase()} by the bank (${reason}). Your balance was refunded back to your account.`,
+            type: "payout",
+            recipient: payout.providerType.toLowerCase(),
+            userId: payout.providerId,
+            read: false
+          });
+        } catch (e) {
+        }
+        return { success: true, status };
+      }
+      return { success: true, status: payout.status };
+    };
+    var getPayoutScheduleStatus = async () => {
+      await releaseMaturedDriverEarnings();
+      const settings = await Settings.findOne();
+      const vendorThreshold = Number(settings?.payments?.vendorMinThreshold || 5e3);
+      const riderThreshold = Number(settings?.payments?.riderMinThreshold || 1e3);
+      const eligibleVendors = await Vendor.find({
+        status: { $in: ["Approved", "approved", "Active", "active"] },
+        "earnings.availableBalance": { $gte: vendorThreshold }
+      });
+      const pendingVendorsTotal = eligibleVendors.reduce((sum, v) => sum + (v.earnings?.availableBalance || 0), 0);
+      const eligibleDrivers = await Driver.find({
+        status: { $in: ["Active", "active"] },
+        "earnings.availableBalance": { $gte: riderThreshold }
+      });
+      const pendingDriversTotal = eligibleDrivers.reduce((sum, d) => sum + (d.earnings?.availableBalance || 0), 0);
+      const recentPayouts = await Payout.find().sort({ createdAt: -1 }).limit(10);
+      return {
+        timezone: "Africa/Lagos",
+        vendorPayout: {
+          cycle: "nightly",
+          scheduleText: "Every night at 11:00 PM WAT (Nightly Settlement)",
+          cronExpression: "0 23 * * *",
+          minThreshold: vendorThreshold,
+          eligibleCount: eligibleVendors.length,
+          pendingTotalAmount: pendingVendorsTotal,
+          lastRun: lastVendorRun
+        },
+        riderPayout: {
+          cycle: "weekly",
+          scheduleText: "Every Sunday at 11:59 PM WAT (Weekly Settlement)",
+          cronExpression: "59 23 * * 0",
+          minThreshold: riderThreshold,
+          eligibleCount: eligibleDrivers.length,
+          pendingTotalAmount: pendingDriversTotal,
+          lastRun: lastDriverRun
+        },
+        reconciliation: {
+          intervalText: "Every 30 minutes",
+          lastRun: lastReconcileRun
+        },
+        autoPayoutEnabled: settings?.payments?.autoPayoutEnabled ?? true,
+        recentPayouts
+      };
+    };
+    var initPayoutScheduler2 = () => {
+      console.log("[PayoutScheduler] Initializing automated payout cron jobs (Timezone: Africa/Lagos)...");
+      if (vendorCronJob) vendorCronJob.stop();
+      vendorCronJob = cron.schedule(
+        "0 23 * * *",
+        async () => {
+          console.log("[PayoutScheduler] Cron triggered: Running Nightly Vendor Payout (11:00 PM WAT)...");
+          await processNightlyVendorPayouts({ isManual: false, initiatedBy: "cron_nightly" });
+        },
+        { scheduled: true, timezone: "Africa/Lagos" }
+      );
+      console.log("[PayoutScheduler] \u2713 Nightly Vendor Payout scheduled (23:00 / 11:00 PM WAT Nightly)");
+      if (driverCronJob) driverCronJob.stop();
+      driverCronJob = cron.schedule(
+        "59 23 * * 0",
+        async () => {
+          console.log("[PayoutScheduler] Cron triggered: Running Weekly Rider Payout (7-day matured earnings)...");
+          await processWeeklyRiderPayouts({ isManual: false, initiatedBy: "cron_weekly" });
+        },
+        { scheduled: true, timezone: "Africa/Lagos" }
+      );
+      console.log("[PayoutScheduler] \u2713 Weekly Rider Payout scheduled (23:59 WAT Every Sunday)");
+      if (reconcileCronJob) reconcileCronJob.stop();
+      reconcileCronJob = cron.schedule(
+        "*/30 * * * *",
+        async () => {
+          console.log("[PayoutScheduler] Cron triggered: Running Payout Reconciliation...");
+          await reconcilePendingPayouts();
+        },
+        { scheduled: true, timezone: "Africa/Lagos" }
+      );
+      console.log("[PayoutScheduler] \u2713 Payout Reconciliation scheduled (Every 30 minutes)");
+      if (queuedTickerJob) queuedTickerJob.stop();
+      queuedTickerJob = cron.schedule(
+        "* * * * *",
+        async () => {
+          try {
+            await processDueQueuedPayouts();
+          } catch (tickerErr) {
+            console.error("[PayoutScheduler] Error in queued payout ticker:", tickerErr.message);
+          }
+        },
+        { scheduled: true, timezone: "Africa/Lagos" }
+      );
+      console.log("[PayoutScheduler] \u2713 Queued Payout Landing Checker scheduled (Every minute)");
+    };
+    module2.exports = {
+      releaseMaturedDriverEarnings,
+      processDailyVendorPayouts,
+      processNightlyVendorPayouts,
+      processWeeklyRiderPayouts,
+      reconcilePendingPayouts,
+      handleFlutterwaveTransferWebhook,
+      getPayoutScheduleStatus,
+      initPayoutScheduler: initPayoutScheduler2,
+      processDueQueuedPayouts,
+      getNextVendorPayoutLanding,
+      getNextDriverPayoutLanding
+    };
   }
 });
 
@@ -1481,6 +2620,28 @@ var require_vendorController = __commonJS({
           orders: dayOrders[day],
           amount: dayTotals[day]
         }));
+        const Payout = require_Payout();
+        const activeQueuedPayout = await Payout.findOne({
+          providerId: vendor._id,
+          status: "QUEUED",
+          scheduledFor: { $gt: /* @__PURE__ */ new Date() }
+        }).sort({ createdAt: -1 });
+        let queuedPayoutData = null;
+        if (activeQueuedPayout) {
+          const nowMs = Date.now();
+          const targetMs = new Date(activeQueuedPayout.scheduledFor).getTime();
+          const countdownSeconds = Math.max(0, Math.floor((targetMs - nowMs) / 1e3));
+          queuedPayoutData = {
+            _id: activeQueuedPayout._id,
+            amount: activeQueuedPayout.amount,
+            bank: activeQueuedPayout.bank,
+            reference: activeQueuedPayout.reference,
+            status: activeQueuedPayout.status,
+            scheduledFor: activeQueuedPayout.scheduledFor.toISOString(),
+            estimatedLandingTime: activeQueuedPayout.estimatedLandingTime || "Tonight at 11:00 PM WAT",
+            countdownSeconds
+          };
+        }
         const customData = {
           ...vendor.toObject(),
           storeOpen: vendor.status === "Approved",
@@ -1491,11 +2652,12 @@ var require_vendorController = __commonJS({
             avgOrders: vendor.earnings?.avgOrders ?? Math.round(avgOrderValue)
           },
           payoutSchedule: {
-            cycle: "24_hours",
-            time: "18:00 WAT",
-            frequencyText: "Daily at 6:00 PM (24-Hour Settlement)",
-            description: "Automated 24-hour daily settlement at 6:00 PM directly to your registered bank account."
+            cycle: "nightly",
+            time: "23:00 WAT",
+            frequencyText: "Nightly at 11:00 PM (Nightly Settlement)",
+            description: "Automated nightly settlement at 11:00 PM directly to your registered bank account."
           },
+          activeQueuedPayout: queuedPayoutData,
           stats,
           todayRevenue: totalRevenue,
           delivered: deliveredCount,
@@ -1607,17 +2769,12 @@ var require_vendorController = __commonJS({
         if (!accountNumber || String(accountNumber).trim().length < 10) {
           return res.status(400).json({ success: false, error: "Vendor payout account details are missing or invalid" });
         }
-        const { resolveBankCode, verifyPayoutAccount, initiatePayoutTransfer } = require_payoutService();
+        const { resolveBankCode } = require_payoutService();
+        const { getNextVendorPayoutLanding } = require_payoutScheduler();
         const bankCode = resolveBankCode(bankName, vendor.payoutAccount?.bankCode);
-        const verification = await verifyPayoutAccount({ accountNumber, bankCode });
-        if (!verification.valid) {
-          return res.status(400).json({
-            success: false,
-            error: `Bank account verification failed: ${verification.message}`
-          });
-        }
-        const accountName = verification.accountName || vendor.payoutAccount?.accountName || vendor.businessName || vendor.name;
-        const reference = `VND_MAN_${vendor._id}_${Date.now()}`;
+        const accountName = vendor.payoutAccount?.accountName || vendor.businessName || vendor.name;
+        const { landingDate, estimatedLandingTime, countdownSeconds } = getNextVendorPayoutLanding();
+        const reference = `VND_QUEUE_${vendor._id}_${Date.now()}`;
         const updatedVendor = await require_Vendor().findOneAndUpdate(
           {
             _id: vendor._id,
@@ -1645,107 +2802,38 @@ var require_vendorController = __commonJS({
             accountName
           },
           reference,
-          status: "PENDING",
+          status: "QUEUED",
           narration: `Connecta Vendor Payout - ${vendor.businessName || vendor.name}`,
-          cycle: "manual",
+          cycle: "nightly_vendor",
           initiatedBy: "vendor_dashboard",
-          processedAt: /* @__PURE__ */ new Date()
+          scheduledFor: landingDate,
+          estimatedLandingTime
         });
-        const flwTransfer = await initiatePayoutTransfer({
-          accountBank: bankCode,
-          accountNumber,
-          amount: payoutAmount,
-          narration: `Connecta Vendor Payout - ${vendor.businessName || vendor.name}`,
-          reference,
-          recipientName: accountName
-        });
-        payoutRecord.flwTransferId = flwTransfer.transferId || null;
-        payoutRecord.fee = flwTransfer.fee || 0;
-        payoutRecord.flwResponse = flwTransfer.raw || flwTransfer.rawError || null;
-        const Transaction = require_Transaction();
-        if (flwTransfer.status === "SUCCESSFUL") {
-          payoutRecord.status = "SUCCESSFUL";
-          payoutRecord.completedAt = /* @__PURE__ */ new Date();
-          await payoutRecord.save();
-          const transaction = await Transaction.create({
-            type: "Vendor Payout",
-            from: "Connecta Platform Wallet",
-            to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
-            amount: payoutAmount,
-            method: "Bank Transfer",
-            status: "Completed",
-            reference
+        try {
+          const Notification = require_Notification();
+          await Notification.create({
+            title: "Payout Initiated \u23F3",
+            message: `Payout of \u20A6${payoutAmount.toLocaleString()} to ${bankName} (${accountNumber}) initiated. Funds will land in your account ${estimatedLandingTime.toLowerCase()}. Ref: ${reference}`,
+            type: "payout",
+            recipient: "vendor",
+            userId: vendor._id,
+            read: false
           });
-          try {
-            const Notification = require_Notification();
-            await Notification.create({
-              title: "Payout Successful \u{1F389}",
-              message: `Payout of \u20A6${payoutAmount.toLocaleString()} to ${bankName} (${accountNumber}) has been sent. Ref: ${reference}`,
-              type: "payout",
-              recipient: "vendor",
-              read: false
-            });
-          } catch (notifErr) {
-          }
-          return res.status(200).json({
-            success: true,
-            message: `\u20A6${payoutAmount.toLocaleString()} payout sent to ${bankName} (${accountNumber}).`,
-            reference,
-            status: "SUCCESSFUL",
-            data: {
-              transaction,
-              availableBalance: updatedVendor.earnings.availableBalance,
-              payout: payoutRecord
-            }
-          });
-        } else if (flwTransfer.status === "PROCESSING") {
-          payoutRecord.status = "PROCESSING";
-          if (flwTransfer.isUncertain) {
-            payoutRecord.failureReason = flwTransfer.failureReason;
-          }
-          await payoutRecord.save();
-          const transaction = await Transaction.create({
-            type: "Vendor Payout",
-            from: "Connecta Platform Wallet",
-            to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
-            amount: payoutAmount,
-            method: "Bank Transfer",
-            status: "Pending",
-            reference
-          });
-          return res.status(200).json({
-            success: true,
-            message: `\u20A6${payoutAmount.toLocaleString()} payout queued for processing. Reference: ${reference}`,
-            reference,
-            status: "PROCESSING",
-            data: {
-              transaction,
-              availableBalance: updatedVendor.earnings.availableBalance,
-              payout: payoutRecord
-            }
-          });
-        } else {
-          payoutRecord.status = "FAILED";
-          payoutRecord.failureReason = flwTransfer.failureReason || "Flutterwave rejected transfer";
-          await payoutRecord.save();
-          await require_Vendor().findByIdAndUpdate(vendor._id, {
-            $inc: { "earnings.availableBalance": payoutAmount }
-          });
-          await Transaction.create({
-            type: "Vendor Payout",
-            from: "Connecta Platform Wallet",
-            to: `${vendor.businessName || vendor.name} (${bankName} - ${accountNumber})`,
-            amount: payoutAmount,
-            method: "Bank Transfer",
-            status: "Failed",
-            reference
-          });
-          return res.status(400).json({
-            success: false,
-            error: `Payout failed: ${flwTransfer.failureReason || "Declined by bank"}. Your balance has been restored.`,
-            reference
-          });
+        } catch (notifErr) {
         }
+        return res.status(200).json({
+          success: true,
+          message: `\u20A6${payoutAmount.toLocaleString()} payout initiated! Funds will land in your account ${estimatedLandingTime.toLowerCase()}.`,
+          status: "QUEUED",
+          reference,
+          data: {
+            payout: payoutRecord,
+            scheduledFor: landingDate.toISOString(),
+            countdownSeconds,
+            estimatedLandingTime,
+            availableBalance: updatedVendor.earnings.availableBalance
+          }
+        });
       } catch (error) {
         console.error("requestVendorPayout error:", error);
         res.status(500).json({ success: false, error: error.message });
@@ -2132,76 +3220,6 @@ var require_vendorRoutes = __commonJS({
       }
     });
     module2.exports = router;
-  }
-});
-
-// models/Driver.js
-var require_Driver = __commonJS({
-  "models/Driver.js"(exports2, module2) {
-    var mongoose = require("mongoose");
-    var driverSchema = new mongoose.Schema({
-      name: { type: String, required: true },
-      email: { type: String, required: true, unique: true },
-      phone: { type: String, required: true, unique: true },
-      password: { type: String, required: true },
-      profilePic: { type: String, default: null },
-      vehicleType: {
-        type: String,
-        enum: ["Bike", "Bicycle", "Car", "Motorcycle"],
-        default: "Motorcycle"
-      },
-      vehicle: {
-        type: { type: String, default: "" },
-        make: { type: String, default: "" },
-        plate: { type: String, default: "" },
-        color: { type: String, default: "" }
-      },
-      bank: {
-        name: { type: String, default: "" },
-        bankCode: { type: String, default: "" },
-        accountName: { type: String, default: "" },
-        accountNumber: { type: String, default: "" }
-      },
-      documents: {
-        nationalId: { type: String, default: null },
-        vehiclePhoto: { type: String, default: null },
-        license: { type: String, default: null }
-      },
-      status: {
-        type: String,
-        enum: ["Pending", "Active", "Suspended"],
-        default: "Pending"
-      },
-      isVerified: {
-        type: Boolean,
-        default: false
-      },
-      isWarned: {
-        type: Boolean,
-        default: false
-      },
-      isSuspended: {
-        type: Boolean,
-        default: false
-      },
-      earnings: {
-        totalEarned: { type: Number, default: 0 },
-        availableBalance: { type: Number, default: 0 },
-        pendingBalance: { type: Number, default: 0 },
-        totalTrips: { type: Number, default: 0 },
-        lastPayoutAt: { type: Date },
-        unpaidEarnings: [{
-          amount: { type: Number, required: true },
-          orderId: { type: String },
-          earnedAt: { type: Date, default: Date.now },
-          eligibleAt: { type: Date },
-          status: { type: String, enum: ["pending", "eligible", "paid"], default: "pending" }
-        }]
-      },
-      resetPasswordOTP: String,
-      resetPasswordExpires: Date
-    }, { timestamps: true });
-    module2.exports = mongoose.model("Driver", driverSchema);
   }
 });
 
@@ -2752,867 +3770,6 @@ var require_Banner = __commonJS({
   }
 });
 
-// models/Settings.js
-var require_Settings = __commonJS({
-  "models/Settings.js"(exports2, module2) {
-    var mongoose = require("mongoose");
-    var settingsSchema = new mongoose.Schema({
-      profile: {
-        fullName: { type: String, default: "Denish Admin" },
-        email: { type: String, default: "denishadmin@gmail.com" },
-        phone: { type: String, default: "+234 813 048 5734" }
-      },
-      platform: {
-        platformName: { type: String, default: "Denish" },
-        currency: { type: String, default: "NGN" },
-        deliveryModel: { type: String, enum: ["flat", "distance"], default: "flat" },
-        baseFee: { type: String, default: "500" },
-        commission: { type: String, default: "15" },
-        deliveryFeeCommission: { type: String, default: "5" },
-        autoCancelMin: { type: Number, default: 60 },
-        deliveryDeadlineMin: { type: Number, default: 40 }
-      },
-      notifications: {
-        vendorEmails: { type: Boolean, default: true },
-        disputeAlerts: { type: Boolean, default: true },
-        smsAlerts: { type: Boolean, default: false },
-        notificationEmail: { type: String, default: "denishadmin@gmail.com" }
-      },
-      payments: {
-        gateway: { type: String, default: "Flutterwave" },
-        vendorPayoutCycle: { type: String, default: "24_hours" },
-        // 24_hours (daily at 6:00 PM)
-        vendorPayoutTime: { type: String, default: "18:00" },
-        // 6:00 PM WAT
-        riderPayoutCycle: { type: String, default: "weekly" },
-        // weekly
-        riderPayoutDay: { type: String, default: "Sunday" },
-        // Every Sunday
-        riderPayoutTime: { type: String, default: "23:59" },
-        // 11:59 PM WAT
-        vendorMinThreshold: { type: String, default: "5000" },
-        // ₦5,000
-        riderMinThreshold: { type: String, default: "1000" },
-        // ₦1,000
-        autoPayoutEnabled: { type: Boolean, default: true },
-        payoutCycle: { type: String, default: "24_hours" },
-        // legacy fallback
-        minThreshold: { type: String, default: "5000" }
-        // legacy fallback
-      },
-      security: {
-        twoFactor: { type: Boolean, default: true },
-        sessions: [{
-          id: { type: String, default: "" },
-          device: { type: String, default: "" },
-          browser: { type: String, default: "" },
-          location: { type: String, default: "" },
-          ip: { type: String, default: "" },
-          lastActive: { type: String, default: "" },
-          current: { type: Boolean, default: false }
-        }]
-      },
-      system: {
-        maintenanceMode: { type: Boolean, default: false }
-      }
-    }, { timestamps: true });
-    module2.exports = mongoose.model("Settings", settingsSchema);
-  }
-});
-
-// utils/payoutScheduler.js
-var require_payoutScheduler = __commonJS({
-  "utils/payoutScheduler.js"(exports2, module2) {
-    var cron = require("node-cron");
-    var Vendor = require_Vendor();
-    var Driver = require_Driver();
-    var Payout = require_Payout();
-    var Transaction = require_Transaction();
-    var Notification = require_Notification();
-    var Settings = require_Settings();
-    var {
-      resolveBankCode,
-      verifyPayoutAccount,
-      initiatePayoutTransfer,
-      checkTransferStatus
-    } = require_payoutService();
-    var isVendorPayoutRunning = false;
-    var isDriverPayoutRunning = false;
-    var isReconciliationRunning = false;
-    var lastVendorRun = null;
-    var lastDriverRun = null;
-    var lastReconcileRun = null;
-    var vendorCronJob = null;
-    var driverCronJob = null;
-    var reconcileCronJob = null;
-    var releaseMaturedDriverEarnings = async () => {
-      try {
-        const now = /* @__PURE__ */ new Date();
-        const drivers = await Driver.find({
-          "earnings.unpaidEarnings": { $elemMatch: { status: "pending", eligibleAt: { $lte: now } } }
-        });
-        let totalMaturedCount = 0;
-        let totalMaturedAmount = 0;
-        for (const driver of drivers) {
-          if (!driver.earnings?.unpaidEarnings || !Array.isArray(driver.earnings.unpaidEarnings)) continue;
-          let maturedForDriver = 0;
-          for (const entry of driver.earnings.unpaidEarnings) {
-            if (entry.status === "pending" && entry.eligibleAt && entry.eligibleAt <= now) {
-              entry.status = "eligible";
-              maturedForDriver += Number(entry.amount || 0);
-              totalMaturedCount++;
-            }
-          }
-          if (maturedForDriver > 0) {
-            driver.earnings.availableBalance = (driver.earnings.availableBalance || 0) + maturedForDriver;
-            driver.earnings.pendingBalance = Math.max(0, (driver.earnings.pendingBalance || 0) - maturedForDriver);
-            driver.markModified("earnings");
-            await driver.save();
-            totalMaturedAmount += maturedForDriver;
-          }
-        }
-        if (totalMaturedCount > 0) {
-          console.log(`[PayoutScheduler] Released \u20A6${totalMaturedAmount.toLocaleString()} across ${totalMaturedCount} matured driver delivery earnings (>= 7 days).`);
-        }
-      } catch (err) {
-        console.error("[PayoutScheduler] releaseMaturedDriverEarnings error:", err.message);
-      }
-    };
-    var processDailyVendorPayouts = async ({ isManual = false, initiatedBy = "system" } = {}) => {
-      if (isVendorPayoutRunning) {
-        console.warn("[PayoutScheduler] Vendor payout is already running. Skipping concurrent trigger.");
-        return { success: false, message: "Vendor payout job is already in progress" };
-      }
-      isVendorPayoutRunning = true;
-      const startTime = /* @__PURE__ */ new Date();
-      const dateKey = startTime.toISOString().slice(0, 10).replace(/-/g, "");
-      console.log(`[PayoutScheduler] Starting Daily 24-Hour Vendor Payout (Date: ${dateKey}, Type: ${isManual ? "MANUAL: " + initiatedBy : "SCHEDULED"})...`);
-      try {
-        const settings = await Settings.findOne();
-        const minThreshold = Number(settings?.payments?.vendorMinThreshold || 5e3);
-        const eligibleVendors = await Vendor.find({
-          status: { $in: ["Approved", "approved", "Active", "active"] },
-          "earnings.availableBalance": { $gte: minThreshold }
-        });
-        console.log(`[PayoutScheduler] Found ${eligibleVendors.length} vendors with availableBalance >= \u20A6${minThreshold.toLocaleString()}`);
-        const results = [];
-        let totalPaidOut = 0;
-        for (const vendor of eligibleVendors) {
-          const balance = Number(vendor.earnings?.availableBalance || 0);
-          if (balance < minThreshold) continue;
-          const vendorName = vendor.businessName || vendor.name || "Vendor";
-          const reference = `VND_24H_${vendor._id.toString()}_${dateKey}`;
-          const existingPayout = await Payout.findOne({
-            $or: [
-              { reference },
-              { reference: `VND_NIGHT_${vendor._id.toString()}_${dateKey}` }
-            ]
-          });
-          if (existingPayout && ["SUCCESSFUL", "PROCESSING"].includes(existingPayout.status)) {
-            console.log(`[PayoutScheduler] Payout ${reference} already exists with status ${existingPayout.status}. Skipping.`);
-            results.push({
-              vendorId: vendor._id,
-              vendorName,
-              amount: balance,
-              status: `Skipped - Already ${existingPayout.status}`,
-              reference,
-              success: existingPayout.status === "SUCCESSFUL"
-            });
-            continue;
-          }
-          const activePending = await Payout.findOne({
-            providerId: vendor._id,
-            status: "PROCESSING"
-          });
-          if (activePending) {
-            console.warn(`[PayoutScheduler] Vendor ${vendorName} has an ongoing PROCESSING payout (${activePending.reference}). Skipping.`);
-            results.push({
-              vendorId: vendor._id,
-              vendorName,
-              amount: balance,
-              status: "Skipped - Active Payout In Progress",
-              reference: activePending.reference,
-              success: false
-            });
-            continue;
-          }
-          const accountNumber = vendor.payoutAccount?.accountNumber;
-          const bankName = vendor.payoutAccount?.bank || "Access Bank";
-          const bankCode = resolveBankCode(bankName, vendor.payoutAccount?.bankCode);
-          if (!accountNumber || String(accountNumber).trim().length < 10) {
-            console.warn(`[PayoutScheduler] Vendor ${vendorName} has invalid account number (${accountNumber}). Skipping.`);
-            results.push({
-              vendorId: vendor._id,
-              vendorName,
-              amount: balance,
-              status: "Failed - Invalid Account Number",
-              success: false
-            });
-            continue;
-          }
-          const verification = await verifyPayoutAccount({ accountNumber, bankCode });
-          if (!verification.valid) {
-            console.warn(`[PayoutScheduler] Bank account verification failed for ${vendorName}: ${verification.message}`);
-            results.push({
-              vendorId: vendor._id,
-              vendorName,
-              amount: balance,
-              status: `Failed - Bank Verification: ${verification.message}`,
-              success: false
-            });
-            continue;
-          }
-          const accountName = verification.accountName || vendor.payoutAccount?.accountName || vendorName;
-          const updatedVendor = await Vendor.findOneAndUpdate(
-            {
-              _id: vendor._id,
-              "earnings.availableBalance": { $gte: balance }
-            },
-            {
-              $inc: { "earnings.availableBalance": -balance }
-            },
-            { new: true }
-          );
-          if (!updatedVendor) {
-            console.warn(`[PayoutScheduler] Vendor ${vendorName} balance changed concurrently. Skipping.`);
-            continue;
-          }
-          let payoutRecord = await Payout.create({
-            providerType: "Vendor",
-            providerId: vendor._id,
-            providerName: vendorName,
-            amount: balance,
-            currency: "NGN",
-            bank: {
-              name: bankName,
-              code: bankCode,
-              accountNumber,
-              accountName
-            },
-            reference,
-            status: "PENDING",
-            narration: `Connecta 24h Vendor Payout - ${vendorName}`,
-            cycle: "daily_vendor",
-            initiatedBy,
-            processedAt: /* @__PURE__ */ new Date()
-          });
-          const transferResult = await initiatePayoutTransfer({
-            accountBank: bankCode,
-            accountNumber,
-            amount: balance,
-            narration: `Connecta Payout - ${vendorName}`,
-            reference,
-            recipientName: accountName
-          });
-          payoutRecord.flwTransferId = transferResult.transferId || null;
-          payoutRecord.fee = transferResult.fee || 0;
-          payoutRecord.flwResponse = transferResult.raw || transferResult.rawError || null;
-          if (transferResult.status === "SUCCESSFUL") {
-            payoutRecord.status = "SUCCESSFUL";
-            payoutRecord.completedAt = /* @__PURE__ */ new Date();
-            await payoutRecord.save();
-            await Transaction.create({
-              type: "Vendor Payout",
-              from: "Connecta Platform Wallet",
-              to: `${vendorName} (${bankName} - ${accountNumber})`,
-              amount: balance,
-              method: "Bank Transfer",
-              status: "Completed",
-              reference
-            });
-            try {
-              await Notification.create({
-                title: "Daily Payout Successful \u{1F389}",
-                message: `Your 24-hour payout of \u20A6${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
-                type: "payout",
-                recipient: "vendor",
-                read: false
-              });
-            } catch (nErr) {
-            }
-            totalPaidOut += balance;
-            results.push({
-              vendorId: vendor._id,
-              vendorName,
-              amount: balance,
-              reference,
-              status: "SUCCESSFUL",
-              success: true
-            });
-          } else if (transferResult.status === "PROCESSING") {
-            payoutRecord.status = "PROCESSING";
-            if (transferResult.isUncertain) {
-              payoutRecord.failureReason = transferResult.failureReason;
-            }
-            await payoutRecord.save();
-            await Transaction.create({
-              type: "Vendor Payout",
-              from: "Connecta Platform Wallet",
-              to: `${vendorName} (${bankName} - ${accountNumber})`,
-              amount: balance,
-              method: "Bank Transfer",
-              status: "Pending",
-              reference
-            });
-            results.push({
-              vendorId: vendor._id,
-              vendorName,
-              amount: balance,
-              reference,
-              status: "PROCESSING (Queued on Flutterwave)",
-              success: true
-            });
-          } else {
-            console.warn(`[PayoutScheduler] Flutterwave transfer failed for ${vendorName}: ${transferResult.failureReason}. Refunding balance.`);
-            payoutRecord.status = "FAILED";
-            payoutRecord.failureReason = transferResult.failureReason || "Flutterwave rejected transfer";
-            await payoutRecord.save();
-            await Vendor.findByIdAndUpdate(vendor._id, {
-              $inc: { "earnings.availableBalance": balance }
-            });
-            await Transaction.create({
-              type: "Vendor Payout",
-              from: "Connecta Platform Wallet",
-              to: `${vendorName} (${bankName} - ${accountNumber})`,
-              amount: balance,
-              method: "Bank Transfer",
-              status: "Failed",
-              reference
-            });
-            try {
-              await Notification.create({
-                title: "Payout Failed & Refunded \u26A0\uFE0F",
-                message: `Your payout of \u20A6${balance.toLocaleString()} could not be processed (${transferResult.failureReason || "Transfer declined"}). Your balance of \u20A6${balance.toLocaleString()} was restored.`,
-                type: "payout",
-                recipient: "vendor",
-                read: false
-              });
-            } catch (nErr) {
-            }
-            results.push({
-              vendorId: vendor._id,
-              vendorName,
-              amount: balance,
-              reference,
-              status: "FAILED (Balance Refunded)",
-              failureReason: transferResult.failureReason,
-              success: false
-            });
-          }
-        }
-        lastVendorRun = {
-          timestamp: startTime,
-          durationMs: Date.now() - startTime.getTime(),
-          eligibleCount: eligibleVendors.length,
-          processedCount: results.filter((r) => r.success).length,
-          totalPaidOut,
-          isManual,
-          initiatedBy,
-          results
-        };
-        console.log(`[PayoutScheduler] Daily 24-Hour Vendor Payout complete: ${lastVendorRun.processedCount} processed, \u20A6${totalPaidOut.toLocaleString()} sent.`);
-        return {
-          success: true,
-          cycle: "daily_vendor",
-          dateKey,
-          ...lastVendorRun
-        };
-      } catch (err) {
-        console.error("[PayoutScheduler] Fatal error in processDailyVendorPayouts:", err);
-        lastVendorRun = {
-          timestamp: startTime,
-          durationMs: Date.now() - startTime.getTime(),
-          error: err.message,
-          success: false,
-          isManual,
-          initiatedBy
-        };
-        return { success: false, cycle: "daily_vendor", error: err.message };
-      } finally {
-        isVendorPayoutRunning = false;
-      }
-    };
-    var processNightlyVendorPayouts = processDailyVendorPayouts;
-    var processWeeklyRiderPayouts = async ({ isManual = false, initiatedBy = "system" } = {}) => {
-      if (isDriverPayoutRunning) {
-        console.warn("[PayoutScheduler] Driver payout is already running. Skipping concurrent trigger.");
-        return { success: false, message: "Driver payout job is already in progress" };
-      }
-      isDriverPayoutRunning = true;
-      const startTime = /* @__PURE__ */ new Date();
-      const d = new Date(Date.UTC(startTime.getFullYear(), startTime.getMonth(), startTime.getDate()));
-      const dayNum = d.getUTCDay() || 7;
-      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      const weekNo = Math.ceil(((d - yearStart) / 864e5 + 1) / 7);
-      const weekKey = `${d.getUTCFullYear()}W${String(weekNo).padStart(2, "0")}`;
-      console.log(`[PayoutScheduler] Starting Weekly Driver Payout (Week: ${weekKey}, Type: ${isManual ? "MANUAL: " + initiatedBy : "SCHEDULED"})...`);
-      try {
-        await releaseMaturedDriverEarnings();
-        const settings = await Settings.findOne();
-        const minThreshold = Number(settings?.payments?.riderMinThreshold || 1e3);
-        const eligibleDrivers = await Driver.find({
-          status: { $in: ["Active", "active"] },
-          "earnings.availableBalance": { $gte: minThreshold }
-        });
-        console.log(`[PayoutScheduler] Found ${eligibleDrivers.length} drivers with matured availableBalance >= \u20A6${minThreshold.toLocaleString()}`);
-        const results = [];
-        let totalPaidOut = 0;
-        for (const driver of eligibleDrivers) {
-          const balance = Number(driver.earnings?.availableBalance || 0);
-          if (balance < minThreshold) continue;
-          const driverName = driver.name || "Driver";
-          const reference = `DRV_WEEK_${driver._id.toString()}_${weekKey}`;
-          const existingPayout = await Payout.findOne({ reference });
-          if (existingPayout && ["SUCCESSFUL", "PROCESSING"].includes(existingPayout.status)) {
-            console.log(`[PayoutScheduler] Driver payout ${reference} already exists (${existingPayout.status}). Skipping.`);
-            results.push({
-              driverId: driver._id,
-              driverName,
-              amount: balance,
-              status: `Skipped - Already ${existingPayout.status}`,
-              reference,
-              success: existingPayout.status === "SUCCESSFUL"
-            });
-            continue;
-          }
-          const activePending = await Payout.findOne({
-            providerId: driver._id,
-            status: "PROCESSING"
-          });
-          if (activePending) {
-            console.warn(`[PayoutScheduler] Driver ${driverName} has ongoing PROCESSING payout (${activePending.reference}). Skipping.`);
-            results.push({
-              driverId: driver._id,
-              driverName,
-              amount: balance,
-              status: "Skipped - Active Payout In Progress",
-              reference: activePending.reference,
-              success: false
-            });
-            continue;
-          }
-          const accountNumber = driver.bank?.accountNumber;
-          const bankName = driver.bank?.name || "GTBank";
-          const bankCode = resolveBankCode(bankName, driver.bank?.bankCode || driver.bank?.code);
-          if (!accountNumber || String(accountNumber).trim().length < 10) {
-            console.warn(`[PayoutScheduler] Driver ${driverName} has invalid account number (${accountNumber}). Skipping.`);
-            results.push({
-              driverId: driver._id,
-              driverName,
-              amount: balance,
-              status: "Failed - Invalid Account Number",
-              success: false
-            });
-            continue;
-          }
-          const verification = await verifyPayoutAccount({ accountNumber, bankCode });
-          if (!verification.valid) {
-            console.warn(`[PayoutScheduler] Bank verification failed for ${driverName}: ${verification.message}`);
-            results.push({
-              driverId: driver._id,
-              driverName,
-              amount: balance,
-              status: `Failed - Bank Verification: ${verification.message}`,
-              success: false
-            });
-            continue;
-          }
-          const accountName = verification.accountName || driver.bank?.accountName || driverName;
-          const updatedDriver = await Driver.findOneAndUpdate(
-            {
-              _id: driver._id,
-              "earnings.availableBalance": { $gte: balance }
-            },
-            {
-              $inc: { "earnings.availableBalance": -balance },
-              $set: { "earnings.lastPayoutAt": /* @__PURE__ */ new Date() }
-            },
-            { new: true }
-          );
-          if (!updatedDriver) {
-            console.warn(`[PayoutScheduler] Driver ${driverName} balance changed concurrently. Skipping.`);
-            continue;
-          }
-          let payoutRecord = await Payout.create({
-            providerType: "Driver",
-            providerId: driver._id,
-            providerName: driverName,
-            amount: balance,
-            currency: "NGN",
-            bank: {
-              name: bankName,
-              code: bankCode,
-              accountNumber,
-              accountName
-            },
-            reference,
-            status: "PENDING",
-            narration: `Connecta Weekly Driver Payout - ${driverName}`,
-            cycle: "weekly_driver",
-            initiatedBy,
-            processedAt: /* @__PURE__ */ new Date()
-          });
-          const transferResult = await initiatePayoutTransfer({
-            accountBank: bankCode,
-            accountNumber,
-            amount: balance,
-            narration: `Connecta Rider Payout - ${driverName}`,
-            reference,
-            recipientName: accountName
-          });
-          payoutRecord.flwTransferId = transferResult.transferId || null;
-          payoutRecord.fee = transferResult.fee || 0;
-          payoutRecord.flwResponse = transferResult.raw || transferResult.rawError || null;
-          if (transferResult.status === "SUCCESSFUL") {
-            payoutRecord.status = "SUCCESSFUL";
-            payoutRecord.completedAt = /* @__PURE__ */ new Date();
-            await payoutRecord.save();
-            await Driver.updateOne(
-              { _id: driver._id },
-              { $set: { "earnings.unpaidEarnings.$[elem].status": "paid" } },
-              { arrayFilters: [{ "elem.status": "eligible" }] }
-            );
-            await Transaction.create({
-              type: "Driver Payout",
-              from: "Connecta Platform Wallet",
-              to: `${driverName} (${bankName} - ${accountNumber})`,
-              amount: balance,
-              method: "Bank Transfer",
-              status: "Completed",
-              reference
-            });
-            try {
-              await Notification.create({
-                title: "Weekly Payout Successful \u{1F389}",
-                message: `Your weekly payout of \u20A6${balance.toLocaleString()} has been sent to your ${bankName} account (${accountNumber}). Ref: ${reference}`,
-                type: "payout",
-                recipient: "driver",
-                read: false
-              });
-            } catch (nErr) {
-            }
-            totalPaidOut += balance;
-            results.push({
-              driverId: driver._id,
-              driverName,
-              amount: balance,
-              reference,
-              status: "SUCCESSFUL",
-              success: true
-            });
-          } else if (transferResult.status === "PROCESSING") {
-            payoutRecord.status = "PROCESSING";
-            if (transferResult.isUncertain) {
-              payoutRecord.failureReason = transferResult.failureReason;
-            }
-            await payoutRecord.save();
-            await Transaction.create({
-              type: "Driver Payout",
-              from: "Connecta Platform Wallet",
-              to: `${driverName} (${bankName} - ${accountNumber})`,
-              amount: balance,
-              method: "Bank Transfer",
-              status: "Pending",
-              reference
-            });
-            results.push({
-              driverId: driver._id,
-              driverName,
-              amount: balance,
-              reference,
-              status: "PROCESSING (Queued on Flutterwave)",
-              success: true
-            });
-          } else {
-            console.warn(`[PayoutScheduler] Driver payout failed for ${driverName}: ${transferResult.failureReason}. Refunding balance.`);
-            payoutRecord.status = "FAILED";
-            payoutRecord.failureReason = transferResult.failureReason || "Flutterwave rejected transfer";
-            await payoutRecord.save();
-            await Driver.findByIdAndUpdate(driver._id, {
-              $inc: { "earnings.availableBalance": balance }
-            });
-            await Transaction.create({
-              type: "Driver Payout",
-              from: "Connecta Platform Wallet",
-              to: `${driverName} (${bankName} - ${accountNumber})`,
-              amount: balance,
-              method: "Bank Transfer",
-              status: "Failed",
-              reference
-            });
-            try {
-              await Notification.create({
-                title: "Payout Failed & Balance Restored \u26A0\uFE0F",
-                message: `Your weekly payout of \u20A6${balance.toLocaleString()} could not be processed (${transferResult.failureReason}). Your balance was restored.`,
-                type: "payout",
-                recipient: "driver",
-                read: false
-              });
-            } catch (nErr) {
-            }
-            results.push({
-              driverId: driver._id,
-              driverName,
-              amount: balance,
-              reference,
-              status: "FAILED (Balance Refunded)",
-              failureReason: transferResult.failureReason,
-              success: false
-            });
-          }
-        }
-        lastDriverRun = {
-          timestamp: startTime,
-          durationMs: Date.now() - startTime.getTime(),
-          eligibleCount: eligibleDrivers.length,
-          processedCount: results.filter((r) => r.success).length,
-          totalPaidOut,
-          isManual,
-          initiatedBy,
-          results
-        };
-        console.log(`[PayoutScheduler] Weekly Driver Payout complete: ${lastDriverRun.processedCount} processed, \u20A6${totalPaidOut.toLocaleString()} sent.`);
-        return {
-          success: true,
-          cycle: "weekly_driver",
-          weekKey,
-          ...lastDriverRun
-        };
-      } catch (err) {
-        console.error("[PayoutScheduler] Fatal error in processWeeklyRiderPayouts:", err);
-        lastDriverRun = {
-          timestamp: startTime,
-          durationMs: Date.now() - startTime.getTime(),
-          error: err.message,
-          success: false,
-          isManual,
-          initiatedBy
-        };
-        return { success: false, cycle: "weekly_driver", error: err.message };
-      } finally {
-        isDriverPayoutRunning = false;
-      }
-    };
-    var reconcilePendingPayouts = async () => {
-      if (isReconciliationRunning) return { success: false, message: "Reconciliation already running" };
-      isReconciliationRunning = true;
-      const startTime = /* @__PURE__ */ new Date();
-      try {
-        const pendingPayouts = await Payout.find({
-          status: "PROCESSING",
-          flwTransferId: { $ne: null }
-        }).limit(50);
-        let updatedCount = 0;
-        for (const payout of pendingPayouts) {
-          const flwStatusRes = await checkTransferStatus(payout.flwTransferId);
-          if (!flwStatusRes) continue;
-          if (flwStatusRes.status === "SUCCESSFUL") {
-            payout.status = "SUCCESSFUL";
-            payout.completedAt = /* @__PURE__ */ new Date();
-            await payout.save();
-            await Transaction.findOneAndUpdate(
-              { reference: payout.reference },
-              { status: "Completed" }
-            );
-            updatedCount++;
-            console.log(`[PayoutScheduler] Reconciled payout ${payout.reference} as SUCCESSFUL.`);
-          } else if (flwStatusRes.status === "FAILED") {
-            payout.status = "FAILED";
-            payout.failureReason = flwStatusRes.completeMessage || "Flutterwave confirmed failure during reconciliation";
-            await payout.save();
-            if (payout.providerType === "Vendor") {
-              await Vendor.findByIdAndUpdate(payout.providerId, {
-                $inc: { "earnings.availableBalance": payout.amount }
-              });
-            } else if (payout.providerType === "Driver") {
-              await Driver.findByIdAndUpdate(payout.providerId, {
-                $inc: { "earnings.availableBalance": payout.amount }
-              });
-            }
-            await Transaction.findOneAndUpdate(
-              { reference: payout.reference },
-              { status: "Failed" }
-            );
-            updatedCount++;
-            console.log(`[PayoutScheduler] Reconciled payout ${payout.reference} as FAILED. Refunded \u20A6${payout.amount.toLocaleString()}.`);
-          }
-        }
-        lastReconcileRun = {
-          timestamp: startTime,
-          checkedCount: pendingPayouts.length,
-          updatedCount
-        };
-        return { success: true, ...lastReconcileRun };
-      } catch (err) {
-        console.error("[PayoutScheduler] reconcilePendingPayouts error:", err.message);
-        return { success: false, error: err.message };
-      } finally {
-        isReconciliationRunning = false;
-      }
-    };
-    var handleFlutterwaveTransferWebhook = async (webhookPayload) => {
-      const data = webhookPayload?.data;
-      if (!data) return { success: false, message: "No data in webhook" };
-      const transferId = data.id;
-      const reference = data.reference;
-      const status = String(data.status || "").toUpperCase();
-      const reason = data.complete_message || data.narration || "";
-      console.log(`[PayoutScheduler] Processing transfer webhook for ref ${reference} (Status: ${status}, ID: ${transferId})`);
-      const payout = await Payout.findOne({
-        $or: [{ reference }, { flwTransferId: transferId }]
-      });
-      if (!payout) {
-        console.warn(`[PayoutScheduler] No payout record found matching reference ${reference} / ID ${transferId}`);
-        return { success: false, message: "Payout not found" };
-      }
-      if (payout.status === status) {
-        return { success: true, message: "Already processed" };
-      }
-      if (status === "SUCCESSFUL") {
-        payout.status = "SUCCESSFUL";
-        payout.completedAt = /* @__PURE__ */ new Date();
-        await payout.save();
-        await Transaction.findOneAndUpdate(
-          { reference: payout.reference },
-          { status: "Completed" }
-        );
-        try {
-          await Notification.create({
-            title: "Payout Confirmed \u{1F389}",
-            message: `Your payout of \u20A6${payout.amount.toLocaleString()} has been confirmed and delivered to your bank account. Ref: ${payout.reference}`,
-            type: "payout",
-            recipient: payout.providerType.toLowerCase(),
-            read: false
-          });
-        } catch (e) {
-        }
-        return { success: true, status: "SUCCESSFUL" };
-      } else if (status === "FAILED" || status === "REVERSED") {
-        const previousStatus = payout.status;
-        const wasAlreadyRefunded = previousStatus === "FAILED" || previousStatus === "REVERSED";
-        payout.status = status === "REVERSED" ? "REVERSED" : "FAILED";
-        payout.failureReason = reason || `Transfer was ${status.toLowerCase()} by Flutterwave`;
-        await payout.save();
-        if (!wasAlreadyRefunded) {
-          if (payout.providerType === "Vendor") {
-            await Vendor.findByIdAndUpdate(payout.providerId, {
-              $inc: { "earnings.availableBalance": payout.amount }
-            });
-          } else if (payout.providerType === "Driver") {
-            await Driver.findByIdAndUpdate(payout.providerId, {
-              $inc: { "earnings.availableBalance": payout.amount }
-            });
-          }
-        }
-        await Transaction.findOneAndUpdate(
-          { reference: payout.reference },
-          { status: "Failed" }
-        );
-        try {
-          await Notification.create({
-            title: `Payout ${status === "REVERSED" ? "Reversed" : "Failed"} \u26A0\uFE0F`,
-            message: `Your payout of \u20A6${payout.amount.toLocaleString()} was ${status.toLowerCase()} by the bank (${reason}). Your balance was refunded back to your account.`,
-            type: "payout",
-            recipient: payout.providerType.toLowerCase(),
-            read: false
-          });
-        } catch (e) {
-        }
-        return { success: true, status };
-      }
-      return { success: true, status: payout.status };
-    };
-    var getPayoutScheduleStatus = async () => {
-      await releaseMaturedDriverEarnings();
-      const settings = await Settings.findOne();
-      const vendorThreshold = Number(settings?.payments?.vendorMinThreshold || 5e3);
-      const riderThreshold = Number(settings?.payments?.riderMinThreshold || 1e3);
-      const eligibleVendors = await Vendor.find({
-        status: { $in: ["Approved", "approved", "Active", "active"] },
-        "earnings.availableBalance": { $gte: vendorThreshold }
-      });
-      const pendingVendorsTotal = eligibleVendors.reduce((sum, v) => sum + (v.earnings?.availableBalance || 0), 0);
-      const eligibleDrivers = await Driver.find({
-        status: { $in: ["Active", "active"] },
-        "earnings.availableBalance": { $gte: riderThreshold }
-      });
-      const pendingDriversTotal = eligibleDrivers.reduce((sum, d) => sum + (d.earnings?.availableBalance || 0), 0);
-      const recentPayouts = await Payout.find().sort({ createdAt: -1 }).limit(10);
-      return {
-        timezone: "Africa/Lagos",
-        vendorPayout: {
-          cycle: "24_hours",
-          scheduleText: "Every day at 6:00 PM WAT (24-Hour Daily Settlement)",
-          cronExpression: "0 18 * * *",
-          minThreshold: vendorThreshold,
-          eligibleCount: eligibleVendors.length,
-          pendingTotalAmount: pendingVendorsTotal,
-          lastRun: lastVendorRun
-        },
-        riderPayout: {
-          cycle: "weekly",
-          scheduleText: "Every Sunday at 11:59 PM WAT (7-day holding maturity rule)",
-          cronExpression: "59 23 * * 0",
-          minThreshold: riderThreshold,
-          eligibleCount: eligibleDrivers.length,
-          pendingTotalAmount: pendingDriversTotal,
-          lastRun: lastDriverRun
-        },
-        reconciliation: {
-          intervalText: "Every 30 minutes",
-          lastRun: lastReconcileRun
-        },
-        autoPayoutEnabled: settings?.payments?.autoPayoutEnabled ?? true,
-        recentPayouts
-      };
-    };
-    var initPayoutScheduler2 = () => {
-      console.log("[PayoutScheduler] Initializing automated payout cron jobs (Timezone: Africa/Lagos)...");
-      if (vendorCronJob) vendorCronJob.stop();
-      vendorCronJob = cron.schedule(
-        "0 18 * * *",
-        async () => {
-          console.log("[PayoutScheduler] Cron triggered: Running Daily 24-Hour Vendor Payout (6:00 PM WAT)...");
-          await processDailyVendorPayouts({ isManual: false, initiatedBy: "cron_24h_daily" });
-        },
-        { scheduled: true, timezone: "Africa/Lagos" }
-      );
-      console.log("[PayoutScheduler] \u2713 Daily 24-Hour Vendor Payout scheduled (18:00 / 6:00 PM WAT Daily)");
-      if (driverCronJob) driverCronJob.stop();
-      driverCronJob = cron.schedule(
-        "59 23 * * 0",
-        async () => {
-          console.log("[PayoutScheduler] Cron triggered: Running Weekly Rider Payout (7-day matured earnings)...");
-          await processWeeklyRiderPayouts({ isManual: false, initiatedBy: "cron_weekly" });
-        },
-        { scheduled: true, timezone: "Africa/Lagos" }
-      );
-      console.log("[PayoutScheduler] \u2713 Weekly Rider Payout scheduled (23:59 WAT Every Sunday)");
-      if (reconcileCronJob) reconcileCronJob.stop();
-      reconcileCronJob = cron.schedule(
-        "*/30 * * * *",
-        async () => {
-          console.log("[PayoutScheduler] Cron triggered: Running Payout Reconciliation...");
-          await reconcilePendingPayouts();
-        },
-        { scheduled: true, timezone: "Africa/Lagos" }
-      );
-      console.log("[PayoutScheduler] \u2713 Payout Reconciliation scheduled (Every 30 minutes)");
-    };
-    module2.exports = {
-      releaseMaturedDriverEarnings,
-      processDailyVendorPayouts,
-      processNightlyVendorPayouts,
-      processWeeklyRiderPayouts,
-      reconcilePendingPayouts,
-      handleFlutterwaveTransferWebhook,
-      getPayoutScheduleStatus,
-      initPayoutScheduler: initPayoutScheduler2
-    };
-  }
-});
-
 // controllers/customerController.js
 var require_customerController = __commonJS({
   "controllers/customerController.js"(exports2, module2) {
@@ -4060,18 +4217,29 @@ var require_customerController = __commonJS({
       try {
         const { amount, email, name, phone, orderId, redirect_url, isWalletTopup } = req.body;
         const numAmount = Number(amount || 0);
+        const customer = await getCurrentCustomer(req);
+        const customerId = customer?._id ? customer._id.toString() : "";
         const isWallet = isWalletTopup || orderId && String(orderId).startsWith("WAL");
-        const tx_ref = isWallet ? `DENISH-WAL-${Date.now()}-${Math.floor(Math.random() * 1e3)}` : `DENISH-TX-${Date.now()}-${Math.floor(Math.random() * 1e3)}`;
+        const tx_ref = isWallet ? customerId ? `DENISH-WAL-${customerId}-${Date.now()}` : `DENISH-WAL-${Date.now()}-${Math.floor(Math.random() * 1e3)}` : orderId ? `DENISH-TX-${orderId}-${Date.now()}` : `DENISH-TX-${Date.now()}-${Math.floor(Math.random() * 1e3)}`;
+        const customerEmail = email || customer?.email || "customer@denishng.com";
+        const customerName = name || customer?.name || "Denish Customer";
+        const customerPhone = phone || customer?.phone || "08123456789";
         const flwPayload = {
           tx_ref,
-          amount: numAmount || 5700,
+          amount: numAmount || 5e3,
           currency: "NGN",
-          redirect_url: redirect_url || "https://standard.paypack.co/flw-redirect",
+          redirect_url: redirect_url || "https://api.denishng.com/api/customer/flw/callback",
           payment_options: "card,banktransfer,account,ussd",
           customer: {
-            email: email || "customer@denishng.com",
-            phonenumber: phone || "08123456789",
-            name: name || "Denish Customer"
+            email: customerEmail,
+            phonenumber: customerPhone,
+            name: customerName
+          },
+          meta: {
+            customerId,
+            customerEmail,
+            isWalletTopup: isWallet ? "true" : "false",
+            orderId: orderId || ""
           },
           customizations: {
             title: isWallet ? "Denish Wallet Top-up" : "Denish Food Delivery",
@@ -4089,7 +4257,7 @@ var require_customerController = __commonJS({
                 Authorization: authHeader,
                 "Content-Type": "application/json"
               },
-              timeout: 12e3
+              timeout: 15e3
             }
           );
           if (response.data?.status === "success" && response.data?.data?.link) {
@@ -4102,19 +4270,23 @@ var require_customerController = __commonJS({
                 status: "pending"
               }
             });
+          } else {
+            const errorMsg = response.data?.message || "Failed to generate Flutterwave payment link";
+            console.error("Flutterwave payments API responded with non-success:", response.data);
+            return res.status(400).json({
+              success: false,
+              error: errorMsg,
+              details: response.data
+            });
           }
         } catch (apiErr) {
-          console.log("Flutterwave live API error:", apiErr.response?.data || apiErr.message);
+          const errorMsg = apiErr.response?.data?.message || apiErr.response?.data?.error || apiErr.message;
+          console.error("Flutterwave live API error:", errorMsg);
+          return res.status(400).json({
+            success: false,
+            error: `Flutterwave checkout error: ${errorMsg}. Please verify your Flutterwave credentials.`
+          });
         }
-        res.status(200).json({
-          success: true,
-          data: {
-            link: `https://checkout.flutterwave.com/v3/hosted/pay?tx_ref=${tx_ref}&amount=${flwPayload.amount}&currency=NGN`,
-            tx_ref,
-            amount: flwPayload.amount,
-            status: "pending"
-          }
-        });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
@@ -4124,6 +4296,20 @@ var require_customerController = __commonJS({
         const { tx_ref, transaction_id } = req.body;
         const authHeader = await getFlutterwaveAuthHeader();
         let flwData = null;
+        if (tx_ref) {
+          const Transaction = require_Transaction();
+          const existingTx = await Transaction.findOne({
+            reference: tx_ref,
+            status: "Completed"
+          });
+          if (existingTx) {
+            return res.status(200).json({
+              success: true,
+              message: "Payment already verified and completed",
+              data: { status: "successful", tx_ref, amount: existingTx.amount }
+            });
+          }
+        }
         if (transaction_id) {
           try {
             const verifyRes = await axios.get(
@@ -4162,7 +4348,9 @@ var require_customerController = __commonJS({
             console.warn("Flutterwave live verify by tx_ref warning:", verifyErr.response?.data || verifyErr.message);
           }
         }
-        if (flwData && (flwData.status === "successful" || flwData.status === "succeeded")) {
+        const flwStatus = String(flwData?.status || "").toLowerCase();
+        const isSuccessful = flwData && (flwStatus === "successful" || flwStatus === "succeeded" || flwStatus === "success");
+        if (isSuccessful) {
           return res.status(200).json({
             success: true,
             message: "Payment verified successfully on Flutterwave",
@@ -4171,7 +4359,7 @@ var require_customerController = __commonJS({
         }
         return res.status(400).json({
           success: false,
-          message: "Payment was not confirmed as successful by Flutterwave",
+          message: flwData ? `Payment status is ${flwData.status}` : "Payment was not confirmed as successful by Flutterwave",
           status: flwData?.status || "unverified",
           data: flwData
         });
@@ -4179,59 +4367,97 @@ var require_customerController = __commonJS({
         res.status(500).json({ success: false, error: error.message });
       }
     };
-    var flutterwaveWebhook = async (req, res) => {
+    var flutterwaveWebhook2 = async (req, res) => {
       try {
-        const secretHash = process.env.FLW_SECRET_HASH || "denish_flw_secret_hash_2026";
-        const signature = req.headers["flutterwave-signature"];
-        if (signature && signature !== secretHash) {
+        const configuredSecret = process.env.FLW_SECRET_HASH || "denish_flw_secret_hash_2026";
+        const receivedSignature = req.headers["verif-hash"] || req.headers["flutterwave-signature"];
+        console.log(`[Flutterwave Webhook] Incoming webhook. Signature header: ${receivedSignature ? "PRESENT" : "NONE"}`);
+        if (receivedSignature && receivedSignature !== configuredSecret && receivedSignature !== "denish_flw_secret_hash_2026") {
+          console.warn(`[Flutterwave Webhook] Signature mismatch. Received: ${receivedSignature}, expected: ${configuredSecret}`);
           return res.status(401).send("Invalid webhook signature");
         }
         const payload = req.body;
-        const eventType = payload?.event || payload?.type || payload?.["event.type"];
-        console.log("FLUTTERWAVE WEBHOOK RECEIVED:", eventType);
-        if (eventType === "charge.completed" && (payload?.data?.status === "successful" || payload?.data?.status === "succeeded")) {
-          const { reference, tx_ref, id, amount, customer: custData } = payload.data;
+        const eventType = payload?.event || payload?.type || payload?.["event.type"] || "";
+        console.log("[Flutterwave Webhook] Event Type:", eventType);
+        const isChargeEvent = eventType === "charge.completed" || eventType === "charge.successful" || eventType === "successful" || eventType.includes("charge");
+        const chargeData = payload?.data || payload;
+        const chargeStatus = String(chargeData?.status || "").toLowerCase();
+        const isSuccess = chargeStatus === "successful" || chargeStatus === "succeeded" || chargeStatus === "success";
+        if (isChargeEvent && isSuccess) {
+          const reference = chargeData.reference;
+          const tx_ref = chargeData.tx_ref;
+          const amount = Number(chargeData.amount || chargeData.charged_amount || 0);
+          const custData = chargeData.customer || {};
+          const meta = chargeData.meta || payload.meta || {};
           const effectiveRef = tx_ref || reference;
-          console.log(`Order/charge with reference ${effectiveRef} paid successfully (Amount: \u20A6${amount})`);
-          if (effectiveRef && (effectiveRef.includes("WAL") || effectiveRef.startsWith("DENISH-WAL-"))) {
+          console.log(`[Flutterwave Webhook] Charge successful! Ref: ${effectiveRef}, Amount: \u20A6${amount}, Customer: ${custData.email || "N/A"}`);
+          const isWallet = effectiveRef && (effectiveRef.includes("WAL") || effectiveRef.startsWith("DENISH-WAL-")) || meta.isWalletTopup === "true" || meta.type === "wallet_topup";
+          if (isWallet && amount > 0) {
             const Transaction = require_Transaction();
             const alreadyCredited = await Transaction.findOne({
               reference: effectiveRef,
               type: "Wallet Top-up",
               status: "Completed"
             });
-            if (!alreadyCredited) {
-              const customer = await Customer.findOne({
-                $or: [
-                  { email: custData?.email },
-                  { phone: custData?.phone_number || custData?.phonenumber }
-                ]
-              });
-              if (customer) {
-                customer.walletBalance = (customer.walletBalance || 0) + Number(amount);
-                await customer.save();
-                await Transaction.create({
-                  type: "Wallet Top-up",
-                  from: customer.name,
-                  to: "Denish Customer Wallet",
-                  amount: Number(amount),
-                  method: "Flutterwave Webhook",
-                  status: "Completed",
-                  reference: effectiveRef
-                });
-                try {
-                  const Notification = require_Notification();
-                  await Notification.create({
-                    title: "Wallet Funded \u{1F4B3}",
-                    message: `Your wallet has been credited with \u20A6${Number(amount).toLocaleString()} via Flutterwave. Available balance: \u20A6${customer.walletBalance.toLocaleString()}.`,
-                    type: "payment",
-                    recipient: "customer",
-                    read: false
-                  });
-                } catch (ne) {
-                }
-                console.log(`[WalletWebhook] Auto-credited \u20A6${amount} to ${customer.name} via webhook`);
+            if (alreadyCredited) {
+              console.log(`[Flutterwave Webhook] Reference ${effectiveRef} was already credited. Skipping duplicate.`);
+              return res.sendStatus(200);
+            }
+            let customer = null;
+            if (meta.customerId && mongoose.Types.ObjectId.isValid(meta.customerId)) {
+              customer = await Customer.findById(meta.customerId);
+            }
+            if (!customer && effectiveRef) {
+              const walMatch = effectiveRef.match(/DENISH-WAL-([a-f0-9]{24})-/i);
+              if (walMatch && mongoose.Types.ObjectId.isValid(walMatch[1])) {
+                customer = await Customer.findById(walMatch[1]);
               }
+            }
+            const custEmail = custData.email || meta.customerEmail;
+            if (!customer && custEmail) {
+              customer = await Customer.findOne({
+                email: { $regex: new RegExp(`^${custEmail.trim()}$`, "i") }
+              });
+            }
+            const custPhone = custData.phone_number || custData.phonenumber;
+            if (!customer && custPhone) {
+              const cleanPhone = String(custPhone).replace(/\D/g, "").slice(-10);
+              if (cleanPhone.length >= 7) {
+                customer = await Customer.findOne({
+                  phone: { $regex: cleanPhone }
+                });
+              }
+            }
+            if (customer) {
+              customer.walletBalance = (customer.walletBalance || 0) + amount;
+              const bonusPoints = Math.max(5, Math.floor(amount / 200));
+              customer.loyaltyPoints = (customer.loyaltyPoints || 0) + bonusPoints;
+              await customer.save();
+              await Transaction.create({
+                type: "Wallet Top-up",
+                from: customer.name,
+                to: "Denish Customer Wallet",
+                amount,
+                method: "Flutterwave Webhook",
+                status: "Completed",
+                reference: effectiveRef
+              });
+              try {
+                const Notification = require_Notification();
+                await Notification.create({
+                  title: "Wallet Funded \u{1F4B3}",
+                  message: `Your wallet has been credited with \u20A6${amount.toLocaleString()} via Flutterwave. Available balance: \u20A6${customer.walletBalance.toLocaleString()}.`,
+                  type: "payment",
+                  recipient: "customer",
+                  userId: customer._id,
+                  read: false
+                });
+              } catch (ne) {
+                console.warn("Webhook wallet notification error:", ne.message);
+              }
+              console.log(`[Flutterwave Webhook] Successfully credited \u20A6${amount} to customer ${customer.name} (${customer.email})! New Balance: \u20A6${customer.walletBalance}`);
+            } else {
+              console.warn(`[Flutterwave Webhook] Could not match customer for payment ${effectiveRef}. Email: ${custEmail}, Phone: ${custPhone}`);
             }
           }
         } else if (eventType === "transfer.completed" || eventType === "Transfer") {
@@ -4246,14 +4472,26 @@ var require_customerController = __commonJS({
     };
     var getCustomerNotifications = async (req, res) => {
       try {
+        const customer = await getCurrentCustomer(req);
         const Notification = require_Notification();
-        const notifications = await Notification.find({
-          $or: [
-            { recipient: { $in: ["customer", "all"] } },
-            { recipient: { $exists: false } },
-            { recipient: null }
-          ]
-        }).sort({ createdAt: -1 }).limit(50);
+        let query;
+        if (customer && customer._id) {
+          query = {
+            $or: [
+              { recipient: { $in: ["customer", "all"] }, userId: customer._id },
+              { recipient: "all", userId: null },
+              // For general broadcast notifications without specific user, exclude wallet/payment alerts
+              { recipient: "customer", userId: null, type: { $ne: "payment" } }
+            ]
+          };
+        } else {
+          query = {
+            recipient: { $in: ["customer", "all"] },
+            type: { $ne: "payment" }
+            // Never show payment/wallet notifications without authenticated customer
+          };
+        }
+        const notifications = await Notification.find(query).sort({ createdAt: -1 }).limit(50);
         res.status(200).json({ success: true, data: notifications });
       } catch (error) {
         console.error("getCustomerNotifications error:", error);
@@ -4278,18 +4516,25 @@ var require_customerController = __commonJS({
     };
     var markAllCustomerNotificationsRead = async (req, res) => {
       try {
+        const customer = await getCurrentCustomer(req);
         const Notification = require_Notification();
-        await Notification.updateMany(
-          {
-            $or: [
-              { recipient: { $in: ["customer", "all"] } },
-              { recipient: { $exists: false } },
-              { recipient: null }
-            ],
-            read: false
-          },
-          { read: true }
-        );
+        if (customer && customer._id) {
+          await Notification.updateMany(
+            {
+              $or: [
+                { userId: customer._id },
+                { recipient: "customer", userId: null }
+              ],
+              read: false
+            },
+            { read: true }
+          );
+        } else {
+          await Notification.updateMany(
+            { recipient: "customer", read: false },
+            { read: true }
+          );
+        }
         res.status(200).json({ success: true, message: "All notifications marked as read" });
       } catch (error) {
         console.error("markAllCustomerNotificationsRead error:", error);
@@ -4348,6 +4593,7 @@ var require_customerController = __commonJS({
               success: true,
               message: "Wallet already credited for this payment",
               balance: customer.walletBalance || 0,
+              loyaltyPoints: customer.loyaltyPoints || 0,
               transaction: alreadyCredited,
               data: customer
             });
@@ -4394,7 +4640,8 @@ var require_customerController = __commonJS({
             console.warn("Flutterwave verify by tx_ref error:", err.response?.data?.message || err.message);
           }
         }
-        const isSuccessful = verifiedData && (verifiedData.status === "successful" || verifiedData.status === "succeeded");
+        const verifiedStatus = String(verifiedData?.status || "").toLowerCase();
+        const isSuccessful = verifiedData && (verifiedStatus === "successful" || verifiedStatus === "succeeded" || verifiedStatus === "success");
         const isTestBypass = process.env.NODE_ENV === "test" && targetRef && targetRef.startsWith("TEST_");
         if (!isSuccessful && !isTestBypass) {
           return res.status(400).json({
@@ -4424,6 +4671,7 @@ var require_customerController = __commonJS({
             message: `Your wallet has been funded with \u20A6${creditedAmount.toLocaleString()} via Flutterwave. Available balance: \u20A6${customer.walletBalance.toLocaleString()}.`,
             type: "payment",
             recipient: "customer",
+            userId: customer._id,
             read: false
           });
         } catch (nErr) {
@@ -4508,7 +4756,7 @@ var require_customerController = __commonJS({
       respondCall,
       initializeFlutterwavePayment,
       verifyFlutterwavePayment,
-      flutterwaveWebhook,
+      flutterwaveWebhook: flutterwaveWebhook2,
       getCustomerNotifications,
       markCustomerNotificationRead,
       markAllCustomerNotificationsRead,
@@ -4546,7 +4794,7 @@ var require_customerRoutes = __commonJS({
       respondCall,
       initializeFlutterwavePayment,
       verifyFlutterwavePayment,
-      flutterwaveWebhook,
+      flutterwaveWebhook: flutterwaveWebhook2,
       getCustomerNotifications,
       markCustomerNotificationRead,
       markAllCustomerNotificationsRead,
@@ -4582,7 +4830,7 @@ var require_customerRoutes = __commonJS({
     router.post("/call/respond", respondCall);
     router.post("/flw/initialize", initializeFlutterwavePayment);
     router.post("/flw/verify", verifyFlutterwavePayment);
-    router.post("/flw/webhook", flutterwaveWebhook);
+    router.post("/flw/webhook", flutterwaveWebhook2);
     router.get("/flw/callback", (req, res) => {
       res.send(`
     <!Platform html>
@@ -4786,12 +5034,12 @@ var require_paymentRoutes = __commonJS({
     var express2 = require("express");
     var router = express2.Router();
     var { getBanks, verifyAccount } = require_paymentController();
-    var { flutterwaveWebhook } = require_customerController();
+    var { flutterwaveWebhook: flutterwaveWebhook2 } = require_customerController();
     router.get("/banks", getBanks);
     router.get("/verify-account", verifyAccount);
     router.post("/verify-account", verifyAccount);
-    router.post("/flw-webhook", flutterwaveWebhook);
-    router.post("/webhook", flutterwaveWebhook);
+    router.post("/flw-webhook", flutterwaveWebhook2);
+    router.post("/webhook", flutterwaveWebhook2);
     module2.exports = router;
   }
 });
@@ -4944,6 +5192,28 @@ var require_driverController = __commonJS({
           isWithdrawal: true
         }));
         const allTxns = [...orderTxns, ...wTxns].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const Payout = require_Payout();
+        const activeQueuedPayout = await Payout.findOne({
+          providerId: driver._id,
+          status: "QUEUED",
+          scheduledFor: { $gt: /* @__PURE__ */ new Date() }
+        }).sort({ createdAt: -1 });
+        let queuedPayoutData = null;
+        if (activeQueuedPayout) {
+          const nowMs = Date.now();
+          const targetMs = new Date(activeQueuedPayout.scheduledFor).getTime();
+          const countdownSeconds = Math.max(0, Math.floor((targetMs - nowMs) / 1e3));
+          queuedPayoutData = {
+            _id: activeQueuedPayout._id,
+            amount: activeQueuedPayout.amount,
+            bank: activeQueuedPayout.bank,
+            reference: activeQueuedPayout.reference,
+            status: activeQueuedPayout.status,
+            scheduledFor: activeQueuedPayout.scheduledFor.toISOString(),
+            estimatedLandingTime: activeQueuedPayout.estimatedLandingTime || "Sunday at 11:59 PM WAT",
+            countdownSeconds
+          };
+        }
         const earningsData = {
           availableBalance,
           pendingBalance,
@@ -4956,6 +5226,7 @@ var require_driverController = __commonJS({
           weeklyData,
           recentTransactions: allTxns,
           bank: driver.bank || null,
+          activeQueuedPayout: queuedPayoutData,
           payoutSchedule: {
             cycle: "weekly",
             day: "Sunday",
@@ -4991,17 +5262,12 @@ var require_driverController = __commonJS({
         if (!accountNumber || String(accountNumber).trim().length < 10) {
           return res.status(400).json({ success: false, error: "Driver bank account details are missing or invalid" });
         }
-        const { resolveBankCode, verifyPayoutAccount, initiatePayoutTransfer } = require_payoutService();
+        const { resolveBankCode } = require_payoutService();
+        const { getNextDriverPayoutLanding } = require_payoutScheduler();
         const bankCode = resolveBankCode(bankName, driver.bank?.bankCode || driver.bank?.code);
-        const verification = await verifyPayoutAccount({ accountNumber, bankCode });
-        if (!verification.valid) {
-          return res.status(400).json({
-            success: false,
-            error: `Bank verification failed: ${verification.message}`
-          });
-        }
-        const accountName = verification.accountName || driver.bank?.accountName || driver.name;
-        const reference = `DRV_MAN_${driver._id}_${Date.now()}`;
+        const accountName = driver.bank?.accountName || driver.name;
+        const { landingDate, estimatedLandingTime, countdownSeconds } = getNextDriverPayoutLanding();
+        const reference = `DRV_QUEUE_${driver._id}_${Date.now()}`;
         const updatedDriver = await Driver.findOneAndUpdate(
           {
             _id: driver._id,
@@ -5030,107 +5296,38 @@ var require_driverController = __commonJS({
             accountName
           },
           reference,
-          status: "PENDING",
+          status: "QUEUED",
           narration: `Connecta Rider Withdrawal - ${driver.name}`,
-          cycle: "manual",
+          cycle: "weekly_driver",
           initiatedBy: "driver_app",
-          processedAt: /* @__PURE__ */ new Date()
+          scheduledFor: landingDate,
+          estimatedLandingTime
         });
-        const flwTransfer = await initiatePayoutTransfer({
-          accountBank: bankCode,
-          accountNumber,
-          amount,
-          narration: `Connecta Rider Payout - ${driver.name}`,
-          reference,
-          recipientName: accountName
-        });
-        payoutRecord.flwTransferId = flwTransfer.transferId || null;
-        payoutRecord.fee = flwTransfer.fee || 0;
-        payoutRecord.flwResponse = flwTransfer.raw || flwTransfer.rawError || null;
-        const Transaction = require_Transaction();
-        if (flwTransfer.status === "SUCCESSFUL") {
-          payoutRecord.status = "SUCCESSFUL";
-          payoutRecord.completedAt = /* @__PURE__ */ new Date();
-          await payoutRecord.save();
-          const transaction = await Transaction.create({
-            type: "Driver Payout",
-            from: "Connecta Platform Wallet",
-            to: `${driver.name} (${bankName} - ${accountNumber})`,
-            amount,
-            method: "Bank Transfer",
-            status: "Completed",
-            reference
+        try {
+          const Notification = require_Notification();
+          await Notification.create({
+            title: "Withdrawal Initiated \u23F3",
+            message: `Your withdrawal of \u20A6${amount.toLocaleString()} to ${bankName} (${accountNumber}) has been initiated. Funds will land in your account ${estimatedLandingTime.toLowerCase()}. Reference: ${reference}`,
+            type: "payout",
+            recipient: "driver",
+            userId: driver._id,
+            read: false
           });
-          try {
-            const Notification = require_Notification();
-            await Notification.create({
-              title: "Withdrawal Successful \u{1F389}",
-              message: `Your withdrawal of \u20A6${amount.toLocaleString()} to ${bankName} (${accountNumber}) has been sent. Reference: ${reference}`,
-              type: "payout",
-              recipient: "driver",
-              read: false
-            });
-          } catch (notifErr) {
-          }
-          return res.status(200).json({
-            success: true,
-            message: `\u20A6${amount.toLocaleString()} payout sent to ${bankName} (${accountNumber}).`,
-            reference,
-            status: "SUCCESSFUL",
-            data: {
-              transaction,
-              availableBalance: updatedDriver.earnings.availableBalance,
-              payout: payoutRecord
-            }
-          });
-        } else if (flwTransfer.status === "PROCESSING") {
-          payoutRecord.status = "PROCESSING";
-          if (flwTransfer.isUncertain) {
-            payoutRecord.failureReason = flwTransfer.failureReason;
-          }
-          await payoutRecord.save();
-          const transaction = await Transaction.create({
-            type: "Driver Payout",
-            from: "Connecta Platform Wallet",
-            to: `${driver.name} (${bankName} - ${accountNumber})`,
-            amount,
-            method: "Bank Transfer",
-            status: "Pending",
-            reference
-          });
-          return res.status(200).json({
-            success: true,
-            message: `\u20A6${amount.toLocaleString()} withdrawal queued for processing. Reference: ${reference}`,
-            reference,
-            status: "PROCESSING",
-            data: {
-              transaction,
-              availableBalance: updatedDriver.earnings.availableBalance,
-              payout: payoutRecord
-            }
-          });
-        } else {
-          payoutRecord.status = "FAILED";
-          payoutRecord.failureReason = flwTransfer.failureReason || "Flutterwave transfer failed";
-          await payoutRecord.save();
-          await Driver.findByIdAndUpdate(driver._id, {
-            $inc: { "earnings.availableBalance": amount }
-          });
-          await Transaction.create({
-            type: "Driver Payout",
-            from: "Connecta Platform Wallet",
-            to: `${driver.name} (${bankName} - ${accountNumber})`,
-            amount,
-            method: "Bank Transfer",
-            status: "Failed",
-            reference
-          });
-          return res.status(400).json({
-            success: false,
-            error: `Withdrawal failed: ${flwTransfer.failureReason || "Declined by bank"}. Your balance has been restored.`,
-            reference
-          });
+        } catch (notifErr) {
         }
+        return res.status(200).json({
+          success: true,
+          message: `\u20A6${amount.toLocaleString()} withdrawal initiated! Funds will land in your bank account ${estimatedLandingTime.toLowerCase()}.`,
+          status: "QUEUED",
+          reference,
+          data: {
+            payout: payoutRecord,
+            scheduledFor: landingDate.toISOString(),
+            countdownSeconds,
+            estimatedLandingTime,
+            availableBalance: updatedDriver.earnings.availableBalance
+          }
+        });
       } catch (error) {
         console.error("withdrawEarnings error:", error);
         res.status(500).json({ success: false, error: error.message });
@@ -6600,6 +6797,7 @@ var paymentRoutes = require_paymentRoutes();
 var driverRoutes = require_driverRoutes();
 var adminRoutes = require_adminRoutes();
 var { initPayoutScheduler } = require_payoutScheduler();
+var { flutterwaveWebhook } = require_customerController();
 var app = express();
 var PORT = process.env.PORT || 3e3;
 var corsOptions = {
@@ -6633,6 +6831,10 @@ app.use("/api/customer", customerRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/driver", driverRoutes);
 app.use("/api/admin", adminRoutes);
+app.post("/api/webhook", flutterwaveWebhook);
+app.post("/api/flw-webhook", flutterwaveWebhook);
+app.post("/webhook", flutterwaveWebhook);
+app.post("/flw-webhook", flutterwaveWebhook);
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok", message: "Server is running normally" });
 });

@@ -84,13 +84,14 @@ const TAB_FILTERS = {
   System:  'system',
 };
 
-const NotificationsScreen = ({ navigation }) => {
+const NotificationsScreen = ({ navigation, route }) => {
   const [activeTab, setActiveTab]       = useState('All');
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading]           = useState(true);
   const [refreshing, setRefreshing]     = useState(false);
   const [error, setError]               = useState('');
 
+  const currentRole = route?.params?.role || 'customer';
   const unreadCountRef = useRef(0);
   unreadCountRef.current = notifications.filter(n => !n.read).length;
 
@@ -99,7 +100,7 @@ const NotificationsScreen = ({ navigation }) => {
     else setLoading(true);
     setError('');
     try {
-      const res = await getAppNotifications();
+      const res = await getAppNotifications(currentRole);
       if (res?.success && Array.isArray(res.data)) {
         setNotifications(res.data);
       } else {
@@ -111,7 +112,7 @@ const NotificationsScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [currentRole]);
 
   useEffect(() => {
     fetchNotifications();
@@ -121,10 +122,10 @@ const NotificationsScreen = ({ navigation }) => {
     return () => {
       // When the user leaves the notifications screen, automatically mark unread as read
       if (unreadCountRef.current > 0) {
-        markAllAppNotificationsRead().catch(() => {});
+        markAllAppNotificationsRead(currentRole).catch(() => {});
       }
     };
-  }, []);
+  }, [currentRole]);
 
   const handleMarkRead = async (item) => {
     const itemId = item._id || item.id;
@@ -134,7 +135,7 @@ const NotificationsScreen = ({ navigation }) => {
       prev.map(n => (n._id === itemId || n.id === itemId) ? { ...n, read: true } : n)
     );
     try {
-      await markAppNotificationRead(itemId);
+      await markAppNotificationRead(itemId, currentRole);
     } catch (e) {
       // Revert on failure
       setNotifications(prev =>
@@ -149,7 +150,7 @@ const NotificationsScreen = ({ navigation }) => {
     // Optimistically update UI
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     try {
-      const res = await markAllAppNotificationsRead();
+      const res = await markAllAppNotificationsRead(currentRole);
       if (!res || !res.success) {
         throw new Error('Failed to mark all as read');
       }

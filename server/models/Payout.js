@@ -45,9 +45,17 @@ const payoutSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['PENDING', 'PROCESSING', 'SUCCESSFUL', 'FAILED', 'REVERSED'],
+    enum: ['QUEUED', 'PENDING', 'PROCESSING', 'SUCCESSFUL', 'FAILED', 'REVERSED'],
     default: 'PENDING',
     index: true,
+  },
+  scheduledFor: {
+    type: Date,
+    index: true,
+  },
+  estimatedLandingTime: {
+    type: String,
+    default: null,
   },
   narration: {
     type: String,
