@@ -52,11 +52,30 @@ const RequestPayoutScreen = ({ navigation, route }) => {
 
   const countdown = useCountdown(activePayout?.scheduledFor);
 
-  const bankName = payoutAccount?.bank || 'GTBank';
-  const acctNum = payoutAccount?.accountNumber || '0123456789';
-  const acctName = payoutAccount?.accountName || "Mama's kitchen ltd";
+  const hasValidAccount = Boolean(
+    payoutAccount?.accountNumber && String(payoutAccount.accountNumber).trim().length >= 10
+  );
+
+  const bankName = hasValidAccount ? (payoutAccount.bank || 'Bank Account') : 'No Bank Account Set';
+  const acctNum = hasValidAccount ? payoutAccount.accountNumber : 'Please set up your payout bank account';
+  const acctName = hasValidAccount ? (payoutAccount.accountName || '') : 'Tap here to add your bank details';
 
   const handleConfirm = async () => {
+    if (!hasValidAccount) {
+      Alert.alert(
+        'Payout Account Required',
+        'Please set up your bank account details before requesting a payout.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Set Up Account',
+            onPress: () => navigation.navigate('PayoutAccount')
+          }
+        ]
+      );
+      return;
+    }
+
     const value = parseFloat(amount);
     if (!amount || isNaN(value) || value < 1000) {
       Alert.alert('Invalid Amount', 'Minimum payout is ₦1,000.');
@@ -93,7 +112,8 @@ const RequestPayoutScreen = ({ navigation, route }) => {
         Alert.alert('Request Failed', result.error || 'Unable to submit payout request.');
       }
     } catch (error) {
-      Alert.alert('Request Failed', error.response?.data?.error || error.message || 'Unable to submit payout request.');
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Unable to submit payout request.';
+      Alert.alert('Payout Failed', errorMsg);
     } finally {
       setSubmitting(false);
     }
@@ -176,11 +196,26 @@ const RequestPayoutScreen = ({ navigation, route }) => {
             </Text>
 
             {/* Bank Info Box */}
-            <View style={styles.bankBox}>
-              <Text style={styles.bankLabel}>Payout destination</Text>
-              <Text style={styles.bankName} numberOfLines={1} ellipsizeMode="tail">{bankName}</Text>
-              <Text style={styles.bankMeta} numberOfLines={1} ellipsizeMode="tail">{acctNum} | {acctName}</Text>
-            </View>
+            <TouchableOpacity 
+              style={[styles.bankBox, !hasValidAccount && { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }]}
+              onPress={() => navigation.navigate('PayoutAccount')}
+              activeOpacity={0.8}
+            >
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={[styles.bankLabel, !hasValidAccount && { color: '#EF4444' }]}>
+                  {hasValidAccount ? 'Payout destination' : '⚠️ Action Required'}
+                </Text>
+                <Text style={{ fontSize: 11, color: '#FF8C00', fontWeight: '700' }}>
+                  {hasValidAccount ? 'Change' : 'Configure Account'}
+                </Text>
+              </View>
+              <Text style={[styles.bankName, !hasValidAccount && { color: '#DC2626' }]} numberOfLines={1} ellipsizeMode="tail">
+                {bankName}
+              </Text>
+              <Text style={[styles.bankMeta, !hasValidAccount && { color: '#991B1B' }]} numberOfLines={1} ellipsizeMode="tail">
+                {acctNum}{acctName ? ` | ${acctName}` : ''}
+              </Text>
+            </TouchableOpacity>
 
             {/* Amount */}
             <Text style={styles.amountLabel}>Amount (₦)</Text>

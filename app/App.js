@@ -166,6 +166,7 @@ export default function App() {
               <Stack.Screen name="Dashboard" component={VendorDashboard} />
               <Stack.Screen name="ItemForm" component={ItemFormScreen} />
               <Stack.Screen name="RequestPayout" component={RequestPayoutScreen} />
+              <Stack.Screen name="PayoutAccount" component={PayoutAccountScreen} />
               <Stack.Screen name="VendorProfile" component={VendorProfileScreen} />
               <Stack.Screen name="VendorEditProfile" component={VendorEditProfileScreen} />
               

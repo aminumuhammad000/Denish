@@ -233,8 +233,8 @@ const requestVendorPayout = async (req, res) => {
     if (!payoutAmount || isNaN(payoutAmount) || payoutAmount <= 0) {
       return res.status(400).json({ success: false, error: 'Please enter a valid payout amount' });
     }
-    if (payoutAmount < 5000) {
-      return res.status(400).json({ success: false, error: 'Minimum payout is ₦5,000' });
+    if (payoutAmount < 1000) {
+      return res.status(400).json({ success: false, error: 'Minimum payout is ₦1,000' });
     }
 
     const vendor = await getCurrentVendor(req);
@@ -250,10 +250,13 @@ const requestVendorPayout = async (req, res) => {
       });
     }
 
-    const bankName = vendor.payoutAccount?.bank || 'Access Bank';
+    const bankName = vendor.payoutAccount?.bank || 'Bank Account';
     const accountNumber = vendor.payoutAccount?.accountNumber;
     if (!accountNumber || String(accountNumber).trim().length < 10) {
-      return res.status(400).json({ success: false, error: 'Vendor payout account details are missing or invalid' });
+      return res.status(400).json({
+        success: false,
+        error: 'Vendor payout bank account details are missing or invalid. Please configure your bank account under Profile Settings before requesting a payout.'
+      });
     }
 
     const { resolveBankCode } = require('../utils/payoutService');
