@@ -76,6 +76,9 @@ const EarningsScreen = ({ navigation }) => {
     }, [fetchData])
   );
 
+  const activePayout = data?.activeQueuedPayout;
+  const countdown = useCountdown(activePayout?.scheduledFor);
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -100,9 +103,6 @@ const EarningsScreen = ({ navigation }) => {
   const weeklyRevenue = typeof data.earnings?.weeklyRevenue === 'number' ? data.earnings.weeklyRevenue : (data.earnings?.weeklyRevenue ?? data.todayRevenue ?? 0);
   const totalOrders = typeof data.earnings?.totalOrders === 'number' ? data.earnings.totalOrders : (data.earnings?.totalOrders ?? 0);
   const avgOrders = typeof data.earnings?.avgOrders === 'number' ? data.earnings.avgOrders : (data.earnings?.avgOrders ?? 0);
-
-  const activePayout = data?.activeQueuedPayout;
-  const countdown = useCountdown(activePayout?.scheduledFor);
 
   return (
     <SafeAreaView style={styles.safeArea}>
