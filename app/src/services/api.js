@@ -301,9 +301,15 @@ export const resetPassword = async (email, otp, newPassword, role) => {
   }
 };
 
-export const googleAuthApi = async (token, role, isAccessToken = false) => {
+export const googleAuthApi = async (paramsOrToken, role, isAccessToken = false) => {
   try {
-    const response = await api.post('/auth/google', { token, role, isAccessToken });
+    let payload = {};
+    if (typeof paramsOrToken === 'object' && paramsOrToken !== null) {
+      payload = paramsOrToken;
+    } else {
+      payload = { token: paramsOrToken, role, isAccessToken };
+    }
+    const response = await api.post('/auth/google', payload);
     return response.data;
   } catch (error) {
     console.error('API googleAuthApi error:', error);

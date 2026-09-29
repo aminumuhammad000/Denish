@@ -9,12 +9,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator } from 'react-native';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
 
-import { vendorSignup, googleAuthApi } from '../services/api';
+import { vendorSignup } from '../services/api';
 import { setAuthSession } from '../services/authStorage';
-import { signInWithGoogle } from '../services/googleAuth';
+import { useClerkGoogleAuth } from '../services/clerkAuth';
 import { useOnboarding } from '../context/OnboardingContext';
 
 const SignupScreen = ({ navigation }) => {
@@ -26,6 +27,7 @@ const SignupScreen = ({ navigation }) => {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const { handleGoogleAuth, loading: googleLoading } = useClerkGoogleAuth('vendor', navigation);
 
   const validateEmail = (email) => /^\S+@\S+\.\S+$/.test(email);
   const validatePhone = (phone) => /^\+?[0-9]{10,15}$/.test(phone);
@@ -73,43 +75,6 @@ const SignupScreen = ({ navigation }) => {
     } catch (err) {
       const serverMsg = err.response?.data?.error;
       setErrorMsg(serverMsg || 'Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const { token, isAccessToken } = await signInWithGoogle();
-      const response = await googleAuthApi(token, 'vendor', isAccessToken);
-      
-      if (response && response.success) {
-        await setAuthSession({
-          role: 'vendor',
-          token: response.token,
-          vendor: response.user,
-          screen: response.user.status === 'Approved' ? 'Dashboard' : 'Step1'
-        });
-        
-        if (response.user.status === 'Approved') {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Dashboard' }],
-          });
-        } else {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Step1' }],
-          });
-        }
-      } else {
-        setErrorMsg(response.error || 'Google Sign-In failed');
-      }
-    } catch (error) {
-      console.error(error);
-      setErrorMsg(error.message || 'An error occurred during Google Sign-In');
     } finally {
       setLoading(false);
     }
@@ -182,8 +147,16 @@ const SignupScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.socialContainer}>
-          <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
-            <FontAwesome name="google" size={24} color="#EA4335" />
+          <TouchableOpacity
+            style={styles.socialButton}
+            onPress={handleGoogleAuth}
+            disabled={loading || googleLoading}
+          >
+            {googleLoading ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <FontAwesome name="google" size={24} color="#EA4335" />
+            )}
           </TouchableOpacity>
         </View>
 

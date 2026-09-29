@@ -3,6 +3,12 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
+import { ClerkProvider } from '@clerk/clerk-expo';
+import { tokenCache } from './src/utils/tokenCache';
+import { CLERK_PUBLISHABLE_KEY } from './src/constants/Config';
+import * as WebBrowser from 'expo-web-browser';
+
+WebBrowser.maybeCompleteAuthSession();
 
 import VendorWelcomeScreen    from './src/vendor/VendorWelcomeScreen';
 import RoleSelectionScreen    from './src/RoleSelectionScreen';
@@ -139,74 +145,76 @@ const Stack = createStackNavigator();
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <OnboardingProvider>
-        <CartProvider>
-          <NavigationContainer linking={linking}>
-            <StatusBar style="auto" />
-            <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
-              <Stack.Screen name="Splash" component={SplashScreen} />
-              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-              <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
-              
-              {/* ── Onboarding ── */}
-              <Stack.Screen name="Welcome" component={VendorWelcomeScreen} />
-              <Stack.Screen name="Login" component={VendorLoginScreen} />
-              <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-              <Stack.Screen name="Signup" component={SignupScreen} />
-              
-              {/* ── 5-step registration ── */}
-              <Stack.Screen name="Step1" component={BusinessInfoScreen} />
-              <Stack.Screen name="Step2" component={OpeningHoursScreen} />
-              <Stack.Screen name="Step3" component={ProfilePicturesScreen} />
-              <Stack.Screen name="Step4" component={PayoutAccountScreen} />
-              <Stack.Screen name="Step5" component={ReviewSubmitScreen} />
-              
-              {/* ── Vendor App ── */}
-              <Stack.Screen name="Dashboard" component={VendorDashboard} />
-              <Stack.Screen name="ItemForm" component={ItemFormScreen} />
-              <Stack.Screen name="RequestPayout" component={RequestPayoutScreen} />
-              <Stack.Screen name="PayoutAccount" component={PayoutAccountScreen} />
-              <Stack.Screen name="VendorProfile" component={VendorProfileScreen} />
-              <Stack.Screen name="VendorEditProfile" component={VendorEditProfileScreen} />
-              
-              {/* ── Customer App ── */}
-              <Stack.Screen name="CustomerWelcome" component={CustomerWelcomeScreen} />
-              <Stack.Screen name="CustomerSignup" component={CustomerSignupScreen} />
-              <Stack.Screen name="CustomerLogin" component={CustomerLoginScreen} />
-              <Stack.Screen name="CustomerHome" component={CustomerHomeScreen} />
-              <Stack.Screen name="CustomerRestaurant" component={CustomerRestaurantScreen} />
-              <Stack.Screen name="CustomerProfile" component={CustomerProfileScreen} />
-              <Stack.Screen name="CustomerEditProfile" component={CustomerEditProfileScreen} />
-              <Stack.Screen name="CustomerOrders" component={CustomerOrdersScreen} />
-              <Stack.Screen name="ChatList" component={ChatListScreen} />
-              <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
-              <Stack.Screen name="Checkout" component={CheckoutScreen} />
-              <Stack.Screen name="Cart" component={CartScreen} />
-              <Stack.Screen name="TrackOrder" component={TrackOrderScreen} />
-              <Stack.Screen name="Search" component={SearchScreen} />
-              <Stack.Screen name="Category" component={CategoryScreen} />
-              <Stack.Screen name="SystemContent" component={SystemContentScreen} />
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
+      <SafeAreaProvider>
+        <OnboardingProvider>
+          <CartProvider>
+            <NavigationContainer linking={linking}>
+              <StatusBar style="auto" />
+              <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
+                <Stack.Screen name="Splash" component={SplashScreen} />
+                <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+                
+                {/* ── Onboarding ── */}
+                <Stack.Screen name="Welcome" component={VendorWelcomeScreen} />
+                <Stack.Screen name="Login" component={VendorLoginScreen} />
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+                <Stack.Screen name="Signup" component={SignupScreen} />
+                
+                {/* ── 5-step registration ── */}
+                <Stack.Screen name="Step1" component={BusinessInfoScreen} />
+                <Stack.Screen name="Step2" component={OpeningHoursScreen} />
+                <Stack.Screen name="Step3" component={ProfilePicturesScreen} />
+                <Stack.Screen name="Step4" component={PayoutAccountScreen} />
+                <Stack.Screen name="Step5" component={ReviewSubmitScreen} />
+                
+                {/* ── Vendor App ── */}
+                <Stack.Screen name="Dashboard" component={VendorDashboard} />
+                <Stack.Screen name="ItemForm" component={ItemFormScreen} />
+                <Stack.Screen name="RequestPayout" component={RequestPayoutScreen} />
+                <Stack.Screen name="PayoutAccount" component={PayoutAccountScreen} />
+                <Stack.Screen name="VendorProfile" component={VendorProfileScreen} />
+                <Stack.Screen name="VendorEditProfile" component={VendorEditProfileScreen} />
+                
+                {/* ── Customer App ── */}
+                <Stack.Screen name="CustomerWelcome" component={CustomerWelcomeScreen} />
+                <Stack.Screen name="CustomerSignup" component={CustomerSignupScreen} />
+                <Stack.Screen name="CustomerLogin" component={CustomerLoginScreen} />
+                <Stack.Screen name="CustomerHome" component={CustomerHomeScreen} />
+                <Stack.Screen name="CustomerRestaurant" component={CustomerRestaurantScreen} />
+                <Stack.Screen name="CustomerProfile" component={CustomerProfileScreen} />
+                <Stack.Screen name="CustomerEditProfile" component={CustomerEditProfileScreen} />
+                <Stack.Screen name="CustomerOrders" component={CustomerOrdersScreen} />
+                <Stack.Screen name="ChatList" component={ChatListScreen} />
+                <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
+                <Stack.Screen name="Checkout" component={CheckoutScreen} />
+                <Stack.Screen name="Cart" component={CartScreen} />
+                <Stack.Screen name="TrackOrder" component={TrackOrderScreen} />
+                <Stack.Screen name="Search" component={SearchScreen} />
+                <Stack.Screen name="Category" component={CategoryScreen} />
+                <Stack.Screen name="SystemContent" component={SystemContentScreen} />
 
-              <Stack.Screen name="DriverWelcome" component={DriverWelcomeScreen} />
-              <Stack.Screen name="DriverSignup" component={DriverSignupScreen} />
-              <Stack.Screen name="DriverStep1Personal" component={DriverStep1Personal} />
-              <Stack.Screen name="DriverStep2Vehicle" component={DriverStep2Vehicle} />
-              <Stack.Screen name="DriverStep3Docs" component={DriverStep4Docs} />
-              <Stack.Screen name="DriverStep4Payout" component={DriverStep3Payout} />
-              <Stack.Screen name="DriverStep5Review" component={DriverStep5Review} />
-              <Stack.Screen name="DriverLogin" component={DriverLoginScreen} />
-              <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
-              <Stack.Screen name="DriverOrderTracking" component={DriverOrderTracking} />
-              <Stack.Screen name="DriverProfile"      component={DriverProfileScreen} />
-              <Stack.Screen name="DriverEditProfile"  component={DriverEditProfileScreen} />
-              <Stack.Screen name="Calling"            component={CallingScreen} options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-              <Stack.Screen name="IncomingCall"        component={IncomingCallScreen} options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-              <Stack.Screen name="Notifications"      component={NotificationsScreen} />
-            </Stack.Navigator>
-          </NavigationContainer>
-        </CartProvider>
-      </OnboardingProvider>
-    </SafeAreaProvider>
+                <Stack.Screen name="DriverWelcome" component={DriverWelcomeScreen} />
+                <Stack.Screen name="DriverSignup" component={DriverSignupScreen} />
+                <Stack.Screen name="DriverStep1Personal" component={DriverStep1Personal} />
+                <Stack.Screen name="DriverStep2Vehicle" component={DriverStep2Vehicle} />
+                <Stack.Screen name="DriverStep3Docs" component={DriverStep4Docs} />
+                <Stack.Screen name="DriverStep4Payout" component={DriverStep3Payout} />
+                <Stack.Screen name="DriverStep5Review" component={DriverStep5Review} />
+                <Stack.Screen name="DriverLogin" component={DriverLoginScreen} />
+                <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
+                <Stack.Screen name="DriverOrderTracking" component={DriverOrderTracking} />
+                <Stack.Screen name="DriverProfile"      component={DriverProfileScreen} />
+                <Stack.Screen name="DriverEditProfile"  component={DriverEditProfileScreen} />
+                <Stack.Screen name="Calling"            component={CallingScreen} options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                <Stack.Screen name="IncomingCall"        component={IncomingCallScreen} options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                <Stack.Screen name="Notifications"      component={NotificationsScreen} />
+              </Stack.Navigator>
+            </NavigationContainer>
+          </CartProvider>
+        </OnboardingProvider>
+      </SafeAreaProvider>
+    </ClerkProvider>
   );
 }

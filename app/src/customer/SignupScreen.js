@@ -9,11 +9,12 @@ import {StyleSheet,
   KeyboardAvoidingView,
   Platform,} from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { ActivityIndicator } from 'react-native';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
-import { customerSignup, googleAuthApi } from '../services/api';
+import { customerSignup } from '../services/api';
 import { setAuthSession } from '../services/authStorage';
-import { signInWithGoogle } from '../services/googleAuth';
+import { useClerkGoogleAuth } from '../services/clerkAuth';
 
 const SignupScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -24,6 +25,8 @@ const SignupScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const { handleGoogleAuth, loading: googleLoading } = useClerkGoogleAuth('customer', navigation);
+
 
   const handleEmailChange = (val) => {
     setEmail(val);
@@ -65,34 +68,7 @@ const SignupScreen = ({ navigation }) => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const { token, isAccessToken } = await signInWithGoogle();
-      const response = await googleAuthApi(token, 'customer', isAccessToken);
-      
-      if (response && response.success) {
-        await setAuthSession({
-          role: 'customer',
-          token: response.token,
-          user: response.user,
-          screen: 'CustomerHome'
-        });
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'CustomerHome' }],
-        });
-      } else {
-        setErrorMsg(response.error || 'Google Sign-In failed');
-      }
-    } catch (error) {
-      console.error(error);
-      setErrorMsg(error.message || 'An error occurred during Google Sign-In');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const isButtonDisabled = !name || !email || !phone || password.length < 6 || !!emailError;
 
@@ -198,8 +174,16 @@ const SignupScreen = ({ navigation }) => {
 
               {/* Social Icons */}
               <View style={styles.socialContainer}>
-                <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin} disabled={loading}>
-                  <FontAwesome name="google" size={28} color="#EA4335" />
+                <TouchableOpacity
+                  style={styles.socialButton}
+                  onPress={handleGoogleAuth}
+                  disabled={loading || googleLoading}
+                >
+                  {googleLoading ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <FontAwesome name="google" size={28} color="#EA4335" />
+                  )}
                 </TouchableOpacity>
               </View>
             </View>

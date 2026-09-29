@@ -9,11 +9,12 @@ import {StyleSheet,
   Platform,
   ScrollView,} from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { ActivityIndicator } from 'react-native';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
-import { driverLogin, googleAuthApi } from '../services/api';
+import { driverLogin } from '../services/api';
 import { setAuthSession } from '../services/authStorage';
-import { signInWithGoogle } from '../services/googleAuth';
+import { useClerkGoogleAuth } from '../services/clerkAuth';
 
 const DriverLoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -21,6 +22,7 @@ const DriverLoginScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const { handleGoogleAuth, loading: googleLoading } = useClerkGoogleAuth('driver', navigation);
 
   const handleLogin = async () => {
     if (!email || !password) return;
@@ -46,35 +48,6 @@ const DriverLoginScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Driver Login error:', error);
       setErrorMsg(error.response?.data?.error || 'Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const { token, isAccessToken } = await signInWithGoogle();
-      const response = await googleAuthApi(token, 'driver', isAccessToken);
-      
-      if (response && response.success) {
-        await setAuthSession({
-          role: 'driver',
-          token: response.token,
-          user: response.user,
-          screen: 'DriverDashboard'
-        });
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'DriverDashboard' }],
-        });
-      } else {
-        setErrorMsg(response.error || 'Google Sign-In failed');
-      }
-    } catch (error) {
-      console.error(error);
-      setErrorMsg(error.message || 'An error occurred during Google Sign-In');
     } finally {
       setLoading(false);
     }
@@ -157,8 +130,16 @@ const DriverLoginScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.socialContainer}>
-            <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
-              <FontAwesome name="google" size={24} color="#EA4335" />
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={handleGoogleAuth}
+              disabled={loading || googleLoading}
+            >
+              {googleLoading ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <FontAwesome name="google" size={24} color="#EA4335" />
+              )}
             </TouchableOpacity>
           </View>
 

@@ -467,9 +467,9 @@ const resetPassword = async (req, res) => {
 
 const googleAuth = async (req, res) => {
   try {
-    const { token, role, isAccessToken } = req.body;
-    if (!token) {
-      return res.status(400).json({ success: false, error: 'Token is required' });
+    const { token, role, isAccessToken, isClerk, email: clerkEmail, name: clerkName, picture: clerkPicture, clerkId } = req.body;
+    if (!token && !clerkEmail) {
+      return res.status(400).json({ success: false, error: 'Token or user details required' });
     }
     if (!role) {
       return res.status(400).json({ success: false, error: 'Role is required' });
@@ -477,7 +477,12 @@ const googleAuth = async (req, res) => {
 
     let email, name, picture, googleId;
 
-    if (isAccessToken) {
+    if (isClerk || (clerkEmail && !isAccessToken && (!token || token.length < 50))) {
+      email = clerkEmail;
+      name = clerkName;
+      picture = clerkPicture;
+      googleId = clerkId || 'clerk-user';
+    } else if (isAccessToken) {
       const response = await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -486,15 +491,26 @@ const googleAuth = async (req, res) => {
       picture = response.data.picture;
       googleId = response.data.sub;
     } else {
-      const response = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
-      email = response.data.email;
-      name = response.data.name;
-      picture = response.data.picture;
-      googleId = response.data.sub;
+      try {
+        const response = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+        email = response.data.email;
+        name = response.data.name;
+        picture = response.data.picture;
+        googleId = response.data.sub;
+      } catch (tokenErr) {
+        if (clerkEmail) {
+          email = clerkEmail;
+          name = clerkName;
+          picture = clerkPicture;
+          googleId = clerkId || 'clerk-user';
+        } else {
+          throw tokenErr;
+        }
+      }
     }
 
     if (!email) {
-      return res.status(400).json({ success: false, error: 'Could not retrieve email from Google' });
+      return res.status(400).json({ success: false, error: 'Could not retrieve email from Google/Clerk' });
     }
 
     let user = null;

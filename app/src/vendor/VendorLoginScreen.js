@@ -11,11 +11,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { ActivityIndicator } from 'react-native';
 import { Colors } from '../constants/Colors';
-import { vendorLogin, googleAuthApi } from '../services/api';
+import { vendorLogin } from '../services/api';
 import { setAuthSession } from '../services/authStorage';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
-import { signInWithGoogle } from '../services/googleAuth';
+import { useClerkGoogleAuth } from '../services/clerkAuth';
 
 const VendorLoginScreen = ({ navigation }) => {
   const [authType, setAuthType] = useState('Email');
@@ -24,6 +25,7 @@ const VendorLoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const { handleGoogleAuth, loading: googleLoading } = useClerkGoogleAuth('vendor', navigation);
 
   const handleLogin = async () => {
     if(!email || !password) return;
@@ -47,35 +49,6 @@ const VendorLoginScreen = ({ navigation }) => {
       }
     } catch (err) {
       setErrorMsg('Network error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const { token, isAccessToken } = await signInWithGoogle();
-      const response = await googleAuthApi(token, 'vendor', isAccessToken);
-      
-      if (response && response.success) {
-        await setAuthSession({
-          role: 'vendor',
-          token: response.token,
-          vendor: response.vendor,
-          screen: 'Dashboard'
-        });
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Dashboard' }],
-        });
-      } else {
-        setErrorMsg(response.error || 'Google Sign-In failed');
-      }
-    } catch (error) {
-      console.error(error);
-      setErrorMsg(error.message || 'An error occurred during Google Sign-In');
     } finally {
       setLoading(false);
     }
@@ -162,8 +135,16 @@ const VendorLoginScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.socialContainer}>
-            <TouchableOpacity style={styles.socialButton} onPress={handleGoogleLogin}>
-              <FontAwesome name="google" size={24} color="#EA4335" />
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={handleGoogleAuth}
+              disabled={loading || googleLoading}
+            >
+              {googleLoading ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <FontAwesome name="google" size={24} color="#EA4335" />
+              )}
             </TouchableOpacity>
           </View>
 

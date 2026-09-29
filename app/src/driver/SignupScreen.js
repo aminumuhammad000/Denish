@@ -10,10 +10,12 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import { ActivityIndicator } from 'react-native';
 import { Colors } from '../constants/Colors';
 import AnimatedLoadingText from '../components/AnimatedLoadingText';
 import { driverSignup } from '../services/api';
+import { useClerkGoogleAuth } from '../services/clerkAuth';
 
 const DriverSignupScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -23,6 +25,8 @@ const DriverSignupScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const { handleGoogleAuth, loading: googleLoading } = useClerkGoogleAuth('driver', navigation);
+
 
   const handleSignup = async () => {
     if (!name || !email || !phone || !password) {
@@ -139,7 +143,7 @@ const DriverSignupScreen = ({ navigation }) => {
             <TouchableOpacity 
               style={[styles.button, (!name || !email || !phone || password.length < 6) && styles.buttonDisabled]}
               onPress={handleSignup}
-              disabled={loading}
+              disabled={loading || googleLoading}
             >
               {loading ? (
                 <AnimatedLoadingText text="Registering" style={styles.buttonText} />
@@ -147,6 +151,26 @@ const DriverSignupScreen = ({ navigation }) => {
                 <Text style={styles.buttonText}>Register Now</Text>
               )}
             </TouchableOpacity>
+
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or sign up with</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <View style={styles.socialContainer}>
+              <TouchableOpacity
+                style={styles.socialButton}
+                onPress={handleGoogleAuth}
+                disabled={loading || googleLoading}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <FontAwesome name="google" size={24} color="#EA4335" />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.footer}>
@@ -253,6 +277,42 @@ const styles = StyleSheet.create({
   linkText: {
     color: Colors.primary,
     fontWeight: 'bold',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: '#94A3B8',
+    fontSize: 13,
+  },
+  socialContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginVertical: 6,
+  },
+  socialButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
 });
 

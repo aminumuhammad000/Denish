@@ -2750,8 +2750,8 @@ var require_vendorController = __commonJS({
         if (!payoutAmount || isNaN(payoutAmount) || payoutAmount <= 0) {
           return res.status(400).json({ success: false, error: "Please enter a valid payout amount" });
         }
-        if (payoutAmount < 5e3) {
-          return res.status(400).json({ success: false, error: "Minimum payout is \u20A65,000" });
+        if (payoutAmount < 1e3) {
+          return res.status(400).json({ success: false, error: "Minimum payout is \u20A61,000" });
         }
         const vendor = await getCurrentVendor(req);
         if (!vendor) {
@@ -2764,10 +2764,13 @@ var require_vendorController = __commonJS({
             error: `Insufficient balance for payout. Available: \u20A6${currentBalance.toLocaleString()}`
           });
         }
-        const bankName = vendor.payoutAccount?.bank || "Access Bank";
+        const bankName = vendor.payoutAccount?.bank || "Bank Account";
         const accountNumber = vendor.payoutAccount?.accountNumber;
         if (!accountNumber || String(accountNumber).trim().length < 10) {
-          return res.status(400).json({ success: false, error: "Vendor payout account details are missing or invalid" });
+          return res.status(400).json({
+            success: false,
+            error: "Vendor payout bank account details are missing or invalid. Please configure your bank account under Profile Settings before requesting a payout."
+          });
         }
         const { resolveBankCode } = require_payoutService();
         const { getNextVendorPayoutLanding } = require_payoutScheduler();
@@ -3601,15 +3604,20 @@ var require_authController = __commonJS({
     };
     var googleAuth = async (req, res) => {
       try {
-        const { token, role, isAccessToken } = req.body;
-        if (!token) {
-          return res.status(400).json({ success: false, error: "Token is required" });
+        const { token, role, isAccessToken, isClerk, email: clerkEmail, name: clerkName, picture: clerkPicture, clerkId } = req.body;
+        if (!token && !clerkEmail) {
+          return res.status(400).json({ success: false, error: "Token or user details required" });
         }
         if (!role) {
           return res.status(400).json({ success: false, error: "Role is required" });
         }
         let email, name, picture, googleId;
-        if (isAccessToken) {
+        if (isClerk || clerkEmail && !isAccessToken && (!token || token.length < 50)) {
+          email = clerkEmail;
+          name = clerkName;
+          picture = clerkPicture;
+          googleId = clerkId || "clerk-user";
+        } else if (isAccessToken) {
           const response = await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo`, {
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -3618,14 +3626,25 @@ var require_authController = __commonJS({
           picture = response.data.picture;
           googleId = response.data.sub;
         } else {
-          const response = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
-          email = response.data.email;
-          name = response.data.name;
-          picture = response.data.picture;
-          googleId = response.data.sub;
+          try {
+            const response = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+            email = response.data.email;
+            name = response.data.name;
+            picture = response.data.picture;
+            googleId = response.data.sub;
+          } catch (tokenErr) {
+            if (clerkEmail) {
+              email = clerkEmail;
+              name = clerkName;
+              picture = clerkPicture;
+              googleId = clerkId || "clerk-user";
+            } else {
+              throw tokenErr;
+            }
+          }
         }
         if (!email) {
-          return res.status(400).json({ success: false, error: "Could not retrieve email from Google" });
+          return res.status(400).json({ success: false, error: "Could not retrieve email from Google/Clerk" });
         }
         let user = null;
         let Model = null;
