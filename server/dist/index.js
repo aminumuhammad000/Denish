@@ -1083,13 +1083,14 @@ var require_payoutService = __commonJS({
       "zenith bank": "057",
       "united bank for africa": "033",
       "uba": "033",
-      "kuda bank": "50211",
-      "kuda": "50211",
-      "opay": "999992",
-      "opay digital services": "999992",
-      "palmpay": "999991",
-      "moniepoint microfinance bank": "50515",
-      "moniepoint": "50515",
+      "kuda bank": "090267",
+      "kuda": "090267",
+      "opay": "090405",
+      "opay digital services": "090405",
+      "paycom": "090405",
+      "palmpay": "090175",
+      "moniepoint microfinance bank": "090392",
+      "moniepoint": "090392",
       "stanbic ibtc bank": "221",
       "stanbic ibtc": "221",
       "fidelity bank": "070",
@@ -1107,7 +1108,7 @@ var require_payoutService = __commonJS({
       "jaiz bank": "301",
       "taj bank": "302",
       "providus bank": "101",
-      "vfd microfinance bank": "566",
+      "vfd microfinance bank": "090110",
       "rubies mfb": "125"
     };
     var FALLBACK_BANKS = [
@@ -1116,10 +1117,10 @@ var require_payoutService = __commonJS({
       { id: 3, name: "First Bank of Nigeria", code: "011" },
       { id: 4, name: "Zenith Bank", code: "057" },
       { id: 5, name: "United Bank For Africa (UBA)", code: "033" },
-      { id: 6, name: "Kuda Bank", code: "50211" },
-      { id: 7, name: "OPay Digital Services", code: "999992" },
-      { id: 8, name: "PalmPay", code: "999991" },
-      { id: 9, name: "Moniepoint Microfinance Bank", code: "50515" },
+      { id: 6, name: "OPay Digital Services (Paycom)", code: "090405" },
+      { id: 7, name: "PalmPay", code: "090175" },
+      { id: 8, name: "Moniepoint Microfinance Bank", code: "090392" },
+      { id: 9, name: "Kuda Bank", code: "090267" },
       { id: 10, name: "Stanbic IBTC Bank", code: "221" },
       { id: 11, name: "Fidelity Bank", code: "070" },
       { id: 12, name: "Union Bank of Nigeria", code: "032" },
@@ -1132,7 +1133,7 @@ var require_payoutService = __commonJS({
       { id: 19, name: "Jaiz Bank", code: "301" },
       { id: 20, name: "Taj Bank", code: "302" },
       { id: 21, name: "Providus Bank", code: "101" },
-      { id: 22, name: "VFD Microfinance Bank", code: "566" }
+      { id: 22, name: "VFD Microfinance Bank", code: "090110" }
     ];
     var resolveBankCode = (bankName = "", existingCode = "") => {
       if (existingCode && String(existingCode).trim().length >= 3) {
