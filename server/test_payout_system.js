@@ -1,17 +1,18 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-dotenv.config({ path: '/home/amee/Desktop/Denish/server/.env' });
+const path = require('path');
+dotenv.config({ path: path.join(__dirname, '.env') });
 
-const Vendor = require('/home/amee/Desktop/Denish/server/models/Vendor');
-const Driver = require('/home/amee/Desktop/Denish/server/models/Driver');
-const Payout = require('/home/amee/Desktop/Denish/server/models/Payout');
-const Transaction = require('/home/amee/Desktop/Denish/server/models/Transaction');
-const Settings = require('/home/amee/Desktop/Denish/server/models/Settings');
+const Vendor = require('./models/Vendor');
+const Driver = require('./models/Driver');
+const Payout = require('./models/Payout');
+const Transaction = require('./models/Transaction');
+const Settings = require('./models/Settings');
 
 const {
   resolveBankCode,
   verifyPayoutAccount,
-} = require('/home/amee/Desktop/Denish/server/utils/payoutService');
+} = require('./utils/payoutService');
 
 const {
   releaseMaturedDriverEarnings,
@@ -20,7 +21,7 @@ const {
   reconcilePendingPayouts,
   handleFlutterwaveTransferWebhook,
   getPayoutScheduleStatus,
-} = require('/home/amee/Desktop/Denish/server/utils/payoutScheduler');
+} = require('./utils/payoutScheduler');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/denish';
 

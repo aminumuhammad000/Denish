@@ -1,77 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  StyleSheet, Text, View, FlatList, TouchableOpacity, Image, TextInput
+  StyleSheet, Text, View, FlatList, TouchableOpacity, Image, TextInput, RefreshControl, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import CustomerBottomTab from './components/CustomerBottomTab';
-
-const CHATS = [
-  {
-    id: '1',
-    name: "Mama's Kitchen",
-    lastMsg: "Your order is being prepared and will be with you shortly!",
-    time: "12:30 PM",
-    unread: 2,
-    avatar: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100'
-  },
-  {
-    id: '2',
-    name: "Temmy Store",
-    lastMsg: "Thank you for shopping with us. Your provisions are ready.",
-    time: "Yesterday",
-    unread: 0,
-    avatar: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=100'
-  },
-  {
-    id: '3',
-    name: "Gourmet Hub",
-    lastMsg: "We just updated our continental menu. Check it out!",
-    time: "Monday",
-    unread: 0,
-    avatar: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=100'
-  }
-];
-
 import { fetchChatThreads } from '../services/api';
 import { useIsFocused } from '@react-navigation/native';
-import { ActivityIndicator } from 'react-native';
 
 const ChatListScreen = ({ navigation }) => {
   const isFocused = useIsFocused();
   const [search, setSearch] = useState('');
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isFocused) {
-      loadThreads();
+      loadThreads(true);
     }
   }, [isFocused]);
 
-  const loadThreads = async () => {
+  // Live polling for new threads / unread count updates every 4 seconds while focused
+  useEffect(() => {
+    if (!isFocused) return;
+    const interval = setInterval(() => {
+      loadThreads(false);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [isFocused]);
+
+  const loadThreads = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const res = await fetchChatThreads();
-      if (res.success && res.threads?.length > 0) {
+      if (res && res.success && Array.isArray(res.threads)) {
         setChats(res.threads);
-      } else {
-        // Fallback default active threads if DB empty
-        setChats([
-          { id: '1', name: "Mama's Kitchen", lastMsg: "Your order is being prepared and will be with you shortly!", time: "12:30 PM", unread: 2, avatar: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100' },
-          { id: '2', name: "Temmy Store", lastMsg: "You're welcome, sir.", time: "1:48 PM", unread: 0, avatar: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=100' },
-          { id: '3', name: "Gourmet Hub", lastMsg: "We just updated our continental menu. Check it out!", time: "Monday", unread: 0, avatar: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=100' }
-        ]);
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error loading chat threads:', e);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadThreads(false);
+  };
+
   const filteredChats = chats.filter(chat => 
-    chat.name.toLowerCase().includes(search.toLowerCase()) ||
-    chat.lastMsg.toLowerCase().includes(search.toLowerCase())
+    (chat.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (chat.lastMsg || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -101,37 +82,55 @@ const ChatListScreen = ({ navigation }) => {
         )}
       </View>
 
-      <FlatList
-        data={filteredChats}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.chatRow} 
-            onPress={() => navigation.navigate('ChatDetail', { name: item.name, type: item.id === '1' ? 'Driver' : 'Vendor' })}
-          >
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
-            <View style={styles.chatInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.time}>{item.time}</Text>
+      {loading ? (
+        <View style={styles.centerLoading}>
+          <ActivityIndicator size="large" color="#FF8C00" />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredChats}
+          keyExtractor={item => item.conversationId || item.id || item.name}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={styles.chatRow} 
+              onPress={() => navigation.navigate('ChatDetail', { 
+                name: item.name,
+                conversationId: item.conversationId || item.id,
+                recipientId: item.recipientId,
+                type: item.role || 'Vendor',
+                avatar: item.avatar
+              })}
+            >
+              <Image 
+                source={{ uri: item.avatar || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100' }} 
+                style={styles.avatar} 
+              />
+              <View style={styles.chatInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.time}>{item.time}</Text>
+                </View>
+                <Text style={styles.lastMsg} numberOfLines={1}>{item.lastMsg || 'No messages yet'}</Text>
               </View>
-              <Text style={styles.lastMsg} numberOfLines={1}>{item.lastMsg}</Text>
+              {item.unread > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadText}>{item.unread}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8C00']} />
+          }
+          contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="chatbubbles-outline" size={60} color="#DDD" />
+              <Text style={styles.emptyText}>No conversations yet</Text>
             </View>
-            {item.unread > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadText}>{item.unread}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
-        contentContainerStyle={[styles.list, { paddingBottom: 100 }]}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="chatbubbles-outline" size={60} color="#DDD" />
-            <Text style={styles.emptyText}>No messages found</Text>
-          </View>
-        }
-      />
+          }
+        />
+      )}
       <CustomerBottomTab activeTab="Chats" navigation={navigation} />
     </SafeAreaView>
   );
@@ -149,6 +148,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: 'bold', color: '#1a1a1a' },
   backBtn: { padding: 4 },
+  centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   // Search
   searchContainer: {
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   avatar: { width: 55, height: 55, borderRadius: 27.5, backgroundColor: '#EEE' },
   chatInfo: { flex: 1, marginLeft: 15 },
   nameRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  name: { fontSize: 16, fontWeight: '700', color: '#1a1a1a' },
+  name: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', flex: 1, marginRight: 8 },
   time: { fontSize: 12, color: '#AAA' },
   lastMsg: { fontSize: 14, color: '#888' },
   unreadBadge: {

@@ -412,6 +412,72 @@ const markAllVendorNotificationsRead = async (req, res) => {
   }
 };
 
+// ─── Vendor Chat Controllers ─────────────────────────────────────────────────
+const {
+  resolveAuthUser,
+  getThreadsForUser,
+  getMessagesForUser,
+  sendMessageForUser
+} = require('../services/messagingService');
+
+const getVendorChats = async (req, res) => {
+  try {
+    const authUser = await resolveAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ success: false, error: 'Authentication required to access vendor chats' });
+    }
+    const threads = await getThreadsForUser(authUser);
+    res.status(200).json({ success: true, threads });
+  } catch (error) {
+    console.error('getVendorChats error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const getVendorMessages = async (req, res) => {
+  try {
+    const authUser = await resolveAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ success: false, error: 'Authentication required to view vendor messages' });
+    }
+    const { recipientName, recipientId, conversationId } = req.query;
+    const result = await getMessagesForUser(authUser, { conversationId, recipientName, recipientId });
+    if (result.error) {
+      return res.status(result.status || 400).json({ success: false, error: result.error });
+    }
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('getVendorMessages error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const sendVendorMessage = async (req, res) => {
+  try {
+    const authUser = await resolveAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ success: false, error: 'Authentication required to send vendor messages' });
+    }
+    const { conversationId, recipientId, recipientName, text, imageUrl, type, subText } = req.body;
+    const result = await sendMessageForUser(authUser, {
+      conversationId,
+      recipientId,
+      recipientName,
+      text,
+      imageUrl,
+      type,
+      subText
+    });
+    if (result.error) {
+      return res.status(result.status || 400).json({ success: false, error: result.error });
+    }
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('sendVendorMessage error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getVendorDashboard,
   updateVendorProfile,
@@ -421,5 +487,8 @@ module.exports = {
   getVendorNotifications,
   markVendorNotificationRead,
   markAllVendorNotificationsRead,
+  getVendorChats,
+  getVendorMessages,
+  sendVendorMessage,
   getCurrentVendor
 };

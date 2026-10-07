@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,94 +10,138 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { playRingtone, stopRingtone } from '../utils/callAudio';
 import { initiateCallSession, respondCallSession, fetchCallStatus } from '../services/api';
 
 const CallingScreen = ({ route, navigation }) => {
-  const { name = 'Recipient', phone = '08012345678', orderId = 'Connecting Call...', subtitle = '' } = route?.params || {};
+  const { 
+    name = 'Recipient', 
+    phone = '08012345678', 
+    orderId = 'Connecting Call...', 
+    subtitle = '',
+    callId: initialCallId = null,
+    receiverId = null,
+    isReceiver = false
+  } = route?.params || {};
   
-  const [callState, setCallState] = useState('Ringing...'); // 'Ringing...', '00:01', 'Ended'
+  const [callState, setCallState] = useState(isReceiver ? 'Connected' : 'Ringing...');
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(false);
+
+  const callIdRef = useRef(initialCallId);
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const soundRef = useRef(null);
   const timerRef = useRef(null);
+  const pollRef = useRef(null);
+  const isEndedRef = useRef(false);
 
   useEffect(() => {
     // Pulsing avatar ring animation
-    Animated.loop(
+    const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.15, duration: 900, useNativeDriver: true }),
         Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
       ])
-    ).start();
+    );
+    pulse.start();
 
-    // Play ringing sound until answered
-    playRingtoneSound();
-    
-    // Save call session to MongoDB and poll for acceptance
-    let currentCallId = null;
-    initiateCallSession({ receiverName: name, orderId, subtitle })
-      .then(res => {
-        if (res.success && res.call?._id) {
-          currentCallId = res.call._id;
-          pollCallStatus(currentCallId);
-        }
+    if (isReceiver) {
+      // Receiver accepted the call from IncomingCallScreen
+      setCallState('Connected');
+      startCallTimer();
+      if (initialCallId) {
+        startStatusPolling(initialCallId);
+      }
+    } else {
+      // Caller initiated outgoing call
+      playRingtone('outgoing');
+      
+      initiateCallSession({ 
+        receiverName: name, 
+        receiverId,
+        orderId, 
+        subtitle, 
+        phone 
       })
-      .catch(console.error);
+        .then(res => {
+          if (res && res.success && res.call?._id) {
+            callIdRef.current = res.call._id;
+            startStatusPolling(res.call._id);
+          }
+        })
+        .catch(err => {
+          console.error('Call initiation error:', err);
+        });
+
+      // Auto-timeout after 45 seconds of ringing
+      const autoTimeout = setTimeout(() => {
+        if (callState === 'Ringing...' && !isEndedRef.current) {
+          handleEndCall('No Answer');
+        }
+      }, 45000);
+
+      return () => clearTimeout(autoTimeout);
+    }
 
     return () => {
-      stopRingtoneSound();
-      if (timerRef.current) clearInterval(timerRef.current);
+      pulse.stop();
+      cleanupCall();
     };
   }, []);
 
-  const pollCallStatus = (callId) => {
-    // Keep ringing until receiver explicitly accepts call session in backend
-    const pollInterval = setInterval(async () => {
+  const cleanupCall = () => {
+    stopRingtone();
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    if (callIdRef.current && !isEndedRef.current) {
+      isEndedRef.current = true;
+      respondCallSession({ callId: callIdRef.current, action: 'end' }).catch(() => {});
+    }
+  };
+
+  const startStatusPolling = (callId) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    pollRef.current = setInterval(async () => {
+      if (isEndedRef.current) return;
       try {
         const data = await fetchCallStatus(callId);
-        if (data.success && data.status === 'accepted') {
-          clearInterval(pollInterval);
-          stopRingtoneSound();
-          setCallState('Connected');
-          startCallTimer();
-        } else if (data.success && (data.status === 'declined' || data.status === 'ended')) {
-          clearInterval(pollInterval);
-          stopRingtoneSound();
-          setCallState('Call Declined');
-          setTimeout(() => navigation.goBack(), 1000);
+        if (data && data.success) {
+          if (data.status === 'accepted') {
+            if (callState !== 'Connected') {
+              stopRingtone();
+              setCallState('Connected');
+              startCallTimer();
+            }
+          } else if (data.status === 'declined') {
+            handleCallTerminated('Call Declined');
+          } else if (data.status === 'ended' || data.status === 'missed') {
+            handleCallTerminated('Call Ended');
+          }
         }
       } catch (e) {
-        // Continue ringing
+        // Polling retry
       }
-    }, 2000);
+    }, 1500);
   };
 
-  const playRingtoneSound = async () => {
-    try {
-      const player = await playRingtone();
-      soundRef.current = player;
-    } catch (e) {
-      console.log('Ringtone audio play error:', e);
-    }
-  };
-
-  const stopRingtoneSound = async () => {
-    try {
-      if (soundRef.current) {
-        await stopRingtone(soundRef.current);
-        soundRef.current = null;
-      }
-    } catch (e) {
-      console.log('Stop ringtone error:', e);
-    }
+  const handleCallTerminated = (label) => {
+    if (isEndedRef.current) return;
+    isEndedRef.current = true;
+    stopRingtone();
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (pollRef.current) clearInterval(pollRef.current);
+    setCallState(label);
+    setTimeout(() => {
+      navigation.goBack();
+    }, 1000);
   };
 
   const startCallTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
     let seconds = 0;
     timerRef.current = setInterval(() => {
       seconds += 1;
@@ -111,19 +155,28 @@ const CallingScreen = ({ route, navigation }) => {
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const handleEndCall = () => {
-    stopRingtoneSound();
+  const handleEndCall = (customLabel = 'Call Ended') => {
+    if (isEndedRef.current) return;
+    isEndedRef.current = true;
+
+    stopRingtone();
     if (timerRef.current) clearInterval(timerRef.current);
-    setCallState('Call Ended');
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    if (callIdRef.current) {
+      respondCallSession({ callId: callIdRef.current, action: 'end' }).catch(() => {});
+    }
+
+    setCallState(customLabel);
     setTimeout(() => {
       navigation.goBack();
-    }, 800);
+    }, 700);
   };
 
   const triggerDirectCellularCall = () => {
-    const cleanNumber = phone ? phone.replace(/[^0-9+]/g, '') : '09123882672';
+    const cleanNumber = phone ? phone.replace(/[^0-9+]/g, '') : '08012345678';
     Linking.openURL(`tel:${cleanNumber}`).catch(() => {
-      Alert.alert('Calling', `Dialing ${cleanNumber}`);
+      Alert.alert('Phone Call', `Dialing ${cleanNumber}`);
     });
   };
 
@@ -133,15 +186,16 @@ const CallingScreen = ({ route, navigation }) => {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => handleEndCall('Call Ended')} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{orderId}</Text>
-          <Text style={styles.headerSubtitle}>{subtitle}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{orderId}</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>{subtitle || 'In-App Voice Call'}</Text>
         </View>
         <TouchableOpacity onPress={triggerDirectCellularCall} style={styles.dialerBtn}>
-          <Ionicons name="call-outline" size={22} color="#FF7A00" />
+          <Ionicons name="call" size={18} color="#FF7A00" />
+          <Text style={styles.dialerText}>Cellular</Text>
         </TouchableOpacity>
       </View>
 
@@ -149,8 +203,8 @@ const CallingScreen = ({ route, navigation }) => {
         <View style={styles.content}>
           <Animated.View style={[styles.avatarWrapper, { transform: [{ scale: pulseAnim }] }]}>
             <View style={styles.avatarGradient}>
-              <View style={[styles.gradientLayer, { backgroundColor: '#FF8C00', opacity: 0.8 }]} />
-              <View style={[styles.gradientLayer, { backgroundColor: '#10B981', opacity: 0.6, top: '30%' }]} />
+              <View style={[styles.gradientLayer, { backgroundColor: '#FF8C00', opacity: 0.85 }]} />
+              <View style={[styles.gradientLayer, { backgroundColor: '#10B981', opacity: 0.65, top: '30%' }]} />
             </View>
           </Animated.View>
 
@@ -158,9 +212,27 @@ const CallingScreen = ({ route, navigation }) => {
           <Text style={[styles.statusText, callState === 'Connected' && { color: '#10B981' }]}>
             {callState === 'Connected' ? formatTimer(callDuration) : callState}
           </Text>
+
+          {/* Voice Indicator */}
+          {callState === 'Connected' && (
+            <View style={styles.liveAudioBadge}>
+              <Ionicons name="radio" size={16} color="#10B981" />
+              <Text style={styles.liveAudioText}>In-App Audio Connected</Text>
+            </View>
+          )}
         </View>
 
-        {/* Call Controls: Mute, Speaker, End Call */}
+        {/* Quick Cellular Call Banner */}
+        <TouchableOpacity style={styles.carrierBanner} onPress={triggerDirectCellularCall}>
+          <Ionicons name="phone-portrait-outline" size={20} color="#FF7A00" />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.carrierTitle}>Switch to Direct Phone Call</Text>
+            <Text style={styles.carrierSub}>Dial {phone || 'Carrier Number'}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#FF7A00" />
+        </TouchableOpacity>
+
+        {/* Call Controls: Mute, End Call, Speaker */}
         <View style={styles.controlsRow}>
           <TouchableOpacity 
             style={[styles.controlBtn, isMuted && styles.controlBtnActive]} 
@@ -172,7 +244,7 @@ const CallingScreen = ({ route, navigation }) => {
 
           <TouchableOpacity 
             style={styles.declineBtn}
-            onPress={handleEndCall}
+            onPress={() => handleEndCall('Call Ended')}
           >
             <Ionicons name="call" size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
           </TouchableOpacity>
@@ -207,7 +279,7 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     padding: 5,
-    marginRight: 15,
+    marginRight: 10,
   },
   headerTitleContainer: {
     flex: 1,
@@ -225,18 +297,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 100,
+    paddingVertical: 40,
   },
   avatarWrapper: {
-    width: 250,
-    height: 250,
-    borderRadius: 125,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
     overflow: 'hidden',
-    marginBottom: 40,
-    elevation: 10,
+    marginBottom: 30,
+    elevation: 8,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 20,
+    shadowRadius: 15,
   },
   avatarGradient: {
     flex: 1,
@@ -251,19 +323,51 @@ const styles = StyleSheet.create({
     top: '-50%',
   },
   userName: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#000',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   statusText: {
-    fontSize: 18,
-    color: '#10B981',
-    fontWeight: '500',
+    fontSize: 17,
+    color: '#FF7A00',
+    fontWeight: '600',
   },
-  footer: {
-    paddingBottom: 60,
+  liveAudioBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#E6F7F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    marginTop: 15,
+  },
+  liveAudioText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#10B981',
+    marginLeft: 6,
+  },
+  carrierBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    marginHorizontal: 24,
+    marginBottom: 25,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+  },
+  carrierTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#9A3412',
+  },
+  carrierSub: {
+    fontSize: 11,
+    color: '#C2410C',
+    marginTop: 2,
   },
   declineBtn: {
     width: 76,
@@ -281,7 +385,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-evenly',
-    paddingBottom: 50,
+    paddingBottom: 40,
     paddingHorizontal: 20,
   },
   controlBtn: {
@@ -302,11 +406,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   dialerBtn: {
-    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     backgroundColor: '#FFF7ED',
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FFEDD5',
+  },
+  dialerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FF7A00',
+    marginLeft: 4,
   }
 });
 

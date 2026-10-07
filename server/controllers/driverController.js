@@ -2,6 +2,12 @@ const Driver = require('../models/Driver');
 const axios = require('axios');
 const mongoose = require('mongoose');
 const { getFlutterwaveAuthHeader } = require('../utils/flutterwave');
+const {
+  resolveAuthUser,
+  getThreadsForUser,
+  getMessagesForUser,
+  sendMessageForUser
+} = require('../services/messagingService');
 
 const getCurrentDriver = async (req) => {
   const userId = req.headers['x-user-id'];
@@ -353,7 +359,27 @@ const withdrawEarnings = async (req, res) => {
 const getDriverDeliveries = async (req, res) => {
   try {
     const Order = require('../models/Order');
-    
+    const { calculateDrivingDistance } = require('../services/geoapifyRoutingService');
+
+    let driver = await getCurrentDriver(req);
+    const driverCoords = {
+      latitude: driver?.currentLocation?.latitude || 6.4549,
+      longitude: driver?.currentLocation?.longitude || 3.3947,
+    };
+
+    const resolveAddressCoords = (addr = '', defaultCoords) => {
+      const lower = String(addr).toLowerCase();
+      if (lower.includes('lekki') || lower.includes('admiralty')) return { latitude: 6.4474, longitude: 3.4723 };
+      if (lower.includes('marina') || lower.includes('lagos island')) return { latitude: 6.4549, longitude: 3.3947 };
+      if (lower.includes('victoria island') || lower.includes('vi') || lower.includes('ahmadu bello')) return { latitude: 6.4281, longitude: 3.4219 };
+      if (lower.includes('ikeja') || lower.includes('allen')) return { latitude: 6.5960, longitude: 3.3533 };
+      if (lower.includes('ikoyi') || lower.includes('bourdillon')) return { latitude: 6.4500, longitude: 3.4333 };
+      if (lower.includes('sangotedo') || lower.includes('ajah')) return { latitude: 6.4710, longitude: 3.6160 };
+      if (lower.includes('gwarinpa') || lower.includes('abuja')) return { latitude: 9.1100, longitude: 7.3900 };
+      if (lower.includes('ilorin') || lower.includes('airport')) return { latitude: 8.4799, longitude: 4.5418 };
+      return defaultCoords;
+    };
+
     // Fetch live orders from MongoDB with populated Vendor data
     const allOrders = await Order.find().populate('vendorId').sort({ createdAt: -1 });
 
@@ -361,42 +387,58 @@ const getDriverDeliveries = async (req, res) => {
     const activeOrders = allOrders.filter(o => ['assigned', 'on the way'].includes(o.status));
     const completedOrders = allOrders.filter(o => o.status === 'delivered');
 
-    const formattedAvailable = availableOrders.map(o => ({
-      id: o.orderId || o._id.toString(),
-      _id: o._id.toString(),
-      restaurant: o.vendorId?.businessName || o.vendorName || 'Spice Avenue',
-      customer: o.customerName || 'Customer',
-      pickupAddress: o.vendorId?.address || '15 Admiralty Way, Lekki',
-      dropoffAddress: o.deliveryAddress || o.address || '12 Marina Road, Lagos Island',
-      status: o.status === 'preparing' ? 'Preparing at restaurant' : 'New delivery request',
-      amount: o.deliveryFee || 850,
-      totalAmount: o.totalAmount || o.total || 5700,
-      distance: '3.5 km'
-    }));
+    const formatOrderWithDistance = async (o, isAvailable = false) => {
+      const pickupAddress = o.vendorId?.address || '15 Admiralty Way, Lekki';
+      const dropoffAddress = o.deliveryAddress || o.address || '12 Marina Road, Lagos Island';
 
-    const formattedActive = activeOrders.map(o => ({
-      id: o.orderId || o._id.toString(),
-      _id: o._id.toString(),
-      restaurant: o.vendorId?.businessName || o.vendorName || 'Spice Avenue',
-      customer: o.customerName || 'Customer',
-      pickupAddress: o.vendorId?.address || '15 Admiralty Way, Lekki',
-      dropoffAddress: o.deliveryAddress || o.address || '12 Marina Road, Lagos Island',
-      status: o.status === 'on the way' ? 'En route to customer' : 'Order picked up',
-      amount: o.deliveryFee || 850,
-      totalAmount: o.totalAmount || o.total || 5700,
-      distance: '2.1 km'
-    }));
+      const pickupCoords = (o.pickupCoordinates && typeof o.pickupCoordinates.latitude === 'number')
+        ? o.pickupCoordinates
+        : resolveAddressCoords(pickupAddress, { latitude: 6.4474, longitude: 3.4723 });
 
-    const formattedCompleted = completedOrders.map(o => ({
-      id: o.orderId || o._id.toString(),
-      _id: o._id.toString(),
-      restaurant: o.vendorId?.businessName || o.vendorName || 'Spice Avenue',
-      customer: o.customerName || 'Customer',
-      dropoffAddress: o.deliveryAddress || o.address || 'Customer Address',
-      amount: o.deliveryFee || 850,
-      totalAmount: o.totalAmount || o.total || 5700,
-      date: new Date(o.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ', ' + new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }));
+      const dropoffCoords = (o.deliveryCoordinates && typeof o.deliveryCoordinates.latitude === 'number')
+        ? o.deliveryCoordinates
+        : resolveAddressCoords(dropoffAddress, { latitude: 6.4549, longitude: 3.3947 });
+
+      // For available orders: road distance from driver's location to restaurant pickup point
+      // For active/completed orders: road distance from pickup to dropoff
+      const routeOrigin = isAvailable ? driverCoords : pickupCoords;
+      const routeDest = isAvailable ? pickupCoords : dropoffCoords;
+
+      const routing = await calculateDrivingDistance({
+        origin: routeOrigin,
+        destination: routeDest,
+      });
+
+      return {
+        id: o.orderId || o._id.toString(),
+        _id: o._id.toString(),
+        restaurant: o.vendorId?.businessName || o.vendorName || 'Spice Avenue',
+        customer: o.customerName || 'Customer',
+        pickupAddress,
+        dropoffAddress,
+        pickupCoordinates: pickupCoords,
+        dropoffCoordinates: dropoffCoords,
+        status: isAvailable
+          ? (o.status === 'preparing' ? 'Preparing at restaurant' : 'New delivery request')
+          : (o.status === 'on the way' ? 'En route to customer' : (o.status === 'delivered' ? 'Delivered' : 'Order picked up')),
+        amount: o.deliveryFee || 850,
+        totalAmount: o.totalAmount || o.total || 5700,
+        distance: routing.formattedDistance || '3.5 km',
+        distanceKm: routing.distanceKm,
+        distanceMeters: routing.distanceMeters,
+        durationMinutes: routing.durationMinutes,
+        durationSeconds: routing.durationSeconds,
+        routeSource: routing.routeSource,
+        isFallback: routing.isFallback,
+        date: new Date(o.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ', ' + new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+    };
+
+    const [formattedAvailable, formattedActive, formattedCompleted] = await Promise.all([
+      Promise.all(availableOrders.map(o => formatOrderWithDistance(o, true))),
+      Promise.all(activeOrders.map(o => formatOrderWithDistance(o, false))),
+      Promise.all(completedOrders.map(o => formatOrderWithDistance(o, false))),
+    ]);
 
     const deliveries = {
       available: formattedAvailable,
@@ -408,6 +450,61 @@ const getDriverDeliveries = async (req, res) => {
   } catch (error) {
     console.error('getDriverDeliveries error:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── CALCULATE Driving Distance (Geoapify Routing) ───────────────────────────
+const calculateDistanceHandler = async (req, res) => {
+  try {
+    const { calculateDrivingDistance } = require('../services/geoapifyRoutingService');
+    const params = {
+      ...req.query,
+      ...req.body,
+    };
+
+    const result = await calculateDrivingDistance(params);
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('calculateDistanceHandler error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── UPDATE Driver GPS Location ──────────────────────────────────────────────
+const updateDriverLocationHandler = async (req, res) => {
+  try {
+    const { latitude, longitude, address } = req.body;
+    const { validateCoordinates } = require('../services/geoapifyRoutingService');
+
+    const validation = validateCoordinates(latitude, longitude, 'Driver location');
+    if (!validation.valid) {
+      return res.status(400).json({ success: false, error: validation.error });
+    }
+
+    let driver = await getCurrentDriver(req);
+    if (!driver) {
+      return res.status(404).json({ success: false, error: 'Driver not found' });
+    }
+
+    driver.currentLocation = {
+      latitude: validation.parsed.latitude,
+      longitude: validation.parsed.longitude,
+      address: address || driver.currentLocation?.address || 'Current Location',
+      updatedAt: new Date(),
+    };
+    await driver.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Driver location updated successfully',
+      location: driver.currentLocation,
+    });
+  } catch (error) {
+    console.error('updateDriverLocationHandler error:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -473,46 +570,11 @@ const markAllDriverNotificationsRead = async (req, res) => {
 // ─── GET Driver Chat Threads ───────────────────────────────────────────────────
 const getDriverChats = async (req, res) => {
   try {
-    const Message = require('../models/Message');
-    let driver = await getCurrentDriver(req);
-    const driverId = driver ? driver._id.toString() : 'driver-1';
-    const driverName = driver ? driver.name : 'Bayo Adeyemi';
-
-    const messages = await Message.find({
-      $or: [
-        { senderId: driverId },
-        { recipientId: driverId },
-        { senderName: driverName },
-        { recipientName: driverName }
-      ]
-    }).sort({ createdAt: -1 });
-
-    const threadMap = {};
-    messages.forEach(msg => {
-      const isSender = msg.senderName === driverName || msg.senderId === driverId;
-      const otherName = isSender ? msg.recipientName : msg.senderName;
-      const otherId = isSender ? msg.recipientId : msg.senderId;
-
-      if (!threadMap[otherName]) {
-        let avatar = 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100';
-        if (otherName.toLowerCase().includes('kitchen') || otherName.toLowerCase().includes('restaurant') || otherName.toLowerCase().includes('spicy')) {
-          avatar = 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100';
-        } else if (otherName.toLowerCase().includes('support')) {
-          avatar = 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100';
-        }
-
-        threadMap[otherName] = {
-          id: otherId || otherName,
-          name: otherName,
-          lastMsg: msg.text || (msg.imageUrl ? '📷 Image' : 'Voice Call'),
-          time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          unread: (!msg.read && !isSender) ? 1 : 0,
-          avatar
-        };
-      }
-    });
-
-    const threads = Object.values(threadMap);
+    const authUser = await resolveAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ success: false, error: 'Authentication required to access driver chats' });
+    }
+    const threads = await getThreadsForUser(authUser);
     res.status(200).json({ success: true, threads });
   } catch (error) {
     console.error('getDriverChats error:', error);
@@ -523,29 +585,16 @@ const getDriverChats = async (req, res) => {
 // ─── GET Driver Messages for a Specific Contact ───────────────────────────────
 const getDriverMessages = async (req, res) => {
   try {
-    const Message = require('../models/Message');
-    const { recipientName } = req.query;
-    const driver = await getCurrentDriver(req);
-    const driverName = driver ? driver.name : 'Bayo Adeyemi';
-
-    const messages = await Message.find({
-      $or: [
-        { senderName: driverName, recipientName: recipientName },
-        { senderName: recipientName, recipientName: driverName }
-      ]
-    }).sort({ createdAt: 1 });
-
-    const formatted = messages.map(m => ({
-      id: m._id,
-      text: m.text,
-      image: m.imageUrl,
-      type: m.type,
-      subText: m.subText,
-      time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      sender: m.senderName === recipientName ? 'them' : 'me'
-    }));
-
-    res.status(200).json({ success: true, messages: formatted });
+    const authUser = await resolveAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ success: false, error: 'Authentication required to view driver messages' });
+    }
+    const { recipientName, recipientId, conversationId } = req.query;
+    const result = await getMessagesForUser(authUser, { conversationId, recipientName, recipientId });
+    if (result.error) {
+      return res.status(result.status || 400).json({ success: false, error: result.error });
+    }
+    res.status(200).json(result);
   } catch (error) {
     console.error('getDriverMessages error:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -555,22 +604,24 @@ const getDriverMessages = async (req, res) => {
 // ─── SEND Driver Message ──────────────────────────────────────────────────────
 const sendDriverMessage = async (req, res) => {
   try {
-    const Message = require('../models/Message');
-    const { recipientName, text, imageUrl, type, subText } = req.body;
-    let driver = await getCurrentDriver(req);
-
-    const newMsg = await Message.create({
-      senderId: driver ? driver._id.toString() : 'driver-1',
-      senderName: driver ? driver.name : 'Bayo Adeyemi',
-      recipientId: 'chat-partner',
-      recipientName: recipientName || "John Doe (Customer)",
+    const authUser = await resolveAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ success: false, error: 'Authentication required to send driver messages' });
+    }
+    const { conversationId, recipientId, recipientName, text, imageUrl, type, subText } = req.body;
+    const result = await sendMessageForUser(authUser, {
+      conversationId,
+      recipientId,
+      recipientName,
       text,
       imageUrl,
-      type: type || 'text',
+      type,
       subText
     });
-
-    res.status(200).json({ success: true, data: newMsg });
+    if (result.error) {
+      return res.status(result.status || 400).json({ success: false, error: result.error });
+    }
+    res.status(200).json(result);
   } catch (error) {
     console.error('sendDriverMessage error:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -681,4 +732,6 @@ module.exports = {
   getDriverMessages,
   sendDriverMessage,
   updateOrderStatus,
+  calculateDistanceHandler,
+  updateDriverLocationHandler,
 };

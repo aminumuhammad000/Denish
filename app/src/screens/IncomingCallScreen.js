@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,71 +6,89 @@ import {
   TouchableOpacity,
   Animated,
   StatusBar,
-  Linking,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { playRingtone, stopRingtone } from '../utils/callAudio';
-import { respondCallSession } from '../services/api';
+import { respondCallSession, fetchCallStatus } from '../services/api';
 
 const IncomingCallScreen = ({ route, navigation }) => {
   const { 
-    callId = '1', 
+    callId = null, 
     callerName = 'Incoming Caller', 
     phone = '08012345678', 
-    orderId = 'Delivery Call', 
+    orderId = 'Delivery Voice Call', 
     subtitle = '' 
   } = route?.params || {};
   
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const soundRef = useRef(null);
+  const pollRef = useRef(null);
+  const isHandledRef = useRef(false);
 
   useEffect(() => {
     // Ringing pulse animation
-    Animated.loop(
+    const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.18, duration: 800, useNativeDriver: true }),
         Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
       ])
-    ).start();
+    );
+    pulse.start();
 
-    playIncomingRingtone();
+    playRingtone('incoming');
+
+    // Poll to detect if the caller hung up before we answered
+    if (callId) {
+      pollRef.current = setInterval(async () => {
+        if (isHandledRef.current) return;
+        try {
+          const res = await fetchCallStatus(callId);
+          if (res && res.success) {
+            if (res.status === 'ended' || res.status === 'declined' || res.status === 'missed') {
+              handleAutoDismiss();
+            }
+          }
+        } catch (e) {
+          // Poll retry
+        }
+      }, 1500);
+    }
 
     return () => {
-      stopIncomingRingtone();
+      pulse.stop();
+      stopRingtone();
+      if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, []);
+  }, [callId]);
 
-  const playIncomingRingtone = async () => {
-    try {
-      const player = await playRingtone();
-      soundRef.current = player;
-    } catch (e) {
-      console.log('Incoming ringtone error:', e);
-    }
-  };
-
-  const stopIncomingRingtone = async () => {
-    try {
-      if (soundRef.current) {
-        await stopRingtone(soundRef.current);
-        soundRef.current = null;
-      }
-    } catch (e) {
-      console.log('Stop ringtone error:', e);
-    }
+  const handleAutoDismiss = () => {
+    if (isHandledRef.current) return;
+    isHandledRef.current = true;
+    stopRingtone();
+    if (pollRef.current) clearInterval(pollRef.current);
+    navigation.goBack();
   };
 
   const handleAcceptCall = async () => {
-    stopIncomingRingtone();
-    try {
-      await respondCallSession({ callId, action: 'accept' });
-    } catch(e) {}
+    if (isHandledRef.current) return;
+    isHandledRef.current = true;
 
-    // Navigate to active call screen with live connected state
+    stopRingtone();
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    if (callId) {
+      try {
+        await respondCallSession({ callId, action: 'accept' });
+      } catch (e) {
+        console.error('Accept call error:', e);
+      }
+    }
+
+    // Navigate to live connected Calling screen as receiver
     navigation.replace('Calling', {
+      callId,
+      isReceiver: true,
       name: callerName,
       phone,
       orderId,
@@ -79,10 +97,20 @@ const IncomingCallScreen = ({ route, navigation }) => {
   };
 
   const handleDeclineCall = async () => {
-    stopIncomingRingtone();
-    try {
-      await respondCallSession({ callId, action: 'decline' });
-    } catch(e) {}
+    if (isHandledRef.current) return;
+    isHandledRef.current = true;
+
+    stopRingtone();
+    if (pollRef.current) clearInterval(pollRef.current);
+
+    if (callId) {
+      try {
+        await respondCallSession({ callId, action: 'decline' });
+      } catch (e) {
+        console.error('Decline call error:', e);
+      }
+    }
+
     navigation.goBack();
   };
 
@@ -93,8 +121,8 @@ const IncomingCallScreen = ({ route, navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{orderId}</Text>
-          <Text style={styles.headerSubtitle}>{subtitle}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{orderId}</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>{subtitle || 'Incoming Voice Call'}</Text>
         </View>
       </View>
 
@@ -102,13 +130,14 @@ const IncomingCallScreen = ({ route, navigation }) => {
         <View style={styles.content}>
           <Animated.View style={[styles.avatarWrapper, { transform: [{ scale: pulseAnim }] }]}>
             <View style={styles.avatarGradient}>
-              <View style={[styles.gradientLayer, { backgroundColor: '#3DD26A', opacity: 0.8 }]} />
-              <View style={[styles.gradientLayer, { backgroundColor: '#FF8C00', opacity: 0.6, top: '30%' }]} />
+              <View style={[styles.gradientLayer, { backgroundColor: '#3DD26A', opacity: 0.85 }]} />
+              <View style={[styles.gradientLayer, { backgroundColor: '#FF8C00', opacity: 0.65, top: '30%' }]} />
             </View>
           </Animated.View>
 
           <Text style={styles.incomingLabel}>INCOMING CALL...</Text>
           <Text style={styles.userName}>{callerName}</Text>
+          {phone ? <Text style={styles.phoneText}>{phone}</Text> : null}
         </View>
 
         {/* Accept & Decline Buttons */}
@@ -165,20 +194,21 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 12,
     color: '#999',
+    marginTop: 2,
   },
   content: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 60,
+    paddingVertical: 40,
   },
   avatarWrapper: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
     overflow: 'hidden',
-    marginBottom: 35,
-    elevation: 10,
+    marginBottom: 30,
+    elevation: 8,
     shadowColor: '#3DD26A',
     shadowOpacity: 0.25,
     shadowRadius: 20,
@@ -203,9 +233,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   userName: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#000',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  phoneText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 6,
   },
   controlsRow: {
     flexDirection: 'row',

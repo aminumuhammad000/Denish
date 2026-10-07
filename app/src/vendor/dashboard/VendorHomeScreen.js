@@ -22,6 +22,8 @@ const VendorHomeScreen = ({ navigation }) => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
+  const handledCallsRef = useRef(new Set());
+
   useEffect(() => {
     let intervalId = null;
     let isSubscribed = true;
@@ -34,14 +36,18 @@ const VendorHomeScreen = ({ navigation }) => {
         if (!nameToQuery) return;
 
         const res = await fetchIncomingCall(nameToQuery);
-        if (isSubscribed && res.success && res.call) {
-          navigation.navigate('IncomingCall', {
-            callId: res.call._id,
-            callerName: res.call.callerName,
-            phone: res.call.phone || '08123456789',
-            orderId: res.call.orderId,
-            subtitle: res.call.subtitle
-          });
+        if (isSubscribed && res && res.success && res.call && res.call._id) {
+          const cId = res.call._id.toString();
+          if (!handledCallsRef.current.has(cId)) {
+            handledCallsRef.current.add(cId);
+            navigation.navigate('IncomingCall', {
+              callId: res.call._id,
+              callerName: res.call.callerName,
+              phone: res.call.receiverPhone || res.call.callerPhone || res.call.phone || '08123456789',
+              orderId: res.call.orderId,
+              subtitle: res.call.subtitle
+            });
+          }
         }
       } catch (e) {
         // Silent error

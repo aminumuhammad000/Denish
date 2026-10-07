@@ -4,49 +4,36 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
 import { getDriverChats } from '../services/api';
 
-const DEFAULT_CHATS = [
-  {
-    id: '1',
-    name: "John Doe (Customer)",
-    lastMsg: "I'm standing by the white gate.",
-    time: "12:30 PM",
-    unread: 1,
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100'
-  },
-  {
-    id: '2',
-    name: "Spice Avenue (Restaurant)",
-    lastMsg: "Order is ready for pickup!",
-    time: "12:15 PM",
-    unread: 0,
-    avatar: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100'
-  },
-  {
-    id: '3',
-    name: "Denish Support",
-    lastMsg: "We've received your inquiry. A representative will be with you.",
-    time: "Yesterday",
-    unread: 0,
-    avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100'
-  }
-];
-
 const DriverChatListScreen = ({ navigation }) => {
+  const isFocused = useIsFocused();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    loadChats();
-  }, []);
+    if (isFocused) {
+      loadChats(true);
+    }
+  }, [isFocused]);
 
-  const loadChats = async () => {
+  // Live polling every 4 seconds while focused
+  useEffect(() => {
+    if (!isFocused) return;
+    const interval = setInterval(() => {
+      loadChats(false);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [isFocused]);
+
+  const loadChats = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const res = await getDriverChats();
-      if (res && res.success && res.threads) {
+      if (res && res.success && Array.isArray(res.threads)) {
         setChats(res.threads);
       } else {
         setChats([]);
@@ -55,14 +42,14 @@ const DriverChatListScreen = ({ navigation }) => {
       console.error('Error loading driver chats:', e);
       setChats([]);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
       setRefreshing(false);
     }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadChats();
+    loadChats(false);
   };
 
   const filteredChats = chats.filter(chat => 
@@ -99,19 +86,29 @@ const DriverChatListScreen = ({ navigation }) => {
       ) : (
         <FlatList
           data={filteredChats}
-          keyExtractor={item => item.id || item.name}
+          keyExtractor={item => item.conversationId || item.id || item.name}
           renderItem={({ item }) => (
             <TouchableOpacity 
               style={styles.chatRow} 
-              onPress={() => navigation.navigate('ChatDetail', { name: item.name, role: 'Driver' })}
+              onPress={() => navigation.navigate('ChatDetail', { 
+                name: item.name, 
+                conversationId: item.conversationId || item.id,
+                recipientId: item.recipientId,
+                role: 'Driver',
+                type: item.role || 'Customer',
+                avatar: item.avatar
+              })}
             >
-              <Image source={{ uri: item.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }} style={styles.avatar} />
+              <Image 
+                source={{ uri: item.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' }} 
+                style={styles.avatar} 
+              />
               <View style={styles.chatInfo}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.name}>{item.name}</Text>
+                  <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.time}>{item.time}</Text>
                 </View>
-                <Text style={styles.lastMsg} numberOfLines={1}>{item.lastMsg}</Text>
+                <Text style={styles.lastMsg} numberOfLines={1}>{item.lastMsg || 'No messages yet'}</Text>
               </View>
               {item.unread > 0 && (
                 <View style={styles.unreadBadge}>
@@ -168,7 +165,7 @@ const styles = StyleSheet.create({
   avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#EEE' },
   chatInfo: { flex: 1, marginLeft: 15 },
   nameRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  name: { fontSize: 16, fontWeight: '700', color: '#1a1a1a' },
+  name: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', flex: 1, marginRight: 8 },
   time: { fontSize: 12, color: '#AAA' },
   lastMsg: { fontSize: 14, color: '#888' },
   unreadBadge: {

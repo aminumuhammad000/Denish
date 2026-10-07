@@ -61,6 +61,12 @@ const driverSchema = new mongoose.Schema({
   },
   resetPasswordOTP: String,
   resetPasswordExpires: Date,
+  currentLocation: {
+    latitude: { type: Number, default: 6.4549 },
+    longitude: { type: Number, default: 3.3947 },
+    address: { type: String, default: 'Lagos Island, Lagos' },
+    updatedAt: { type: Date, default: Date.now },
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Driver', driverSchema);

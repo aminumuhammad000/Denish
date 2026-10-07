@@ -11,6 +11,18 @@ const CallSession = require('../models/CallSession');
 const Driver = require('../models/Driver');
 
 const Banner = require('../models/Banner');
+const {
+  resolveAuthUser,
+  getThreadsForUser,
+  getMessagesForUser,
+  sendMessageForUser
+} = require('../services/messagingService');
+const {
+  initiateCallService,
+  getIncomingCallService,
+  getCallStatusService,
+  respondCallService
+} = require('../services/callService');
 
 const getCurrentCustomer = async (req) => {
   const userId = req.headers['x-user-id'];
@@ -370,145 +382,98 @@ const search = async (req, res) => {
 
 const getChatThreads = async (req, res) => {
   try {
-    const customer = await getCurrentCustomer(req);
-    const customerId = customer ? customer._id.toString() : 'demo';
-    
-    // Aggregate threads by recipient/sender
-    const messages = await Message.find({
-      $or: [{ senderId: customerId }, { recipientId: customerId }]
-    }).sort({ createdAt: -1 });
-
-    const threadMap = {};
-    messages.forEach(msg => {
-      const otherId = msg.senderId === customerId ? msg.recipientId : msg.senderId;
-      const otherName = msg.senderId === customerId ? msg.recipientName : msg.senderName;
-      if (!threadMap[otherName]) {
-        threadMap[otherName] = {
-          id: otherId,
-          name: otherName,
-          lastMsg: msg.text || (msg.imageUrl ? '📷 Image' : 'Voice Call'),
-          time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          unread: 0,
-          avatar: 'https://res.cloudinary.com/dq4mxuz72/image/upload/v1785498890/denish_vendors/sburpfmz4hxc5ef91evg.jpg'
-        };
-      }
-    });
-
-    const threads = Object.values(threadMap);
+    const authUser = await resolveAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ success: false, error: 'Authentication required to access chat threads' });
+    }
+    const threads = await getThreadsForUser(authUser);
     res.status(200).json({ success: true, threads });
   } catch (error) {
+    console.error('getChatThreads error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
 const getMessages = async (req, res) => {
   try {
-    const { recipientName } = req.query;
-    const customer = await getCurrentCustomer(req);
-    const customerName = customer ? customer.name : 'Usman Umar';
-
-    const messages = await Message.find({
-      $or: [
-        { senderName: customerName, recipientName: recipientName },
-        { senderName: recipientName, recipientName: customerName }
-      ]
-    }).sort({ createdAt: 1 });
-
-    const formatted = messages.map(m => ({
-      id: m._id,
-      text: m.text,
-      image: m.imageUrl,
-      type: m.type,
-      subText: m.subText,
-      time: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      sender: m.senderName === recipientName ? 'them' : 'me'
-    }));
-
-    res.status(200).json({ success: true, messages: formatted });
+    const authUser = await resolveAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ success: false, error: 'Authentication required to view messages' });
+    }
+    const { recipientName, recipientId, conversationId } = req.query;
+    const result = await getMessagesForUser(authUser, { conversationId, recipientName, recipientId });
+    if (result.error) {
+      return res.status(result.status || 400).json({ success: false, error: result.error });
+    }
+    res.status(200).json(result);
   } catch (error) {
+    console.error('getMessages error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
 const sendMessage = async (req, res) => {
   try {
-    const { recipientName, text, imageUrl, type, subText } = req.body;
-    const customer = await getCurrentCustomer(req);
-
-    const newMsg = await Message.create({
-      senderId: customer ? customer._id.toString() : 'customer-1',
-      senderName: customer ? customer.name : 'Usman Umar',
-      recipientId: 'vendor-driver-1',
-      recipientName: recipientName || "Mama's Kitchen",
+    const authUser = await resolveAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({ success: false, error: 'Authentication required to send messages' });
+    }
+    const { conversationId, recipientId, recipientName, text, imageUrl, type, subText } = req.body;
+    const result = await sendMessageForUser(authUser, {
+      conversationId,
+      recipientId,
+      recipientName,
       text,
       imageUrl,
-      type: type || 'text',
+      type,
       subText
     });
-
-    res.status(200).json({ success: true, data: newMsg });
+    if (result.error) {
+      return res.status(result.status || 400).json({ success: false, error: result.error });
+    }
+    res.status(200).json(result);
   } catch (error) {
+    console.error('sendMessage error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
 const initiateCall = async (req, res) => {
   try {
-    const { receiverName, orderId, subtitle, callerName: customCallerName, callerId: customCallerId, receiverId } = req.body;
-    const customer = await getCurrentCustomer(req) || await Customer.findOne().sort({ createdAt: -1 });
-    const callerId = customCallerId || (customer ? customer._id.toString() : 'user-1');
-    const callerName = customCallerName || (customer ? customer.name : 'Customer');
-
-    const session = await CallSession.create({
-      callerId,
-      callerName,
-      receiverId: receiverId || 'receiver-1',
-      receiverName: receiverName || 'Recipient',
-      status: 'ringing',
-      orderId: orderId || 'Order Call',
-      subtitle: subtitle || ''
-    });
-
-    res.status(200).json({ success: true, call: session });
+    const result = await initiateCallService(req);
+    res.status(200).json(result);
   } catch (error) {
+    console.error('initiateCall error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
 const getIncomingCall = async (req, res) => {
   try {
-    const { receiverName } = req.query;
-    const query = { status: 'ringing' };
-    if (receiverName) {
-      let escaped = receiverName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      escaped = escaped.replace(/[’']/g, "['’]");
-      query.receiverName = { $regex: new RegExp(`^${escaped}$`, 'i') };
-    }
-    const call = await CallSession.findOne(query).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, call });
+    const result = await getIncomingCallService(req);
+    res.status(200).json(result);
   } catch (error) {
+    console.error('getIncomingCall error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
 const getCallStatus = async (req, res) => {
   try {
-    const { callId } = req.params;
-    const call = await CallSession.findById(callId);
-    if (!call) return res.status(404).json({ success: false, message: 'Call not found' });
-    res.status(200).json({ success: true, status: call.status, call });
+    const result = await getCallStatusService(req);
+    res.status(200).json(result);
   } catch (error) {
+    console.error('getCallStatus error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
 const respondCall = async (req, res) => {
   try {
-    const { callId, action } = req.body; // action: 'accept' | 'decline' | 'end'
-    const status = action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'ended';
-    const call = await CallSession.findByIdAndUpdate(callId, { status }, { new: true });
-    res.status(200).json({ success: true, call });
+    const result = await respondCallService(req);
+    res.status(200).json(result);
   } catch (error) {
+    console.error('respondCall error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };

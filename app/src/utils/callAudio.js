@@ -1,15 +1,21 @@
+import { Platform } from 'react-native';
+
 let expoAudioModule = null;
 try {
   expoAudioModule = require('expo-audio');
 } catch (e) {
-  console.warn('expo-audio module could not be loaded:', e?.message);
+  // Graceful fallback if native module is not present in environment
 }
 
+let activePlayer = null;
+
 /**
- * Plays the incoming/outgoing ringtone safely using expo-audio.
- * Returns the audio player instance, or null if audio playback failed.
+ * Plays outgoing or incoming call ringtone safely using expo-audio.
+ * Guaranteed to manage player lifecycle without audio leaks.
  */
-export const playRingtone = async () => {
+export const playRingtone = async (type = 'incoming') => {
+  await stopRingtone();
+
   if (!expoAudioModule) return null;
   try {
     if (expoAudioModule.setAudioModeAsync) {
@@ -21,12 +27,16 @@ export const playRingtone = async () => {
     }
 
     if (expoAudioModule.createAudioPlayer) {
-      const player = expoAudioModule.createAudioPlayer({
-        uri: 'https://cdn.freesound.org/previews/536/536420_11861866-lq.mp3',
-      });
+      // Free public tone URL
+      const soundUri = type === 'outgoing'
+        ? 'https://cdn.freesound.org/previews/536/536420_11861866-lq.mp3'
+        : 'https://cdn.freesound.org/previews/536/536420_11861866-lq.mp3';
+
+      const player = expoAudioModule.createAudioPlayer({ uri: soundUri });
       player.loop = true;
       player.volume = 1.0;
       player.play();
+      activePlayer = player;
       return player;
     }
   } catch (err) {
@@ -36,14 +46,18 @@ export const playRingtone = async () => {
 };
 
 /**
- * Stops and cleans up the ringtone audio player.
+ * Stops and cleans up any active ringtone audio player.
  */
-export const stopRingtone = async (player) => {
-  if (!player) return;
+export const stopRingtone = async (playerInstance = null) => {
+  const target = playerInstance || activePlayer;
+  if (!target) return;
   try {
-    if (typeof player.pause === 'function') player.pause();
-    if (typeof player.remove === 'function') player.remove();
+    if (typeof target.pause === 'function') target.pause();
+    if (typeof target.remove === 'function') target.remove();
   } catch (err) {
-    console.warn('Error stopping ringtone:', err?.message);
+    // Silent catch
+  }
+  if (target === activePlayer) {
+    activePlayer = null;
   }
 };

@@ -13,6 +13,8 @@ const {
   getDriverMessages,
   sendDriverMessage,
   updateOrderStatus,
+  calculateDistanceHandler,
+  updateDriverLocationHandler,
 } = require('../controllers/driverController');
 const { upload } = require('../config/cloudinary');
 
@@ -22,6 +24,14 @@ router.get('/earnings', getDriverEarnings);
 router.post('/withdraw', withdrawEarnings);
 router.get('/deliveries', getDriverDeliveries);
 router.patch('/order/:orderId/status', updateOrderStatus);
+
+// Distance & Location routes (Geoapify Road Routing)
+router.post('/calculate-distance', calculateDistanceHandler);
+router.get('/calculate-distance', calculateDistanceHandler);
+router.post('/distance', calculateDistanceHandler);
+router.get('/distance', calculateDistanceHandler);
+router.post('/location', updateDriverLocationHandler);
+router.put('/location', updateDriverLocationHandler);
 
 // Notification routes
 router.get('/notifications', getDriverNotifications);

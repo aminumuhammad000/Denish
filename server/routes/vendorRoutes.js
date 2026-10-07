@@ -3,7 +3,8 @@ const router = express.Router();
 const { 
   getVendorDashboard, updateVendorProfile, updateVendorOrderStatus, 
   requestVendorPayout, getVendorTransactions,
-  getVendorNotifications, markVendorNotificationRead, markAllVendorNotificationsRead 
+  getVendorNotifications, markVendorNotificationRead, markAllVendorNotificationsRead,
+  getVendorChats, getVendorMessages, sendVendorMessage
 } = require('../controllers/vendorController');
 const { getVendorOrders } = require('../controllers/orderController');
 const { getVendorMenu, toggleMenuItem, addMenuItem, updateMenuItem, deleteMenuItem } = require('../controllers/menuController');
@@ -25,6 +26,11 @@ router.get('/transactions', getVendorTransactions);
 router.get('/notifications', getVendorNotifications);
 router.patch('/notifications/read-all', markAllVendorNotificationsRead);
 router.patch('/notifications/:id/read', markVendorNotificationRead);
+
+// Chat routes
+router.get('/chats', getVendorChats);
+router.get('/messages', getVendorMessages);
+router.post('/messages', sendVendorMessage);
 
 router.post('/upload-item-image', upload.single('image'), (req, res) => {
   try {

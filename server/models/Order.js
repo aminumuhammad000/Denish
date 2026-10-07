@@ -24,6 +24,17 @@ const orderSchema = new mongoose.Schema({
   totalAmount: { type: Number },
   deliveryFee: { type: Number, default: 500 },
   paymentMethod: { type: String, default: 'Card' },
+  pickupCoordinates: {
+    latitude: { type: Number, default: 6.4474 },
+    longitude: { type: Number, default: 3.4723 },
+  },
+  deliveryCoordinates: {
+    latitude: { type: Number, default: 6.4549 },
+    longitude: { type: Number, default: 3.3947 },
+  },
+  distanceKm: { type: Number },
+  distanceMeters: { type: Number },
+  durationMinutes: { type: Number },
   status: { 
     type: String, 
     enum: ['pending', 'preparing', 'ready', 'on the way', 'delivered', 'cancelled'], 

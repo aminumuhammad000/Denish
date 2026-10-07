@@ -541,6 +541,17 @@ var require_Order = __commonJS({
       totalAmount: { type: Number },
       deliveryFee: { type: Number, default: 500 },
       paymentMethod: { type: String, default: "Card" },
+      pickupCoordinates: {
+        latitude: { type: Number, default: 6.4474 },
+        longitude: { type: Number, default: 3.4723 }
+      },
+      deliveryCoordinates: {
+        latitude: { type: Number, default: 6.4549 },
+        longitude: { type: Number, default: 3.3947 }
+      },
+      distanceKm: { type: Number },
+      distanceMeters: { type: Number },
+      durationMinutes: { type: Number },
       status: {
         type: String,
         enum: ["pending", "preparing", "ready", "on the way", "delivered", "cancelled"],
@@ -1401,7 +1412,13 @@ var require_Driver = __commonJS({
         }]
       },
       resetPasswordOTP: String,
-      resetPasswordExpires: Date
+      resetPasswordExpires: Date,
+      currentLocation: {
+        latitude: { type: Number, default: 6.4549 },
+        longitude: { type: Number, default: 3.3947 },
+        address: { type: String, default: "Lagos Island, Lagos" },
+        updatedAt: { type: Date, default: Date.now }
+      }
     }, { timestamps: true });
     module2.exports = mongoose.model("Driver", driverSchema);
   }
@@ -1463,7 +1480,7 @@ var require_Notification = __commonJS({
       },
       type: {
         type: String,
-        enum: ["dispute", "driver", "order", "payment", "payout", "system", "promo"],
+        enum: ["dispute", "driver", "order", "payment", "payout", "system", "promo", "message", "chat"],
         default: "system"
       },
       recipient: {
@@ -2541,6 +2558,442 @@ var require_payoutScheduler = __commonJS({
   }
 });
 
+// models/Conversation.js
+var require_Conversation = __commonJS({
+  "models/Conversation.js"(exports2, module2) {
+    var mongoose = require("mongoose");
+    var participantSchema = new mongoose.Schema({
+      userId: { type: String, required: true },
+      userModel: { type: String, enum: ["Customer", "Driver", "Vendor", "Admin"], default: "Customer" },
+      name: { type: String, default: "" },
+      avatar: { type: String, default: "" },
+      role: { type: String, default: "Customer" },
+      unreadCount: { type: Number, default: 0 }
+    }, { _id: false });
+    var conversationSchema = new mongoose.Schema({
+      participants: [participantSchema],
+      participantIds: [{ type: String, index: true }],
+      lastMessage: {
+        text: { type: String, default: "" },
+        imageUrl: { type: String, default: null },
+        type: { type: String, default: "text" },
+        subText: { type: String, default: "" },
+        senderId: { type: String, default: "" },
+        senderName: { type: String, default: "" },
+        createdAt: { type: Date, default: Date.now }
+      },
+      orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order", default: null }
+    }, { timestamps: true });
+    conversationSchema.index({ participantIds: 1 });
+    conversationSchema.index({ updatedAt: -1 });
+    module2.exports = mongoose.model("Conversation", conversationSchema);
+  }
+});
+
+// models/Message.js
+var require_Message = __commonJS({
+  "models/Message.js"(exports2, module2) {
+    var mongoose = require("mongoose");
+    var messageSchema = new mongoose.Schema({
+      conversationId: { type: mongoose.Schema.Types.ObjectId, ref: "Conversation", index: true },
+      senderId: { type: String, required: true, index: true },
+      senderModel: { type: String, enum: ["Customer", "Driver", "Vendor", "Admin"], default: "Customer" },
+      senderName: { type: String, required: true },
+      recipientId: { type: String, required: true, index: true },
+      recipientModel: { type: String, enum: ["Customer", "Driver", "Vendor", "Admin"], default: "Customer" },
+      recipientName: { type: String, required: true },
+      text: { type: String, trim: true, maxlength: 2e3, default: "" },
+      imageUrl: { type: String, default: null },
+      type: { type: String, enum: ["text", "image", "call"], default: "text" },
+      subText: { type: String, default: "" },
+      read: { type: Boolean, default: false, index: true },
+      readAt: { type: Date, default: null }
+    }, { timestamps: true });
+    messageSchema.index({ senderId: 1, recipientId: 1 });
+    messageSchema.index({ conversationId: 1, createdAt: 1 });
+    module2.exports = mongoose.model("Message", messageSchema);
+  }
+});
+
+// services/messagingService.js
+var require_messagingService = __commonJS({
+  "services/messagingService.js"(exports2, module2) {
+    var mongoose = require("mongoose");
+    var Conversation = require_Conversation();
+    var Message = require_Message();
+    var Customer = require_Customer();
+    var Driver = require_Driver();
+    var Vendor = require_Vendor();
+    var Admin = require_Admin();
+    var Notification = require_Notification();
+    var resolveAuthUser = async (req) => {
+      const authHeader = req.headers.authorization || req.headers.token || "";
+      const headerUserId = req.headers["x-user-id"] || req.headers["x-vendor-id"] || req.headers["x-driver-id"];
+      const headerEmail = req.headers["x-user-email"] || req.headers["x-vendor-email"];
+      const headerRole = (req.headers["x-user-role"] || "").toLowerCase();
+      let targetId = null;
+      let targetRoleHint = headerRole;
+      if (authHeader) {
+        const tokenStr = authHeader.replace(/^Bearer\s+/i, "").trim();
+        if (tokenStr.startsWith("cust-token-")) {
+          targetId = tokenStr.replace("cust-token-", "");
+          targetRoleHint = "customer";
+        } else if (tokenStr.startsWith("driver-token-")) {
+          targetId = tokenStr.replace("driver-token-", "");
+          targetRoleHint = "driver";
+        } else if (tokenStr.startsWith("fake-jwt-token-for-") || tokenStr.startsWith("vend-token-")) {
+          targetId = tokenStr.replace(/(?:fake-jwt-token-for-|vend-token-)/, "");
+          targetRoleHint = "vendor";
+        } else if (mongoose.Types.ObjectId.isValid(tokenStr)) {
+          targetId = tokenStr;
+        }
+      }
+      if (!targetId && headerUserId && mongoose.Types.ObjectId.isValid(headerUserId)) {
+        targetId = headerUserId;
+      }
+      if (targetId && mongoose.Types.ObjectId.isValid(targetId)) {
+        if (targetRoleHint === "customer") {
+          const cust2 = await Customer.findById(targetId);
+          if (cust2) return { user: cust2, role: "Customer", userId: cust2._id.toString(), userName: cust2.name || "Customer", userAvatar: cust2.profilePic || "" };
+        } else if (targetRoleHint === "driver") {
+          const drv2 = await Driver.findById(targetId);
+          if (drv2) return { user: drv2, role: "Driver", userId: drv2._id.toString(), userName: drv2.name || "Driver", userAvatar: drv2.profilePic || "" };
+        } else if (targetRoleHint === "vendor") {
+          const vnd2 = await Vendor.findById(targetId);
+          if (vnd2) return { user: vnd2, role: "Vendor", userId: vnd2._id.toString(), userName: vnd2.businessName || vnd2.name || "Vendor", userAvatar: vnd2.logoUrl || "" };
+        }
+        const [cust, drv, vnd, adm] = await Promise.all([
+          Customer.findById(targetId),
+          Driver.findById(targetId),
+          Vendor.findById(targetId),
+          Admin.findById(targetId)
+        ]);
+        if (cust) return { user: cust, role: "Customer", userId: cust._id.toString(), userName: cust.name || "Customer", userAvatar: cust.profilePic || "" };
+        if (drv) return { user: drv, role: "Driver", userId: drv._id.toString(), userName: drv.name || "Driver", userAvatar: drv.profilePic || "" };
+        if (vnd) return { user: vnd, role: "Vendor", userId: vnd._id.toString(), userName: vnd.businessName || vnd.name || "Vendor", userAvatar: vnd.logoUrl || "" };
+        if (adm) return { user: adm, role: "Admin", userId: adm._id.toString(), userName: adm.name || "Admin", userAvatar: "" };
+      }
+      if (headerEmail) {
+        const cleanEmail = headerEmail.trim().toLowerCase();
+        const emailRegex = new RegExp(`^${cleanEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+        if (targetRoleHint === "customer") {
+          const cust2 = await Customer.findOne({ email: emailRegex });
+          if (cust2) return { user: cust2, role: "Customer", userId: cust2._id.toString(), userName: cust2.name || "Customer", userAvatar: cust2.profilePic || "" };
+        } else if (targetRoleHint === "driver") {
+          const drv2 = await Driver.findOne({ email: emailRegex });
+          if (drv2) return { user: drv2, role: "Driver", userId: drv2._id.toString(), userName: drv2.name || "Driver", userAvatar: drv2.profilePic || "" };
+        } else if (targetRoleHint === "vendor") {
+          const vnd2 = await Vendor.findOne({ email: emailRegex });
+          if (vnd2) return { user: vnd2, role: "Vendor", userId: vnd2._id.toString(), userName: vnd2.businessName || vnd2.name || "Vendor", userAvatar: vnd2.logoUrl || "" };
+        }
+        const [cust, drv, vnd] = await Promise.all([
+          Customer.findOne({ email: emailRegex }),
+          Driver.findOne({ email: emailRegex }),
+          Vendor.findOne({ email: emailRegex })
+        ]);
+        if (cust) return { user: cust, role: "Customer", userId: cust._id.toString(), userName: cust.name || "Customer", userAvatar: cust.profilePic || "" };
+        if (drv) return { user: drv, role: "Driver", userId: drv._id.toString(), userName: drv.name || "Driver", userAvatar: drv.profilePic || "" };
+        if (vnd) return { user: vnd, role: "Vendor", userId: vnd._id.toString(), userName: vnd.businessName || vnd.name || "Vendor", userAvatar: vnd.logoUrl || "" };
+      }
+      return null;
+    };
+    var resolveRecipient = async ({ recipientId, recipientName }) => {
+      if (recipientId && mongoose.Types.ObjectId.isValid(recipientId)) {
+        const [vnd, drv, cust] = await Promise.all([
+          Vendor.findById(recipientId),
+          Driver.findById(recipientId),
+          Customer.findById(recipientId)
+        ]);
+        if (vnd) return { id: vnd._id.toString(), name: vnd.businessName || vnd.name, role: "Vendor", avatar: vnd.logoUrl || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100" };
+        if (drv) return { id: drv._id.toString(), name: drv.name, role: "Driver", avatar: drv.profilePic || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100" };
+        if (cust) return { id: cust._id.toString(), name: cust.name, role: "Customer", avatar: cust.profilePic || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" };
+      }
+      if (recipientName && typeof recipientName === "string") {
+        const cleanName = recipientName.trim();
+        if (!cleanName) return null;
+        const regex = new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+        const [vnd, drv, cust] = await Promise.all([
+          Vendor.findOne({ $or: [{ businessName: regex }, { name: regex }] }),
+          Driver.findOne({ name: regex }),
+          Customer.findOne({ name: regex })
+        ]);
+        if (vnd) return { id: vnd._id.toString(), name: vnd.businessName || vnd.name, role: "Vendor", avatar: vnd.logoUrl || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100" };
+        if (drv) return { id: drv._id.toString(), name: drv.name, role: "Driver", avatar: drv.profilePic || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100" };
+        if (cust) return { id: cust._id.toString(), name: cust.name, role: "Customer", avatar: cust.profilePic || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" };
+        let avatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100";
+        let role = "Vendor";
+        if (cleanName.toLowerCase().includes("driver") || cleanName.toLowerCase().includes("rider") || cleanName.toLowerCase().includes("bayo") || cleanName.toLowerCase().includes("adeyemi")) {
+          avatar = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100";
+          role = "Driver";
+        } else if (cleanName.toLowerCase().includes("support") || cleanName.toLowerCase().includes("admin")) {
+          avatar = "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100";
+          role = "Admin";
+        } else if (cleanName.toLowerCase().includes("kitchen") || cleanName.toLowerCase().includes("store") || cleanName.toLowerCase().includes("hub") || cleanName.toLowerCase().includes("restaurant")) {
+          avatar = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100";
+          role = "Vendor";
+        }
+        return { id: recipientId || `partner-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, "-")}`, name: cleanName, role, avatar };
+      }
+      return null;
+    };
+    var findOrCreateConversation = async (authUser, recipient) => {
+      let conversation = await Conversation.findOne({
+        participantIds: { $all: [authUser.userId, recipient.id] }
+      });
+      if (!conversation) {
+        conversation = await Conversation.create({
+          participantIds: [authUser.userId, recipient.id],
+          participants: [
+            {
+              userId: authUser.userId,
+              userModel: authUser.role,
+              name: authUser.userName,
+              avatar: authUser.userAvatar,
+              role: authUser.role,
+              unreadCount: 0
+            },
+            {
+              userId: recipient.id,
+              userModel: recipient.role,
+              name: recipient.name,
+              avatar: recipient.avatar,
+              role: recipient.role,
+              unreadCount: 0
+            }
+          ]
+        });
+      }
+      return conversation;
+    };
+    var getThreadsForUser = async (authUser) => {
+      const userId = authUser.userId;
+      const userName = authUser.userName;
+      const conversations = await Conversation.find({
+        $or: [
+          { participantIds: userId },
+          { "participants.userId": userId },
+          { "participants.name": userName }
+        ]
+      }).sort({ updatedAt: -1 });
+      const threads = [];
+      const handledKeys = /* @__PURE__ */ new Set();
+      for (const conv of conversations) {
+        const meParticipant = conv.participants.find((p) => p.userId === userId || p.name === userName);
+        const otherParticipant = conv.participants.find((p) => p.userId !== userId && p.name !== userName) || conv.participants[0] || {};
+        const otherName = otherParticipant.name || "Chat Partner";
+        const otherId = otherParticipant.userId || conv._id.toString();
+        const otherAvatar = otherParticipant.avatar || (otherParticipant.role === "Driver" ? "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100" : "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100");
+        const key = otherName.toLowerCase();
+        if (!handledKeys.has(key)) {
+          handledKeys.add(key);
+          threads.push({
+            id: conv._id.toString(),
+            conversationId: conv._id.toString(),
+            recipientId: otherId,
+            name: otherName,
+            role: otherParticipant.role || "Vendor",
+            lastMsg: conv.lastMessage?.text || (conv.lastMessage?.imageUrl ? "\u{1F4F7} Image" : conv.lastMessage?.type === "call" ? "Voice Call" : ""),
+            time: conv.lastMessage?.createdAt ? new Date(conv.lastMessage.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : new Date(conv.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            unread: meParticipant ? meParticipant.unreadCount || 0 : 0,
+            avatar: otherAvatar
+          });
+        }
+      }
+      const legacyMessages = await Message.find({
+        $or: [
+          { senderId: userId },
+          { recipientId: userId },
+          { senderName: userName },
+          { recipientName: userName }
+        ]
+      }).sort({ createdAt: -1 });
+      for (const msg of legacyMessages) {
+        const isMe = msg.senderId === userId || msg.senderName === userName;
+        const otherName = isMe ? msg.recipientName : msg.senderName;
+        const otherId = isMe ? msg.recipientId : msg.senderId;
+        const key = (otherName || "").toLowerCase();
+        if (otherName && !handledKeys.has(key)) {
+          handledKeys.add(key);
+          threads.push({
+            id: otherId || key,
+            conversationId: msg.conversationId ? msg.conversationId.toString() : null,
+            recipientId: otherId,
+            name: otherName,
+            role: "Chat Partner",
+            lastMsg: msg.text || (msg.imageUrl ? "\u{1F4F7} Image" : "Voice Call"),
+            time: new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            unread: !msg.read && !isMe ? 1 : 0,
+            avatar: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100"
+          });
+        }
+      }
+      return threads;
+    };
+    var getMessagesForUser = async (authUser, { conversationId, recipientName, recipientId }) => {
+      const userId = authUser.userId;
+      const userName = authUser.userName;
+      let query = null;
+      if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
+        const conv = await Conversation.findById(conversationId);
+        if (!conv) {
+          return { error: "Conversation not found", status: 404 };
+        }
+        const isParticipant = conv.participantIds?.includes(userId) || conv.participants?.some((p) => p.userId === userId || p.name === userName);
+        if (!isParticipant) {
+          return { error: "You are not authorized to access this conversation", status: 403 };
+        }
+        query = { conversationId };
+        const mePart = conv.participants.find((p) => p.userId === userId || p.name === userName);
+        if (mePart && mePart.unreadCount > 0) {
+          mePart.unreadCount = 0;
+          await conv.save();
+        }
+      } else {
+        const cleanName = (recipientName || "").trim();
+        const conditions = [];
+        if (cleanName) {
+          conditions.push(
+            { senderName: userName, recipientName: cleanName },
+            { senderName: cleanName, recipientName: userName }
+          );
+        }
+        if (recipientId) {
+          conditions.push(
+            { senderId: userId, recipientId },
+            { senderId: recipientId, recipientId: userId }
+          );
+        }
+        if (conditions.length === 0) {
+          return { error: "Recipient name or ID is required", status: 400 };
+        }
+        query = { $or: conditions };
+      }
+      const messages = await Message.find(query).sort({ createdAt: 1 });
+      const unreadMsgIds = messages.filter((m) => !m.read && (m.recipientId === userId || m.recipientName === userName)).map((m) => m._id);
+      if (unreadMsgIds.length > 0) {
+        await Message.updateMany(
+          { _id: { $in: unreadMsgIds } },
+          { $set: { read: true, readAt: /* @__PURE__ */ new Date() } }
+        );
+      }
+      const formatted = messages.map((m) => {
+        const isMe = m.senderId === userId || m.senderName === userName;
+        return {
+          id: m._id.toString(),
+          conversationId: m.conversationId ? m.conversationId.toString() : null,
+          text: m.text,
+          image: m.imageUrl,
+          type: m.type || "text",
+          subText: m.subText,
+          time: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          createdAt: m.createdAt,
+          read: m.read,
+          sender: isMe ? "me" : "them",
+          senderName: m.senderName,
+          recipientName: m.recipientName
+        };
+      });
+      return { success: true, messages: formatted };
+    };
+    var sendMessageForUser = async (authUser, { conversationId, recipientId, recipientName, text, imageUrl, type = "text", subText = "" }) => {
+      const cleanText = typeof text === "string" ? text.trim() : "";
+      const cleanType = ["text", "image", "call"].includes(type) ? type : "text";
+      if (cleanType === "text" && !cleanText && !imageUrl) {
+        return { error: "Message content cannot be empty", status: 400 };
+      }
+      if (cleanText.length > 2e3) {
+        return { error: "Message exceeds maximum length of 2000 characters", status: 400 };
+      }
+      let recipient = null;
+      let conversation = null;
+      if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
+        conversation = await Conversation.findById(conversationId);
+        if (conversation) {
+          const otherPart = conversation.participants.find((p) => p.userId !== authUser.userId && p.name !== authUser.userName);
+          if (otherPart) {
+            recipient = { id: otherPart.userId, name: otherPart.name, role: otherPart.role, avatar: otherPart.avatar };
+          }
+        }
+      }
+      if (!recipient) {
+        recipient = await resolveRecipient({ recipientId, recipientName });
+      }
+      if (!recipient) {
+        return { error: "Invalid or missing message recipient", status: 400 };
+      }
+      if (!conversation) {
+        conversation = await findOrCreateConversation(authUser, recipient);
+      }
+      const newMsg = await Message.create({
+        conversationId: conversation._id,
+        senderId: authUser.userId,
+        senderModel: authUser.role,
+        senderName: authUser.userName,
+        recipientId: recipient.id,
+        recipientModel: recipient.role,
+        recipientName: recipient.name,
+        text: cleanText,
+        imageUrl: imageUrl || null,
+        type: cleanType,
+        subText: subText ? subText.trim() : "",
+        read: false
+      });
+      conversation.lastMessage = {
+        text: cleanText,
+        imageUrl: imageUrl || null,
+        type: cleanType,
+        subText: subText ? subText.trim() : "",
+        senderId: authUser.userId,
+        senderName: authUser.userName,
+        createdAt: /* @__PURE__ */ new Date()
+      };
+      const recipientPart = conversation.participants.find((p) => p.userId === recipient.id || p.name === recipient.name);
+      if (recipientPart) {
+        recipientPart.unreadCount = (recipientPart.unreadCount || 0) + 1;
+      }
+      await conversation.save();
+      try {
+        const notifyRole = (recipient.role || "customer").toLowerCase();
+        await Notification.create({
+          title: `Message from ${authUser.userName}`,
+          message: cleanText ? cleanText.length > 80 ? cleanText.slice(0, 77) + "..." : cleanText : imageUrl ? "Sent you a photo" : "Voice call notification",
+          type: "message",
+          recipient: notifyRole === "vendor" ? "vendor" : notifyRole === "driver" ? "driver" : "customer",
+          userId: recipient.id,
+          read: false
+        });
+      } catch (notifErr) {
+        console.error("Failed to create chat notification:", notifErr.message);
+      }
+      return {
+        success: true,
+        data: {
+          id: newMsg._id.toString(),
+          conversationId: conversation._id.toString(),
+          text: newMsg.text,
+          image: newMsg.imageUrl,
+          type: newMsg.type,
+          subText: newMsg.subText,
+          time: new Date(newMsg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          createdAt: newMsg.createdAt,
+          read: newMsg.read,
+          sender: "me",
+          senderName: newMsg.senderName,
+          recipientName: newMsg.recipientName
+        }
+      };
+    };
+    module2.exports = {
+      resolveAuthUser,
+      resolveRecipient,
+      findOrCreateConversation,
+      getThreadsForUser,
+      getMessagesForUser,
+      sendMessageForUser
+    };
+  }
+});
+
 // controllers/vendorController.js
 var require_vendorController = __commonJS({
   "controllers/vendorController.js"(exports2, module2) {
@@ -2908,6 +3361,67 @@ var require_vendorController = __commonJS({
         res.status(500).json({ success: false, error: error.message });
       }
     };
+    var {
+      resolveAuthUser,
+      getThreadsForUser,
+      getMessagesForUser,
+      sendMessageForUser
+    } = require_messagingService();
+    var getVendorChats = async (req, res) => {
+      try {
+        const authUser = await resolveAuthUser(req);
+        if (!authUser) {
+          return res.status(401).json({ success: false, error: "Authentication required to access vendor chats" });
+        }
+        const threads = await getThreadsForUser(authUser);
+        res.status(200).json({ success: true, threads });
+      } catch (error) {
+        console.error("getVendorChats error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var getVendorMessages = async (req, res) => {
+      try {
+        const authUser = await resolveAuthUser(req);
+        if (!authUser) {
+          return res.status(401).json({ success: false, error: "Authentication required to view vendor messages" });
+        }
+        const { recipientName, recipientId, conversationId } = req.query;
+        const result = await getMessagesForUser(authUser, { conversationId, recipientName, recipientId });
+        if (result.error) {
+          return res.status(result.status || 400).json({ success: false, error: result.error });
+        }
+        res.status(200).json(result);
+      } catch (error) {
+        console.error("getVendorMessages error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var sendVendorMessage = async (req, res) => {
+      try {
+        const authUser = await resolveAuthUser(req);
+        if (!authUser) {
+          return res.status(401).json({ success: false, error: "Authentication required to send vendor messages" });
+        }
+        const { conversationId, recipientId, recipientName, text, imageUrl, type, subText } = req.body;
+        const result = await sendMessageForUser(authUser, {
+          conversationId,
+          recipientId,
+          recipientName,
+          text,
+          imageUrl,
+          type,
+          subText
+        });
+        if (result.error) {
+          return res.status(result.status || 400).json({ success: false, error: result.error });
+        }
+        res.status(200).json(result);
+      } catch (error) {
+        console.error("sendVendorMessage error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
     module2.exports = {
       getVendorDashboard,
       updateVendorProfile,
@@ -2917,6 +3431,9 @@ var require_vendorController = __commonJS({
       getVendorNotifications,
       markVendorNotificationRead,
       markAllVendorNotificationsRead,
+      getVendorChats,
+      getVendorMessages,
+      sendVendorMessage,
       getCurrentVendor
     };
   }
@@ -3184,7 +3701,10 @@ var require_vendorRoutes = __commonJS({
       getVendorTransactions,
       getVendorNotifications,
       markVendorNotificationRead,
-      markAllVendorNotificationsRead
+      markAllVendorNotificationsRead,
+      getVendorChats,
+      getVendorMessages,
+      sendVendorMessage
     } = require_vendorController();
     var { getVendorOrders } = require_orderController();
     var { getVendorMenu, toggleMenuItem, addMenuItem, updateMenuItem, deleteMenuItem } = require_menuController();
@@ -3203,6 +3723,9 @@ var require_vendorRoutes = __commonJS({
     router.get("/notifications", getVendorNotifications);
     router.patch("/notifications/read-all", markAllVendorNotificationsRead);
     router.patch("/notifications/:id/read", markVendorNotificationRead);
+    router.get("/chats", getVendorChats);
+    router.get("/messages", getVendorMessages);
+    router.post("/messages", sendVendorMessage);
     router.post("/upload-item-image", upload.single("image"), (req, res) => {
       try {
         const imageUrl = req.file ? req.file.path : null;
@@ -3735,42 +4258,32 @@ var require_authRoutes = __commonJS({
   }
 });
 
-// models/Message.js
-var require_Message = __commonJS({
-  "models/Message.js"(exports2, module2) {
-    var mongoose = require("mongoose");
-    var messageSchema = new mongoose.Schema({
-      senderId: { type: String, required: true },
-      senderName: { type: String, required: true },
-      recipientId: { type: String, required: true },
-      recipientName: { type: String, required: true },
-      text: String,
-      imageUrl: String,
-      type: { type: String, enum: ["text", "image", "call"], default: "text" },
-      subText: String,
-      read: { type: Boolean, default: false }
-    }, { timestamps: true });
-    module2.exports = mongoose.model("Message", messageSchema);
-  }
-});
-
 // models/CallSession.js
 var require_CallSession = __commonJS({
   "models/CallSession.js"(exports2, module2) {
     var mongoose = require("mongoose");
     var callSessionSchema = new mongoose.Schema({
-      callerId: { type: String, required: true },
+      callerId: { type: String, required: true, index: true },
       callerName: { type: String, required: true },
-      receiverId: { type: String, required: true },
-      receiverName: { type: String, required: true },
+      callerRole: { type: String, enum: ["Customer", "Driver", "Vendor", "Admin"], default: "Customer" },
+      callerPhone: { type: String, default: "" },
+      receiverId: { type: String, required: true, index: true },
+      receiverName: { type: String, required: true, index: true },
+      receiverRole: { type: String, enum: ["Customer", "Driver", "Vendor", "Admin"], default: "Driver" },
+      receiverPhone: { type: String, default: "" },
       status: {
         type: String,
-        enum: ["ringing", "accepted", "declined", "ended"],
-        default: "ringing"
+        enum: ["ringing", "accepted", "declined", "ended", "missed"],
+        default: "ringing",
+        index: true
       },
-      orderId: { type: String, default: "Order ORD-005" },
-      subtitle: { type: String, default: "3.5 km | \u20A6750" }
+      orderId: { type: String, default: "Order Call" },
+      subtitle: { type: String, default: "" },
+      startedAt: { type: Date, default: null },
+      endedAt: { type: Date, default: null },
+      durationSeconds: { type: Number, default: 0 }
     }, { timestamps: true });
+    callSessionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 600 });
     module2.exports = mongoose.model("CallSession", callSessionSchema);
   }
 });
@@ -3790,6 +4303,155 @@ var require_Banner = __commonJS({
   }
 });
 
+// services/callService.js
+var require_callService = __commonJS({
+  "services/callService.js"(exports2, module2) {
+    var mongoose = require("mongoose");
+    var CallSession = require_CallSession();
+    var Customer = require_Customer();
+    var Driver = require_Driver();
+    var Vendor = require_Vendor();
+    var { resolveAuthUser, resolveRecipient } = require_messagingService();
+    var CALL_RING_TIMEOUT_MS = 45e3;
+    var initiateCallService = async (req) => {
+      const authUser = await resolveAuthUser(req);
+      const {
+        receiverName,
+        receiverId,
+        orderId,
+        subtitle,
+        callerName: customCallerName,
+        callerId: customCallerId,
+        phone: customPhone
+      } = req.body;
+      const callerId = authUser ? authUser.userId : customCallerId || "guest-caller";
+      const callerName = authUser ? authUser.userName : customCallerName || "Caller";
+      const callerRole = authUser ? authUser.role : "Customer";
+      const callerPhone = authUser && authUser.user && authUser.user.phone || customPhone || "";
+      await CallSession.updateMany(
+        { callerId, status: { $in: ["ringing", "accepted"] } },
+        { $set: { status: "ended", endedAt: /* @__PURE__ */ new Date() } }
+      );
+      let targetRecipient = null;
+      if (receiverId || receiverName) {
+        targetRecipient = await resolveRecipient({ recipientId: receiverId, recipientName: receiverName });
+      }
+      const resolvedReceiverId = targetRecipient ? targetRecipient.id : receiverId || "receiver-1";
+      const resolvedReceiverName = targetRecipient ? targetRecipient.name : receiverName || "Recipient";
+      const resolvedReceiverRole = targetRecipient ? targetRecipient.role : "Driver";
+      let receiverPhone = customPhone || "";
+      if (!receiverPhone && targetRecipient && mongoose.Types.ObjectId.isValid(targetRecipient.id)) {
+        const [vnd, drv, cust] = await Promise.all([
+          Vendor.findById(targetRecipient.id),
+          Driver.findById(targetRecipient.id),
+          Customer.findById(targetRecipient.id)
+        ]);
+        const found = vnd || drv || cust;
+        if (found && found.phone) receiverPhone = found.phone;
+      }
+      const session = await CallSession.create({
+        callerId,
+        callerName,
+        callerRole,
+        callerPhone,
+        receiverId: resolvedReceiverId,
+        receiverName: resolvedReceiverName,
+        receiverRole: resolvedReceiverRole,
+        receiverPhone,
+        status: "ringing",
+        orderId: orderId || "Voice Call",
+        subtitle: subtitle || ""
+      });
+      return { success: true, call: session };
+    };
+    var getIncomingCallService = async (req) => {
+      const authUser = await resolveAuthUser(req);
+      const { receiverName, receiverId } = req.query;
+      const targetId = authUser ? authUser.userId : receiverId;
+      const targetName = authUser ? authUser.userName : receiverName ? receiverName.trim() : "";
+      const now = Date.now();
+      const cutoffTime = new Date(now - CALL_RING_TIMEOUT_MS);
+      await CallSession.updateMany(
+        { status: "ringing", createdAt: { $lt: cutoffTime } },
+        { $set: { status: "missed", endedAt: /* @__PURE__ */ new Date() } }
+      );
+      if (!targetId && !targetName) {
+        return { success: true, call: null };
+      }
+      const conditions = [];
+      if (targetId) {
+        conditions.push({ receiverId: targetId });
+      }
+      if (targetName) {
+        let escaped = targetName.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+        escaped = escaped.replace(/[’']/g, "['\u2019]");
+        conditions.push({ receiverName: { $regex: new RegExp(`^${escaped}$`, "i") } });
+      }
+      const query = {
+        status: "ringing",
+        createdAt: { $gte: cutoffTime },
+        $or: conditions
+      };
+      if (targetId) {
+        query.callerId = { $ne: targetId };
+      }
+      const call = await CallSession.findOne(query).sort({ createdAt: -1 });
+      return { success: true, call: call || null };
+    };
+    var getCallStatusService = async (req) => {
+      const { callId } = req.params;
+      if (!callId || !mongoose.Types.ObjectId.isValid(callId)) {
+        return { success: false, status: "ended", message: "Invalid call ID" };
+      }
+      const call = await CallSession.findById(callId);
+      if (!call) {
+        return { success: false, status: "ended", message: "Call not found" };
+      }
+      if (call.status === "ringing") {
+        const ageMs = Date.now() - new Date(call.createdAt).getTime();
+        if (ageMs > CALL_RING_TIMEOUT_MS) {
+          call.status = "missed";
+          call.endedAt = /* @__PURE__ */ new Date();
+          await call.save();
+        }
+      }
+      return { success: true, status: call.status, call };
+    };
+    var respondCallService = async (req) => {
+      const { callId, action } = req.body;
+      if (!callId || !mongoose.Types.ObjectId.isValid(callId)) {
+        return { success: false, error: "Invalid call ID" };
+      }
+      const call = await CallSession.findById(callId);
+      if (!call) {
+        return { success: false, error: "Call not found" };
+      }
+      const now = /* @__PURE__ */ new Date();
+      if (action === "accept") {
+        call.status = "accepted";
+        call.startedAt = now;
+      } else if (action === "decline") {
+        call.status = "declined";
+        call.endedAt = now;
+      } else {
+        call.status = "ended";
+        call.endedAt = now;
+        if (call.startedAt) {
+          call.durationSeconds = Math.round((now.getTime() - new Date(call.startedAt).getTime()) / 1e3);
+        }
+      }
+      await call.save();
+      return { success: true, call };
+    };
+    module2.exports = {
+      initiateCallService,
+      getIncomingCallService,
+      getCallStatusService,
+      respondCallService
+    };
+  }
+});
+
 // controllers/customerController.js
 var require_customerController = __commonJS({
   "controllers/customerController.js"(exports2, module2) {
@@ -3805,6 +4467,18 @@ var require_customerController = __commonJS({
     var CallSession = require_CallSession();
     var Driver = require_Driver();
     var Banner = require_Banner();
+    var {
+      resolveAuthUser,
+      getThreadsForUser,
+      getMessagesForUser,
+      sendMessageForUser
+    } = require_messagingService();
+    var {
+      initiateCallService,
+      getIncomingCallService,
+      getCallStatusService,
+      respondCallService
+    } = require_callService();
     var getCurrentCustomer = async (req) => {
       const userId = req.headers["x-user-id"];
       const userEmail = req.headers["x-user-email"];
@@ -4108,128 +4782,92 @@ var require_customerController = __commonJS({
     };
     var getChatThreads = async (req, res) => {
       try {
-        const customer = await getCurrentCustomer(req);
-        const customerId = customer ? customer._id.toString() : "demo";
-        const messages = await Message.find({
-          $or: [{ senderId: customerId }, { recipientId: customerId }]
-        }).sort({ createdAt: -1 });
-        const threadMap = {};
-        messages.forEach((msg) => {
-          const otherId = msg.senderId === customerId ? msg.recipientId : msg.senderId;
-          const otherName = msg.senderId === customerId ? msg.recipientName : msg.senderName;
-          if (!threadMap[otherName]) {
-            threadMap[otherName] = {
-              id: otherId,
-              name: otherName,
-              lastMsg: msg.text || (msg.imageUrl ? "\u{1F4F7} Image" : "Voice Call"),
-              time: new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              unread: 0,
-              avatar: "https://res.cloudinary.com/dq4mxuz72/image/upload/v1785498890/denish_vendors/sburpfmz4hxc5ef91evg.jpg"
-            };
-          }
-        });
-        const threads = Object.values(threadMap);
+        const authUser = await resolveAuthUser(req);
+        if (!authUser) {
+          return res.status(401).json({ success: false, error: "Authentication required to access chat threads" });
+        }
+        const threads = await getThreadsForUser(authUser);
         res.status(200).json({ success: true, threads });
       } catch (error) {
+        console.error("getChatThreads error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
     var getMessages = async (req, res) => {
       try {
-        const { recipientName } = req.query;
-        const customer = await getCurrentCustomer(req);
-        const customerName = customer ? customer.name : "Usman Umar";
-        const messages = await Message.find({
-          $or: [
-            { senderName: customerName, recipientName },
-            { senderName: recipientName, recipientName: customerName }
-          ]
-        }).sort({ createdAt: 1 });
-        const formatted = messages.map((m) => ({
-          id: m._id,
-          text: m.text,
-          image: m.imageUrl,
-          type: m.type,
-          subText: m.subText,
-          time: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          sender: m.senderName === recipientName ? "them" : "me"
-        }));
-        res.status(200).json({ success: true, messages: formatted });
+        const authUser = await resolveAuthUser(req);
+        if (!authUser) {
+          return res.status(401).json({ success: false, error: "Authentication required to view messages" });
+        }
+        const { recipientName, recipientId, conversationId } = req.query;
+        const result = await getMessagesForUser(authUser, { conversationId, recipientName, recipientId });
+        if (result.error) {
+          return res.status(result.status || 400).json({ success: false, error: result.error });
+        }
+        res.status(200).json(result);
       } catch (error) {
+        console.error("getMessages error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
     var sendMessage = async (req, res) => {
       try {
-        const { recipientName, text, imageUrl, type, subText } = req.body;
-        const customer = await getCurrentCustomer(req);
-        const newMsg = await Message.create({
-          senderId: customer ? customer._id.toString() : "customer-1",
-          senderName: customer ? customer.name : "Usman Umar",
-          recipientId: "vendor-driver-1",
-          recipientName: recipientName || "Mama's Kitchen",
+        const authUser = await resolveAuthUser(req);
+        if (!authUser) {
+          return res.status(401).json({ success: false, error: "Authentication required to send messages" });
+        }
+        const { conversationId, recipientId, recipientName, text, imageUrl, type, subText } = req.body;
+        const result = await sendMessageForUser(authUser, {
+          conversationId,
+          recipientId,
+          recipientName,
           text,
           imageUrl,
-          type: type || "text",
+          type,
           subText
         });
-        res.status(200).json({ success: true, data: newMsg });
+        if (result.error) {
+          return res.status(result.status || 400).json({ success: false, error: result.error });
+        }
+        res.status(200).json(result);
       } catch (error) {
+        console.error("sendMessage error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
     var initiateCall = async (req, res) => {
       try {
-        const { receiverName, orderId, subtitle, callerName: customCallerName, callerId: customCallerId, receiverId } = req.body;
-        const customer = await getCurrentCustomer(req) || await Customer.findOne().sort({ createdAt: -1 });
-        const callerId = customCallerId || (customer ? customer._id.toString() : "user-1");
-        const callerName = customCallerName || (customer ? customer.name : "Customer");
-        const session = await CallSession.create({
-          callerId,
-          callerName,
-          receiverId: receiverId || "receiver-1",
-          receiverName: receiverName || "Recipient",
-          status: "ringing",
-          orderId: orderId || "Order Call",
-          subtitle: subtitle || ""
-        });
-        res.status(200).json({ success: true, call: session });
+        const result = await initiateCallService(req);
+        res.status(200).json(result);
       } catch (error) {
+        console.error("initiateCall error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
     var getIncomingCall = async (req, res) => {
       try {
-        const { receiverName } = req.query;
-        const query = { status: "ringing" };
-        if (receiverName) {
-          let escaped = receiverName.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
-          escaped = escaped.replace(/[’']/g, "['\u2019]");
-          query.receiverName = { $regex: new RegExp(`^${escaped}$`, "i") };
-        }
-        const call = await CallSession.findOne(query).sort({ createdAt: -1 });
-        res.status(200).json({ success: true, call });
+        const result = await getIncomingCallService(req);
+        res.status(200).json(result);
       } catch (error) {
+        console.error("getIncomingCall error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
     var getCallStatus = async (req, res) => {
       try {
-        const { callId } = req.params;
-        const call = await CallSession.findById(callId);
-        if (!call) return res.status(404).json({ success: false, message: "Call not found" });
-        res.status(200).json({ success: true, status: call.status, call });
+        const result = await getCallStatusService(req);
+        res.status(200).json(result);
       } catch (error) {
+        console.error("getCallStatus error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
     var respondCall = async (req, res) => {
       try {
-        const { callId, action } = req.body;
-        const status = action === "accept" ? "accepted" : action === "decline" ? "declined" : "ended";
-        const call = await CallSession.findByIdAndUpdate(callId, { status }, { new: true });
-        res.status(200).json({ success: true, call });
+        const result = await respondCallService(req);
+        res.status(200).json(result);
       } catch (error) {
+        console.error("respondCall error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
@@ -5064,6 +5702,285 @@ var require_paymentRoutes = __commonJS({
   }
 });
 
+// services/geoapifyRoutingService.js
+var require_geoapifyRoutingService = __commonJS({
+  "services/geoapifyRoutingService.js"(exports2, module2) {
+    var axios = require("axios");
+    var RoutingCache = class {
+      constructor(ttlMs = 30 * 60 * 1e3, maxSize = 1e3) {
+        this.ttlMs = ttlMs;
+        this.maxSize = maxSize;
+        this.cache = /* @__PURE__ */ new Map();
+      }
+      _getKey(originLat, originLon, destLat, destLon, mode = "drive") {
+        return `${Number(originLat).toFixed(5)},${Number(originLon).toFixed(5)}->${Number(destLat).toFixed(5)},${Number(destLon).toFixed(5)}:${mode}`;
+      }
+      get(originLat, originLon, destLat, destLon, mode = "drive") {
+        const key = this._getKey(originLat, originLon, destLat, destLon, mode);
+        const item = this.cache.get(key);
+        if (!item) return null;
+        if (Date.now() > item.expiresAt) {
+          this.cache.delete(key);
+          return null;
+        }
+        return item.data;
+      }
+      set(originLat, originLon, destLat, destLon, data, mode = "drive") {
+        if (this.cache.size >= this.maxSize) {
+          const firstKey = this.cache.keys().next().value;
+          if (firstKey) this.cache.delete(firstKey);
+        }
+        const key = this._getKey(originLat, originLon, destLat, destLon, mode);
+        this.cache.set(key, {
+          data,
+          expiresAt: Date.now() + this.ttlMs
+        });
+      }
+      clear() {
+        this.cache.clear();
+      }
+      size() {
+        return this.cache.size;
+      }
+    };
+    var routingCache = new RoutingCache();
+    function validateCoordinates(lat, lon, label = "Coordinate") {
+      if (lat === null || lat === void 0 || lat === "" || lon === null || lon === void 0 || lon === "") {
+        return {
+          valid: false,
+          error: `${label} is missing: both latitude and longitude are required.`
+        };
+      }
+      const parsedLat = typeof lat === "number" ? lat : parseFloat(String(lat).trim());
+      const parsedLon = typeof lon === "number" ? lon : parseFloat(String(lon).trim());
+      if (Number.isNaN(parsedLat) || !Number.isFinite(parsedLat)) {
+        return {
+          valid: false,
+          error: `${label} latitude must be a valid finite number. Received: ${lat}`
+        };
+      }
+      if (Number.isNaN(parsedLon) || !Number.isFinite(parsedLon)) {
+        return {
+          valid: false,
+          error: `${label} longitude must be a valid finite number. Received: ${lon}`
+        };
+      }
+      if (parsedLat < -90 || parsedLat > 90) {
+        return {
+          valid: false,
+          error: `${label} latitude must be between -90 and 90 degrees. Received: ${parsedLat}`
+        };
+      }
+      if (parsedLon < -180 || parsedLon > 180) {
+        return {
+          valid: false,
+          error: `${label} longitude must be between -180 and 180 degrees. Received: ${parsedLon}`
+        };
+      }
+      return {
+        valid: true,
+        parsed: {
+          latitude: parsedLat,
+          longitude: parsedLon
+        }
+      };
+    }
+    function calculateHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const toRad = (deg) => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return Math.round(R * c);
+    }
+    function extractCoordinatePairs(params = {}) {
+      let originLat = params.originLat ?? params.fromLat ?? params.origin?.latitude ?? params.origin?.lat ?? params.origin?.y;
+      let originLon = params.originLon ?? params.originLng ?? params.fromLon ?? params.fromLng ?? params.origin?.longitude ?? params.origin?.lon ?? params.origin?.lng ?? params.origin?.x;
+      let destLat = params.destLat ?? params.destinationLat ?? params.toLat ?? params.destination?.latitude ?? params.destination?.lat ?? params.destination?.y;
+      let destLon = params.destLon ?? params.destLng ?? params.destinationLon ?? params.destinationLng ?? params.toLon ?? params.toLng ?? params.destination?.longitude ?? params.destination?.lon ?? params.destination?.lng ?? params.destination?.x;
+      return { originLat, originLon, destLat, destLon };
+    }
+    async function calculateDrivingDistance(options = {}) {
+      const { originLat, originLon, destLat, destLon } = extractCoordinatePairs(options);
+      const mode = options.mode || "drive";
+      const useCache = options.useCache !== false;
+      const allowFallback = options.allowFallback !== false;
+      const timeout = options.timeout || 8e3;
+      const apiKey = options.apiKey || process.env.GEOAPIFY_API_KEY;
+      const originValidation = validateCoordinates(originLat, originLon, "Origin");
+      if (!originValidation.valid) {
+        return {
+          success: false,
+          error: originValidation.error,
+          code: "INVALID_ORIGIN_COORDINATES",
+          isFallback: false
+        };
+      }
+      const destValidation = validateCoordinates(destLat, destLon, "Destination");
+      if (!destValidation.valid) {
+        return {
+          success: false,
+          error: destValidation.error,
+          code: "INVALID_DESTINATION_COORDINATES",
+          isFallback: false
+        };
+      }
+      const origin = originValidation.parsed;
+      const destination = destValidation.parsed;
+      if (origin.latitude === destination.latitude && origin.longitude === destination.longitude) {
+        return {
+          success: true,
+          distanceMeters: 0,
+          distanceKm: 0,
+          durationSeconds: 0,
+          durationMinutes: 0,
+          formattedDistance: "0.00 km",
+          formattedDuration: "0 mins",
+          mode,
+          routeSource: "identical_points",
+          isFallback: false,
+          coordinates: { origin, destination },
+          cached: false
+        };
+      }
+      if (useCache) {
+        const cachedData = routingCache.get(origin.latitude, origin.longitude, destination.latitude, destination.longitude, mode);
+        if (cachedData) {
+          return {
+            ...cachedData,
+            cached: true,
+            routeSource: "cache"
+          };
+        }
+      }
+      if (!apiKey || !apiKey.trim()) {
+        if (allowFallback) {
+          const fallbackMeters = calculateHaversineDistanceMeters(
+            origin.latitude,
+            origin.longitude,
+            destination.latitude,
+            destination.longitude
+          );
+          const fallbackKm = parseFloat((fallbackMeters / 1e3).toFixed(2));
+          const estimatedSeconds = Math.round(fallbackMeters / (30 * 1e3 / 3600));
+          const estimatedMinutes = Math.max(1, Math.round(estimatedSeconds / 60));
+          return {
+            success: true,
+            distanceMeters: fallbackMeters,
+            distanceKm: fallbackKm,
+            durationSeconds: estimatedSeconds,
+            durationMinutes: estimatedMinutes,
+            formattedDistance: `${fallbackKm.toFixed(2)} km`,
+            formattedDuration: `${estimatedMinutes} mins`,
+            mode,
+            routeSource: "haversine_straight_line_fallback",
+            isFallback: true,
+            fallbackWarning: "GEOAPIFY_API_KEY environment variable is not configured. Straight-line distance calculated as fallback.",
+            coordinates: { origin, destination }
+          };
+        }
+        return {
+          success: false,
+          error: "Geoapify API key is missing. Set GEOAPIFY_API_KEY environment variable.",
+          code: "MISSING_API_KEY",
+          isFallback: false
+        };
+      }
+      try {
+        const waypointsParam = `${origin.latitude},${origin.longitude}|${destination.latitude},${destination.longitude}`;
+        const url = `https://api.geoapify.com/v1/routing?waypoints=${waypointsParam}&mode=${encodeURIComponent(mode)}&apiKey=${encodeURIComponent(apiKey.trim())}`;
+        const response = await axios.get(url, {
+          timeout,
+          headers: {
+            Accept: "application/json"
+          }
+        });
+        const data = response.data;
+        if (!data || !Array.isArray(data.features) || data.features.length === 0) {
+          throw new Error("Geoapify returned no routing features for the given waypoints.");
+        }
+        const feature = data.features[0];
+        const properties = feature?.properties;
+        if (!properties || typeof properties.distance !== "number") {
+          throw new Error("Geoapify response is missing route properties or distance metric.");
+        }
+        const distanceMeters = Math.round(properties.distance);
+        const distanceKm = parseFloat((distanceMeters / 1e3).toFixed(2));
+        const durationSeconds = Math.round(properties.time || 0);
+        const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
+        const result = {
+          success: true,
+          distanceMeters,
+          distanceKm,
+          durationSeconds,
+          durationMinutes,
+          formattedDistance: `${distanceKm.toFixed(2)} km`,
+          formattedDuration: `${durationMinutes} mins`,
+          mode,
+          routeSource: "geoapify",
+          isFallback: false,
+          coordinates: { origin, destination },
+          geometry: feature.geometry || null,
+          cached: false
+        };
+        if (useCache) {
+          routingCache.set(origin.latitude, origin.longitude, destination.latitude, destination.longitude, result, mode);
+        }
+        return result;
+      } catch (error) {
+        const status = error.response?.status;
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || error.message || "Error communicating with Geoapify Routing API";
+        console.warn(`[GeoapifyRoutingService] API call failed (${status || "NETWORK_ERROR"}): ${errorMessage}`);
+        if (allowFallback) {
+          const fallbackMeters = calculateHaversineDistanceMeters(
+            origin.latitude,
+            origin.longitude,
+            destination.latitude,
+            destination.longitude
+          );
+          const fallbackKm = parseFloat((fallbackMeters / 1e3).toFixed(2));
+          const estimatedSeconds = Math.round(fallbackMeters / (30 * 1e3 / 3600));
+          const estimatedMinutes = Math.max(1, Math.round(estimatedSeconds / 60));
+          return {
+            success: true,
+            distanceMeters: fallbackMeters,
+            distanceKm: fallbackKm,
+            durationSeconds: estimatedSeconds,
+            durationMinutes: estimatedMinutes,
+            formattedDistance: `${fallbackKm.toFixed(2)} km`,
+            formattedDuration: `${estimatedMinutes} mins`,
+            mode,
+            routeSource: "haversine_straight_line_fallback",
+            isFallback: true,
+            fallbackWarning: `Road routing failed (${errorMessage}). Straight-line distance calculated as fallback.`,
+            coordinates: { origin, destination },
+            apiError: {
+              status,
+              message: errorMessage
+            }
+          };
+        }
+        return {
+          success: false,
+          error: `Geoapify Routing API error: ${errorMessage}`,
+          code: status === 429 ? "RATE_LIMIT_EXCEEDED" : status === 401 || status === 403 ? "UNAUTHORIZED" : "ROUTING_FAILED",
+          httpStatus: status,
+          isFallback: false
+        };
+      }
+    }
+    module2.exports = {
+      calculateDrivingDistance,
+      validateCoordinates,
+      calculateHaversineDistanceMeters,
+      extractCoordinatePairs,
+      routingCache
+    };
+  }
+});
+
 // controllers/driverController.js
 var require_driverController = __commonJS({
   "controllers/driverController.js"(exports2, module2) {
@@ -5071,6 +5988,12 @@ var require_driverController = __commonJS({
     var axios = require("axios");
     var mongoose = require("mongoose");
     var { getFlutterwaveAuthHeader } = require_flutterwave();
+    var {
+      resolveAuthUser,
+      getThreadsForUser,
+      getMessagesForUser,
+      sendMessageForUser
+    } = require_messagingService();
     var getCurrentDriver = async (req) => {
       const userId = req.headers["x-user-id"];
       const userEmail = req.headers["x-user-email"];
@@ -5356,44 +6279,66 @@ var require_driverController = __commonJS({
     var getDriverDeliveries = async (req, res) => {
       try {
         const Order = require_Order();
+        const { calculateDrivingDistance } = require_geoapifyRoutingService();
+        let driver = await getCurrentDriver(req);
+        const driverCoords = {
+          latitude: driver?.currentLocation?.latitude || 6.4549,
+          longitude: driver?.currentLocation?.longitude || 3.3947
+        };
+        const resolveAddressCoords = (addr = "", defaultCoords) => {
+          const lower = String(addr).toLowerCase();
+          if (lower.includes("lekki") || lower.includes("admiralty")) return { latitude: 6.4474, longitude: 3.4723 };
+          if (lower.includes("marina") || lower.includes("lagos island")) return { latitude: 6.4549, longitude: 3.3947 };
+          if (lower.includes("victoria island") || lower.includes("vi") || lower.includes("ahmadu bello")) return { latitude: 6.4281, longitude: 3.4219 };
+          if (lower.includes("ikeja") || lower.includes("allen")) return { latitude: 6.596, longitude: 3.3533 };
+          if (lower.includes("ikoyi") || lower.includes("bourdillon")) return { latitude: 6.45, longitude: 3.4333 };
+          if (lower.includes("sangotedo") || lower.includes("ajah")) return { latitude: 6.471, longitude: 3.616 };
+          if (lower.includes("gwarinpa") || lower.includes("abuja")) return { latitude: 9.11, longitude: 7.39 };
+          if (lower.includes("ilorin") || lower.includes("airport")) return { latitude: 8.4799, longitude: 4.5418 };
+          return defaultCoords;
+        };
         const allOrders = await Order.find().populate("vendorId").sort({ createdAt: -1 });
         const availableOrders = allOrders.filter((o) => ["pending", "preparing", "ready"].includes(o.status));
         const activeOrders = allOrders.filter((o) => ["assigned", "on the way"].includes(o.status));
         const completedOrders = allOrders.filter((o) => o.status === "delivered");
-        const formattedAvailable = availableOrders.map((o) => ({
-          id: o.orderId || o._id.toString(),
-          _id: o._id.toString(),
-          restaurant: o.vendorId?.businessName || o.vendorName || "Spice Avenue",
-          customer: o.customerName || "Customer",
-          pickupAddress: o.vendorId?.address || "15 Admiralty Way, Lekki",
-          dropoffAddress: o.deliveryAddress || o.address || "12 Marina Road, Lagos Island",
-          status: o.status === "preparing" ? "Preparing at restaurant" : "New delivery request",
-          amount: o.deliveryFee || 850,
-          totalAmount: o.totalAmount || o.total || 5700,
-          distance: "3.5 km"
-        }));
-        const formattedActive = activeOrders.map((o) => ({
-          id: o.orderId || o._id.toString(),
-          _id: o._id.toString(),
-          restaurant: o.vendorId?.businessName || o.vendorName || "Spice Avenue",
-          customer: o.customerName || "Customer",
-          pickupAddress: o.vendorId?.address || "15 Admiralty Way, Lekki",
-          dropoffAddress: o.deliveryAddress || o.address || "12 Marina Road, Lagos Island",
-          status: o.status === "on the way" ? "En route to customer" : "Order picked up",
-          amount: o.deliveryFee || 850,
-          totalAmount: o.totalAmount || o.total || 5700,
-          distance: "2.1 km"
-        }));
-        const formattedCompleted = completedOrders.map((o) => ({
-          id: o.orderId || o._id.toString(),
-          _id: o._id.toString(),
-          restaurant: o.vendorId?.businessName || o.vendorName || "Spice Avenue",
-          customer: o.customerName || "Customer",
-          dropoffAddress: o.deliveryAddress || o.address || "Customer Address",
-          amount: o.deliveryFee || 850,
-          totalAmount: o.totalAmount || o.total || 5700,
-          date: new Date(o.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + ", " + new Date(o.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        }));
+        const formatOrderWithDistance = async (o, isAvailable = false) => {
+          const pickupAddress = o.vendorId?.address || "15 Admiralty Way, Lekki";
+          const dropoffAddress = o.deliveryAddress || o.address || "12 Marina Road, Lagos Island";
+          const pickupCoords = o.pickupCoordinates && typeof o.pickupCoordinates.latitude === "number" ? o.pickupCoordinates : resolveAddressCoords(pickupAddress, { latitude: 6.4474, longitude: 3.4723 });
+          const dropoffCoords = o.deliveryCoordinates && typeof o.deliveryCoordinates.latitude === "number" ? o.deliveryCoordinates : resolveAddressCoords(dropoffAddress, { latitude: 6.4549, longitude: 3.3947 });
+          const routeOrigin = isAvailable ? driverCoords : pickupCoords;
+          const routeDest = isAvailable ? pickupCoords : dropoffCoords;
+          const routing = await calculateDrivingDistance({
+            origin: routeOrigin,
+            destination: routeDest
+          });
+          return {
+            id: o.orderId || o._id.toString(),
+            _id: o._id.toString(),
+            restaurant: o.vendorId?.businessName || o.vendorName || "Spice Avenue",
+            customer: o.customerName || "Customer",
+            pickupAddress,
+            dropoffAddress,
+            pickupCoordinates: pickupCoords,
+            dropoffCoordinates: dropoffCoords,
+            status: isAvailable ? o.status === "preparing" ? "Preparing at restaurant" : "New delivery request" : o.status === "on the way" ? "En route to customer" : o.status === "delivered" ? "Delivered" : "Order picked up",
+            amount: o.deliveryFee || 850,
+            totalAmount: o.totalAmount || o.total || 5700,
+            distance: routing.formattedDistance || "3.5 km",
+            distanceKm: routing.distanceKm,
+            distanceMeters: routing.distanceMeters,
+            durationMinutes: routing.durationMinutes,
+            durationSeconds: routing.durationSeconds,
+            routeSource: routing.routeSource,
+            isFallback: routing.isFallback,
+            date: new Date(o.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + ", " + new Date(o.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          };
+        };
+        const [formattedAvailable, formattedActive, formattedCompleted] = await Promise.all([
+          Promise.all(availableOrders.map((o) => formatOrderWithDistance(o, true))),
+          Promise.all(activeOrders.map((o) => formatOrderWithDistance(o, false))),
+          Promise.all(completedOrders.map((o) => formatOrderWithDistance(o, false)))
+        ]);
         const deliveries = {
           available: formattedAvailable,
           active: formattedActive,
@@ -5403,6 +6348,52 @@ var require_driverController = __commonJS({
       } catch (error) {
         console.error("getDriverDeliveries error:", error);
         res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var calculateDistanceHandler = async (req, res) => {
+      try {
+        const { calculateDrivingDistance } = require_geoapifyRoutingService();
+        const params = {
+          ...req.query,
+          ...req.body
+        };
+        const result = await calculateDrivingDistance(params);
+        if (!result.success) {
+          return res.status(400).json(result);
+        }
+        return res.status(200).json(result);
+      } catch (error) {
+        console.error("calculateDistanceHandler error:", error);
+        return res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var updateDriverLocationHandler = async (req, res) => {
+      try {
+        const { latitude, longitude, address } = req.body;
+        const { validateCoordinates } = require_geoapifyRoutingService();
+        const validation = validateCoordinates(latitude, longitude, "Driver location");
+        if (!validation.valid) {
+          return res.status(400).json({ success: false, error: validation.error });
+        }
+        let driver = await getCurrentDriver(req);
+        if (!driver) {
+          return res.status(404).json({ success: false, error: "Driver not found" });
+        }
+        driver.currentLocation = {
+          latitude: validation.parsed.latitude,
+          longitude: validation.parsed.longitude,
+          address: address || driver.currentLocation?.address || "Current Location",
+          updatedAt: /* @__PURE__ */ new Date()
+        };
+        await driver.save();
+        return res.status(200).json({
+          success: true,
+          message: "Driver location updated successfully",
+          location: driver.currentLocation
+        });
+      } catch (error) {
+        console.error("updateDriverLocationHandler error:", error);
+        return res.status(500).json({ success: false, error: error.message });
       }
     };
     var getDriverNotifications = async (req, res) => {
@@ -5459,41 +6450,11 @@ var require_driverController = __commonJS({
     };
     var getDriverChats = async (req, res) => {
       try {
-        const Message = require_Message();
-        let driver = await getCurrentDriver(req);
-        const driverId = driver ? driver._id.toString() : "driver-1";
-        const driverName = driver ? driver.name : "Bayo Adeyemi";
-        const messages = await Message.find({
-          $or: [
-            { senderId: driverId },
-            { recipientId: driverId },
-            { senderName: driverName },
-            { recipientName: driverName }
-          ]
-        }).sort({ createdAt: -1 });
-        const threadMap = {};
-        messages.forEach((msg) => {
-          const isSender = msg.senderName === driverName || msg.senderId === driverId;
-          const otherName = isSender ? msg.recipientName : msg.senderName;
-          const otherId = isSender ? msg.recipientId : msg.senderId;
-          if (!threadMap[otherName]) {
-            let avatar = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100";
-            if (otherName.toLowerCase().includes("kitchen") || otherName.toLowerCase().includes("restaurant") || otherName.toLowerCase().includes("spicy")) {
-              avatar = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100";
-            } else if (otherName.toLowerCase().includes("support")) {
-              avatar = "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100";
-            }
-            threadMap[otherName] = {
-              id: otherId || otherName,
-              name: otherName,
-              lastMsg: msg.text || (msg.imageUrl ? "\u{1F4F7} Image" : "Voice Call"),
-              time: new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              unread: !msg.read && !isSender ? 1 : 0,
-              avatar
-            };
-          }
-        });
-        const threads = Object.values(threadMap);
+        const authUser = await resolveAuthUser(req);
+        if (!authUser) {
+          return res.status(401).json({ success: false, error: "Authentication required to access driver chats" });
+        }
+        const threads = await getThreadsForUser(authUser);
         res.status(200).json({ success: true, threads });
       } catch (error) {
         console.error("getDriverChats error:", error);
@@ -5502,26 +6463,16 @@ var require_driverController = __commonJS({
     };
     var getDriverMessages = async (req, res) => {
       try {
-        const Message = require_Message();
-        const { recipientName } = req.query;
-        const driver = await getCurrentDriver(req);
-        const driverName = driver ? driver.name : "Bayo Adeyemi";
-        const messages = await Message.find({
-          $or: [
-            { senderName: driverName, recipientName },
-            { senderName: recipientName, recipientName: driverName }
-          ]
-        }).sort({ createdAt: 1 });
-        const formatted = messages.map((m) => ({
-          id: m._id,
-          text: m.text,
-          image: m.imageUrl,
-          type: m.type,
-          subText: m.subText,
-          time: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          sender: m.senderName === recipientName ? "them" : "me"
-        }));
-        res.status(200).json({ success: true, messages: formatted });
+        const authUser = await resolveAuthUser(req);
+        if (!authUser) {
+          return res.status(401).json({ success: false, error: "Authentication required to view driver messages" });
+        }
+        const { recipientName, recipientId, conversationId } = req.query;
+        const result = await getMessagesForUser(authUser, { conversationId, recipientName, recipientId });
+        if (result.error) {
+          return res.status(result.status || 400).json({ success: false, error: result.error });
+        }
+        res.status(200).json(result);
       } catch (error) {
         console.error("getDriverMessages error:", error);
         res.status(500).json({ success: false, error: error.message });
@@ -5529,20 +6480,24 @@ var require_driverController = __commonJS({
     };
     var sendDriverMessage = async (req, res) => {
       try {
-        const Message = require_Message();
-        const { recipientName, text, imageUrl, type, subText } = req.body;
-        let driver = await getCurrentDriver(req);
-        const newMsg = await Message.create({
-          senderId: driver ? driver._id.toString() : "driver-1",
-          senderName: driver ? driver.name : "Bayo Adeyemi",
-          recipientId: "chat-partner",
-          recipientName: recipientName || "John Doe (Customer)",
+        const authUser = await resolveAuthUser(req);
+        if (!authUser) {
+          return res.status(401).json({ success: false, error: "Authentication required to send driver messages" });
+        }
+        const { conversationId, recipientId, recipientName, text, imageUrl, type, subText } = req.body;
+        const result = await sendMessageForUser(authUser, {
+          conversationId,
+          recipientId,
+          recipientName,
           text,
           imageUrl,
-          type: type || "text",
+          type,
           subText
         });
-        res.status(200).json({ success: true, data: newMsg });
+        if (result.error) {
+          return res.status(result.status || 400).json({ success: false, error: result.error });
+        }
+        res.status(200).json(result);
       } catch (error) {
         console.error("sendDriverMessage error:", error);
         res.status(500).json({ success: false, error: error.message });
@@ -5634,7 +6589,9 @@ var require_driverController = __commonJS({
       getDriverChats,
       getDriverMessages,
       sendDriverMessage,
-      updateOrderStatus
+      updateOrderStatus,
+      calculateDistanceHandler,
+      updateDriverLocationHandler
     };
   }
 });
@@ -5656,7 +6613,9 @@ var require_driverRoutes = __commonJS({
       getDriverChats,
       getDriverMessages,
       sendDriverMessage,
-      updateOrderStatus
+      updateOrderStatus,
+      calculateDistanceHandler,
+      updateDriverLocationHandler
     } = require_driverController();
     var { upload } = require_cloudinary();
     router.get("/profile", getDriverProfile);
@@ -5665,6 +6624,12 @@ var require_driverRoutes = __commonJS({
     router.post("/withdraw", withdrawEarnings);
     router.get("/deliveries", getDriverDeliveries);
     router.patch("/order/:orderId/status", updateOrderStatus);
+    router.post("/calculate-distance", calculateDistanceHandler);
+    router.get("/calculate-distance", calculateDistanceHandler);
+    router.post("/distance", calculateDistanceHandler);
+    router.get("/distance", calculateDistanceHandler);
+    router.post("/location", updateDriverLocationHandler);
+    router.put("/location", updateDriverLocationHandler);
     router.get("/notifications", getDriverNotifications);
     router.patch("/notifications/read-all", markAllDriverNotificationsRead);
     router.patch("/notifications/:id/read", markDriverNotificationRead);

@@ -1,76 +1,111 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useIsFocused } from '@react-navigation/native';
 import { uploadItemImage, fetchMessages, sendChatMessage, fetchDriverMessages, sendDriverChatMessage } from '../services/api';
 
 const ChatDetailScreen = ({ route, navigation }) => {
-  const { name = 'Temmy Store', type = 'Vendor', role = 'Customer' } = route?.params || {};
+  const { 
+    name = 'Chat Partner', 
+    type = 'Vendor', 
+    role = 'Customer',
+    conversationId = null,
+    recipientId = null
+  } = route?.params || {};
+
+  const isFocused = useIsFocused();
+  const scrollViewRef = useRef(null);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
-    loadMessages();
-  }, [name]);
+  useEffect(() => {
+    loadMessages(true);
+  }, [name, conversationId, recipientId]);
 
-  const loadMessages = async () => {
+  // Real-time live polling every 3 seconds while screen is focused
+  useEffect(() => {
+    if (!isFocused) return;
+    const interval = setInterval(() => {
+      loadMessages(false);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isFocused, name, conversationId, recipientId]);
+
+  const loadMessages = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
-      const res = role === 'Driver' ? await fetchDriverMessages(name) : await fetchMessages(name);
-      if (res.success) {
-        setMessages(res.messages || []);
+      const params = { conversationId, recipientId, recipientName: name };
+      const res = role === 'Driver' ? await fetchDriverMessages(params) : await fetchMessages(params);
+      if (res && res.success && Array.isArray(res.messages)) {
+        setMessages(res.messages);
+        if (showLoading) {
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({ animated: false });
+          }, 100);
+        }
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error loading messages:', e);
+    } finally {
+      if (showLoading) setLoading(false);
     }
   };
 
   const sendMessage = async (text, imageUrl = null, msgType = 'text', subText = '') => {
-    if (!text && !imageUrl && msgType === 'text') return;
-    
-    // Optimistic UI update
-    const newMessage = {
-      id: Date.now().toString(),
-      text: text,
+    const cleanText = typeof text === 'string' ? text.trim() : '';
+    if (!cleanText && !imageUrl && msgType === 'text') return;
+
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMessage = {
+      id: tempId,
+      text: cleanText,
       image: imageUrl,
       type: msgType,
       subText: subText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       sender: 'me'
     };
-    setMessages(prev => [...prev, newMessage]);
+
+    setMessages(prev => [...prev, optimisticMessage]);
     setMessage('');
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 50);
 
     try {
-      if (role === 'Driver') {
-        await sendDriverChatMessage({
-          recipientName: name,
-          text,
-          imageUrl,
-          type: msgType,
-          subText
-        });
-      } else {
-        await sendChatMessage({
-          recipientName: name,
-          text,
-          imageUrl,
-          type: msgType,
-          subText
-        });
+      const payload = {
+        conversationId,
+        recipientId,
+        recipientName: name,
+        text: cleanText,
+        imageUrl,
+        type: msgType,
+        subText
+      };
+
+      const res = role === 'Driver' 
+        ? await sendDriverChatMessage(payload) 
+        : await sendChatMessage(payload);
+
+      if (res && res.success && res.data) {
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...res.data, sender: 'me' } : m));
       }
     } catch (e) {
       console.error('Failed to send message to backend:', e);
+      Alert.alert('Send Error', e.response?.data?.error || 'Failed to send message. Please try again.');
     }
   };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      Alert.alert('Permission Denied', 'Sorry, camera roll permissions are required to share photos.');
       return;
     }
 
@@ -80,7 +115,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
       quality: 0.7,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets?.[0]?.uri) {
       handleImageUpload(result.assets[0].uri);
     }
   };
@@ -89,22 +124,24 @@ const ChatDetailScreen = ({ route, navigation }) => {
     setSending(true);
     try {
       const response = await uploadItemImage(uri);
-      if (response.success) {
-        sendMessage(null, response.imageUrl, 'image');
+      if (response && response.success && response.imageUrl) {
+        await sendMessage('', response.imageUrl, 'image');
       } else {
-        throw new Error(response.error || 'Upload failed');
+        throw new Error(response?.error || 'Upload failed');
       }
     } catch (err) {
-      Alert.alert('Upload Error', err.message);
+      Alert.alert('Upload Error', err.message || 'Could not upload image');
     } finally {
       setSending(false);
     }
   };
 
   const handleCall = () => {
-    sendMessage("Voice Call", null, 'call', 'Outgoing');
+    sendMessage('Voice Call', null, 'call', 'Outgoing');
     navigation.navigate('Calling', { name, phone: '09123882672' });
   };
+
+  const canSend = message.trim().length > 0 && !sending;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -114,7 +151,7 @@ const ChatDetailScreen = ({ route, navigation }) => {
           <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{name}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{name}</Text>
           <Text style={styles.headerSubtitle}>{type}</Text>
         </View>
         <TouchableOpacity style={styles.callBtn} onPress={handleCall}>
@@ -127,40 +164,57 @@ const ChatDetailScreen = ({ route, navigation }) => {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <ScrollView contentContainerStyle={styles.scroll}>
-          {messages.map((m) => (
-            <View key={m.id} style={[styles.messageRow, m.sender === 'me' ? styles.meRow : styles.themRow]}>
-              <View style={[
-                styles.bubble, 
-                m.sender === 'me' ? styles.meBubble : styles.themBubble,
-                m.type === 'call' && styles.callBubble
-              ]}>
-                {m.type === 'call' ? (
-                  <View style={styles.callMessageContainer}>
-                    <Ionicons name="call" size={18} color={m.sender === 'me' ? "#FFF" : "#333"} />
-                    <View style={styles.callMessageInfo}>
+        {loading ? (
+          <View style={styles.centerLoading}>
+            <ActivityIndicator size="large" color="#FF8C00" />
+          </View>
+        ) : (
+          <ScrollView 
+            ref={scrollViewRef}
+            contentContainerStyle={styles.scroll}
+            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+          >
+            {messages.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="chatbubble-ellipses-outline" size={48} color="#CCC" />
+                <Text style={styles.emptyText}>No messages yet. Say hello!</Text>
+              </View>
+            ) : (
+              messages.map((m) => (
+                <View key={m.id || `${m.time}-${Math.random()}`} style={[styles.messageRow, m.sender === 'me' ? styles.meRow : styles.themRow]}>
+                  <View style={[
+                    styles.bubble, 
+                    m.sender === 'me' ? styles.meBubble : styles.themBubble,
+                    m.type === 'call' && styles.callBubble
+                  ]}>
+                    {m.type === 'call' ? (
+                      <View style={styles.callMessageContainer}>
+                        <Ionicons name="call" size={18} color={m.sender === 'me' ? "#FFF" : "#333"} />
+                        <View style={styles.callMessageInfo}>
+                          <Text style={[styles.messageText, m.sender === 'me' ? styles.meText : styles.themText]}>
+                            {m.text || 'Voice Call'}
+                          </Text>
+                          <Text style={[styles.callSubText, m.sender === 'me' ? styles.meTime : styles.themTime]}>
+                            {m.subText || ''}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : m.image ? (
+                      <Image source={{ uri: m.image }} style={styles.messageImage} resizeMode="cover" />
+                    ) : (
                       <Text style={[styles.messageText, m.sender === 'me' ? styles.meText : styles.themText]}>
                         {m.text}
                       </Text>
-                      <Text style={[styles.callSubText, m.sender === 'me' ? styles.meTime : styles.themTime]}>
-                        {m.subText}
-                      </Text>
-                    </View>
+                    )}
+                    <Text style={[styles.timeText, m.sender === 'me' ? styles.meTime : styles.themTime]}>
+                      {m.time}
+                    </Text>
                   </View>
-                ) : m.image ? (
-                  <Image source={{ uri: m.image }} style={styles.messageImage} resizeMode="cover" />
-                ) : (
-                  <Text style={[styles.messageText, m.sender === 'me' ? styles.meText : styles.themText]}>
-                    {m.text}
-                  </Text>
-                )}
-                <Text style={[styles.timeText, m.sender === 'me' ? styles.meTime : styles.themTime]}>
-                  {m.time}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </ScrollView>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        )}
 
         {/* Input Bar */}
         <View style={styles.inputBar}>
@@ -173,18 +227,24 @@ const ChatDetailScreen = ({ route, navigation }) => {
           </TouchableOpacity>
           <TextInput
             style={styles.input}
-            placeholder={sending ? "Uploading..." : "Type a message..."}
+            placeholder={sending ? "Uploading photo..." : "Type a message..."}
             value={message}
             onChangeText={setMessage}
             placeholderTextColor="#999"
             editable={!sending}
+            maxLength={2000}
+            multiline
           />
           <TouchableOpacity 
-            style={[styles.sendBtn, sending && { opacity: 0.5 }]} 
+            style={[styles.sendBtn, !canSend && { opacity: 0.4 }]} 
             onPress={() => sendMessage(message)}
-            disabled={sending}
+            disabled={!canSend}
           >
-            {sending ? <ActivityIndicator size="small" color="#FF8C00" /> : <Ionicons name="send" size={18} color="#FF8C00" />}
+            {sending ? (
+              <ActivityIndicator size="small" color="#FF8C00" />
+            ) : (
+              <Ionicons name="send" size={18} color="#FF8C00" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -215,7 +275,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
+  centerLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60
+  },
+  emptyText: {
+    color: '#999',
+    fontSize: 14,
+    marginTop: 10
+  },
   scroll: { padding: 20, paddingBottom: 40 },
   messageRow: { marginBottom: 15, flexDirection: 'row' },
   meRow: { justifyContent: 'flex-end' },
@@ -232,7 +306,10 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   themBubble: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
     borderColor: '#EFEFEF',
+    borderBottomLeftRadius: 4,
   },
   callBubble: { 
     paddingHorizontal: 16, 
@@ -270,10 +347,12 @@ const styles = StyleSheet.create({
   cameraBtn: { marginRight: 10 },
   input: {
     flex: 1,
-    height: 45,
+    minHeight: 45,
+    maxHeight: 100,
     backgroundColor: '#F5F5F5',
     borderRadius: 22,
     paddingHorizontal: 20,
+    paddingVertical: 10,
     fontSize: 15,
     color: '#333',
   },

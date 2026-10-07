@@ -455,9 +455,12 @@ export const fetchChatThreads = async () => {
   }
 };
 
-export const fetchMessages = async (recipientName) => {
+export const fetchMessages = async (paramsOrRecipientName) => {
   try {
-    const response = await api.get('/customer/messages', { params: { recipientName } });
+    const params = typeof paramsOrRecipientName === 'string'
+      ? { recipientName: paramsOrRecipientName }
+      : (paramsOrRecipientName || {});
+    const response = await api.get('/customer/messages', { params });
     return response.data;
   } catch (error) {
     console.error('API fetchMessages error:', error);
@@ -710,6 +713,37 @@ export const getDriverDeliveries = async () => {
   }
 };
 
+export const calculateRoadDistance = async (origin, destination) => {
+  try {
+    const payload = {
+      originLat: origin?.latitude ?? origin?.lat ?? origin?.originLat,
+      originLon: origin?.longitude ?? origin?.lon ?? origin?.lng ?? origin?.originLon,
+      destLat: destination?.latitude ?? destination?.lat ?? destination?.destLat,
+      destLon: destination?.longitude ?? destination?.lon ?? destination?.lng ?? destination?.destLon,
+    };
+    const response = await api.post('/driver/calculate-distance', payload);
+    return response.data;
+  } catch (error) {
+    console.error('API calculateRoadDistance error:', error);
+    throw error;
+  }
+};
+
+export const updateDriverLocation = async (coords) => {
+  try {
+    const payload = {
+      latitude: coords?.latitude ?? coords?.lat,
+      longitude: coords?.longitude ?? coords?.lon ?? coords?.lng,
+      address: coords?.address,
+    };
+    const response = await api.post('/driver/location', payload);
+    return response.data;
+  } catch (error) {
+    console.error('API updateDriverLocation error:', error);
+    throw error;
+  }
+};
+
 // ─── Driver & App Notifications ──────────────────────────────────────────────
 
 export const getAppNotifications = async (preferredRole) => {
@@ -814,11 +848,12 @@ export const getDriverChats = async () => {
   }
 };
 
-export const fetchDriverMessages = async (recipientName) => {
+export const fetchDriverMessages = async (paramsOrRecipientName) => {
   try {
-    const response = await api.get('/driver/messages', {
-      params: { recipientName }
-    });
+    const params = typeof paramsOrRecipientName === 'string'
+      ? { recipientName: paramsOrRecipientName }
+      : (paramsOrRecipientName || {});
+    const response = await api.get('/driver/messages', { params });
     return response.data;
   } catch (error) {
     console.error('API fetchDriverMessages error:', error);
