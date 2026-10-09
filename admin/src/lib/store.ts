@@ -21,6 +21,12 @@ export interface Driver {
   phone: string;
   email?: string;
   vehicle: string;
+  vehicleDetails?: {
+    type?: string;
+    make?: string;
+    plate?: string;
+    color?: string;
+  };
   deliveries: number;
   rating: number;
   completion: string;
@@ -29,11 +35,24 @@ export interface Driver {
   isWarned?: boolean;
   isSuspended?: boolean;
   isVerified?: boolean;
+  profilePic?: string | null;
+  documents?: {
+    nationalId?: string | null;
+    vehiclePhoto?: string | null;
+    license?: string | null;
+  };
+  bank?: {
+    name?: string;
+    bankCode?: string;
+    accountName?: string;
+    accountNumber?: string;
+  };
 }
 
 export interface Vendor {
   id: string;
   name: string;
+  businessName?: string;
   category: string;
   address?: string;
   status: "approved" | "suspended" | "pending";
@@ -41,10 +60,19 @@ export interface Vendor {
   revenue: string;
   rating: number;
   image: string;
+  logoUrl?: string;
+  coverUrl?: string;
   commissionRate?: number;
   email?: string;
   phone?: string;
   isVerified?: boolean;
+  payoutAccount?: {
+    bank?: string;
+    bankCode?: string;
+    accountName?: string;
+    accountNumber?: string;
+  };
+  openingHours?: any[];
 }
 
 export interface User {
@@ -336,6 +364,7 @@ export const useAdminStore = create<AdminState>()(
               phone: d.phone,
               email: d.email || "",
               vehicle: d.vehicleType || (typeof d.vehicle === 'object' ? d.vehicle?.type : d.vehicle) || "Motorcycle",
+              vehicleDetails: typeof d.vehicle === 'object' ? d.vehicle : { type: d.vehicleType || "Motorcycle" },
               deliveries: d.earnings?.totalTrips || d.deliveriesCount || 0,
               rating: d.rating || 0,
               completion: "100%",
@@ -344,6 +373,9 @@ export const useAdminStore = create<AdminState>()(
               isWarned: !!d.isWarned,
               isSuspended: !!d.isSuspended,
               isVerified: Boolean(d.isVerified || d.status === "Active" || d.status === "Online"),
+              profilePic: d.profilePic || null,
+              documents: d.documents || {},
+              bank: d.bank || {},
             }));
             set({ drivers: formattedDrivers });
           }
@@ -359,6 +391,7 @@ export const useAdminStore = create<AdminState>()(
             const formattedVendors: Vendor[] = data.vendors.map((v: any) => ({
               id: v._id,
               name: v.businessName || v.name || "Vendor",
+              businessName: v.businessName || v.name || "",
               category: v.category || "General",
               address: v.address || v.location || "N/A",
               status: ((v.status || "pending").toLowerCase() === "approved" ? "approved" : (v.status || "").toLowerCase() === "suspended" ? "suspended" : "pending") as "approved" | "suspended" | "pending",
@@ -366,10 +399,14 @@ export const useAdminStore = create<AdminState>()(
               revenue: "₦" + (extractNumber(v.earnings) || v.revenue || 0).toLocaleString(),
               rating: v.rating || 0,
               image: v.coverUrl || v.bannerUrl || v.logoUrl || v.image || "/images/Vendor_management_images/mama's kitchen.png",
+              logoUrl: v.logoUrl || "",
+              coverUrl: v.coverUrl || "",
               commissionRate: v.commissionRate || 15,
               email: v.email || "",
               phone: v.phone || "",
               isVerified: Boolean(v.isVerified || (v.status && v.status.toLowerCase() === "approved")),
+              payoutAccount: v.payoutAccount || {},
+              openingHours: v.openingHours || [],
             }));
             set({ vendors: formattedVendors });
           }
