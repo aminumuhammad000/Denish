@@ -9,7 +9,7 @@ let tokenExpiry = 0;
  * Otherwise, uses FLW_CLIENT_ID and FLW_CLIENT_SECRET to obtain an OAuth Bearer token.
  */
 const getFlutterwaveAuthHeader = async () => {
-  const rawKey = (process.env.FLW_SECRET_KEY || '').trim().replace(/^["']|["']$/g, '');
+  const rawKey = (process.env.FLW_SECRET_KEY || process.env.FLUTTERWAVE_SECRET_KEY || '').trim().replace(/^["']|["']$/g, '');
   if (rawKey && rawKey.length > 5) {
     return rawKey.startsWith('Bearer ') ? rawKey : `Bearer ${rawKey}`;
   }
@@ -51,11 +51,11 @@ const getFlutterwaveAuthHeader = async () => {
 const getFlutterwaveKeys = () => {
   return {
     merchantId: process.env.FLW_MERCHANT_ID || '',
-    publicKey: process.env.FLW_PUBLIC_KEY || '',
-    secretKey: process.env.FLW_SECRET_KEY || '',
+    publicKey: process.env.FLW_PUBLIC_KEY || process.env.FLUTTERWAVE_PUBLIC_KEY || '',
+    secretKey: process.env.FLW_SECRET_KEY || process.env.FLUTTERWAVE_SECRET_KEY || '',
     clientId: process.env.FLW_CLIENT_ID || '',
     clientSecret: process.env.FLW_CLIENT_SECRET || '',
-    encryptionKey: process.env.FLW_ENCRYPTION_KEY || '',
+    encryptionKey: process.env.FLW_ENCRYPTION_KEY || process.env.FLUTTERWAVE_ENCRYPTION_KEY || '',
   };
 };
 
