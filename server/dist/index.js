@@ -1029,7 +1029,7 @@ var require_flutterwave = __commonJS({
     var cachedToken = null;
     var tokenExpiry = 0;
     var getFlutterwaveAuthHeader = async () => {
-      const rawKey = (process.env.FLW_SECRET_KEY || "").trim().replace(/^["']|["']$/g, "");
+      const rawKey = (process.env.FLW_SECRET_KEY || process.env.FLUTTERWAVE_SECRET_KEY || "").trim().replace(/^["']|["']$/g, "");
       if (rawKey && rawKey.length > 5) {
         return rawKey.startsWith("Bearer ") ? rawKey : `Bearer ${rawKey}`;
       }
@@ -1065,11 +1065,11 @@ var require_flutterwave = __commonJS({
     var getFlutterwaveKeys = () => {
       return {
         merchantId: process.env.FLW_MERCHANT_ID || "",
-        publicKey: process.env.FLW_PUBLIC_KEY || "",
-        secretKey: process.env.FLW_SECRET_KEY || "",
+        publicKey: process.env.FLW_PUBLIC_KEY || process.env.FLUTTERWAVE_PUBLIC_KEY || "",
+        secretKey: process.env.FLW_SECRET_KEY || process.env.FLUTTERWAVE_SECRET_KEY || "",
         clientId: process.env.FLW_CLIENT_ID || "",
         clientSecret: process.env.FLW_CLIENT_SECRET || "",
-        encryptionKey: process.env.FLW_ENCRYPTION_KEY || ""
+        encryptionKey: process.env.FLW_ENCRYPTION_KEY || process.env.FLUTTERWAVE_ENCRYPTION_KEY || ""
       };
     };
     module2.exports = {
@@ -1096,12 +1096,12 @@ var require_payoutService = __commonJS({
       "uba": "033",
       "kuda bank": "090267",
       "kuda": "090267",
-      "opay": "090405",
-      "opay digital services": "090405",
-      "paycom": "090405",
-      "palmpay": "090175",
-      "moniepoint microfinance bank": "090392",
-      "moniepoint": "090392",
+      "opay": "100004",
+      "opay digital services": "100004",
+      "paycom": "305",
+      "palmpay": "100033",
+      "moniepoint microfinance bank": "090405",
+      "moniepoint": "090405",
       "stanbic ibtc bank": "221",
       "stanbic ibtc": "221",
       "fidelity bank": "070",
@@ -1117,10 +1117,11 @@ var require_payoutService = __commonJS({
       "polaris bank": "076",
       "keystone bank": "082",
       "jaiz bank": "301",
-      "taj bank": "302",
+      "taj bank": "000026",
+      "taj": "000026",
       "providus bank": "101",
       "vfd microfinance bank": "090110",
-      "rubies mfb": "125"
+      "rubies mfb": "090175"
     };
     var FALLBACK_BANKS = [
       { id: 1, name: "Access Bank", code: "044" },
@@ -1128,9 +1129,9 @@ var require_payoutService = __commonJS({
       { id: 3, name: "First Bank of Nigeria", code: "011" },
       { id: 4, name: "Zenith Bank", code: "057" },
       { id: 5, name: "United Bank For Africa (UBA)", code: "033" },
-      { id: 6, name: "OPay Digital Services (Paycom)", code: "090405" },
-      { id: 7, name: "PalmPay", code: "090175" },
-      { id: 8, name: "Moniepoint Microfinance Bank", code: "090392" },
+      { id: 6, name: "OPay Digital Services (Paycom)", code: "100004" },
+      { id: 7, name: "PalmPay", code: "100033" },
+      { id: 8, name: "Moniepoint Microfinance Bank", code: "090405" },
       { id: 9, name: "Kuda Bank", code: "090267" },
       { id: 10, name: "Stanbic IBTC Bank", code: "221" },
       { id: 11, name: "Fidelity Bank", code: "070" },
@@ -1142,7 +1143,7 @@ var require_payoutService = __commonJS({
       { id: 17, name: "Polaris Bank", code: "076" },
       { id: 18, name: "Keystone Bank", code: "082" },
       { id: 19, name: "Jaiz Bank", code: "301" },
-      { id: 20, name: "Taj Bank", code: "302" },
+      { id: 20, name: "Taj Bank", code: "000026" },
       { id: 21, name: "Providus Bank", code: "101" },
       { id: 22, name: "VFD Microfinance Bank", code: "090110" }
     ];
@@ -4482,13 +4483,34 @@ var require_customerController = __commonJS({
     var getCurrentCustomer = async (req) => {
       const userId = req.headers["x-user-id"];
       const userEmail = req.headers["x-user-email"];
+      const authHeader = req.headers["authorization"];
       if (userId && mongoose.Types.ObjectId.isValid(userId)) {
         const customer = await Customer.findById(userId);
         if (customer) return customer;
       }
       if (userEmail) {
-        const customer = await Customer.findOne({ email: userEmail });
+        const customer = await Customer.findOne({
+          email: { $regex: new RegExp(`^${userEmail.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+        });
         if (customer) return customer;
+      }
+      if (authHeader) {
+        const cleanToken = authHeader.replace(/^Bearer\s+/i, "").trim();
+        if (cleanToken.startsWith("cust-token-")) {
+          const extractedId = cleanToken.replace("cust-token-", "").trim();
+          if (mongoose.Types.ObjectId.isValid(extractedId)) {
+            const customer = await Customer.findById(extractedId);
+            if (customer) return customer;
+          }
+        }
+      }
+      const ref = req.body?.tx_ref || req.body?.reference || req.query?.tx_ref || req.query?.reference;
+      if (ref) {
+        const match = String(ref).match(/DENISH-WAL-([a-f0-9]{24})-/i);
+        if (match && mongoose.Types.ObjectId.isValid(match[1])) {
+          const customer = await Customer.findById(match[1]);
+          if (customer) return customer;
+        }
       }
       return await Customer.findOne().sort({ createdAt: -1 });
     };
@@ -4949,11 +4971,166 @@ var require_customerController = __commonJS({
         res.status(500).json({ success: false, error: error.message });
       }
     };
+    var verifyFlutterwaveTransaction = async ({ tx_ref, transaction_id }) => {
+      const authHeader = await getFlutterwaveAuthHeader();
+      let verifiedData = null;
+      if (transaction_id) {
+        try {
+          const verifyRes = await axios.get(
+            `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
+            {
+              headers: {
+                Authorization: authHeader,
+                "Content-Type": "application/json"
+              },
+              timeout: 1e4
+            }
+          );
+          if (verifyRes.data?.status === "success" && verifyRes.data?.data) {
+            verifiedData = verifyRes.data.data;
+          }
+        } catch (err) {
+          console.warn("Flutterwave verify by id error:", err.response?.data?.message || err.message);
+        }
+      }
+      if (!verifiedData && tx_ref) {
+        try {
+          const queryRes = await axios.get(
+            `https://api.flutterwave.com/v3/transactions?tx_ref=${encodeURIComponent(tx_ref)}`,
+            {
+              headers: {
+                Authorization: authHeader,
+                "Content-Type": "application/json"
+              },
+              timeout: 1e4
+            }
+          );
+          if (queryRes.data?.status === "success" && Array.isArray(queryRes.data?.data) && queryRes.data.data.length > 0) {
+            const matched = queryRes.data.data.find((t) => {
+              const s = String(t.status || "").toLowerCase();
+              return s === "successful" || s === "succeeded" || s === "success";
+            }) || queryRes.data.data[0];
+            if (matched) verifiedData = matched;
+          }
+        } catch (err) {
+          console.warn("Flutterwave query by tx_ref error:", err.response?.data?.message || err.message);
+        }
+      }
+      if (!verifiedData && tx_ref) {
+        try {
+          const verifyRes = await axios.get(
+            `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(tx_ref)}`,
+            {
+              headers: {
+                Authorization: authHeader,
+                "Content-Type": "application/json"
+              },
+              timeout: 1e4
+            }
+          );
+          if (verifyRes.data?.status === "success" && verifyRes.data?.data) {
+            verifiedData = verifyRes.data.data;
+          }
+        } catch (verifyErr) {
+          console.warn("Flutterwave verify_by_reference error:", verifyErr.response?.data || verifyErr.message);
+        }
+      }
+      return verifiedData;
+    };
+    var creditCustomerWalletAtomic = async ({
+      customerId,
+      customerEmail,
+      customerPhone,
+      amount,
+      reference,
+      paymentMethod = "Flutterwave",
+      transaction_id
+    }) => {
+      const numAmount = Number(amount || 0);
+      if (numAmount <= 0) {
+        return { success: false, error: "Amount must be greater than 0" };
+      }
+      const Transaction = require_Transaction();
+      let customer = null;
+      if (customerId && mongoose.Types.ObjectId.isValid(customerId)) {
+        customer = await Customer.findById(customerId);
+      }
+      if (!customer && reference) {
+        const walMatch = reference.match(/DENISH-WAL-([a-f0-9]{24})-/i);
+        if (walMatch && mongoose.Types.ObjectId.isValid(walMatch[1])) {
+          customer = await Customer.findById(walMatch[1]);
+        }
+      }
+      if (!customer && customerEmail) {
+        customer = await Customer.findOne({
+          email: { $regex: new RegExp(`^${customerEmail.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+        });
+      }
+      if (!customer && customerPhone) {
+        const cleanPhone = String(customerPhone).replace(/\D/g, "").slice(-10);
+        if (cleanPhone.length >= 7) {
+          customer = await Customer.findOne({ phone: { $regex: cleanPhone } });
+        }
+      }
+      if (!customer) {
+        return { success: false, error: "Customer could not be identified" };
+      }
+      if (reference) {
+        const existingTx = await Transaction.findOne({
+          reference,
+          type: "Wallet Top-up",
+          status: "Completed"
+        });
+        if (existingTx) {
+          const freshCustomer = await Customer.findById(customer._id);
+          return {
+            success: true,
+            alreadyCredited: true,
+            customer: freshCustomer || customer,
+            transaction: existingTx,
+            creditedAmount: existingTx.amount
+          };
+        }
+      }
+      customer.walletBalance = (customer.walletBalance || 0) + numAmount;
+      const bonusPoints = Math.max(5, Math.floor(numAmount / 200));
+      customer.loyaltyPoints = (customer.loyaltyPoints || 0) + bonusPoints;
+      await customer.save();
+      const transaction = await Transaction.create({
+        type: "Wallet Top-up",
+        from: customer.name,
+        to: "Denish Customer Wallet",
+        amount: numAmount,
+        method: paymentMethod,
+        status: "Completed",
+        reference: reference || `WAL-${Date.now()}`
+      });
+      try {
+        const Notification = require_Notification();
+        await Notification.create({
+          title: "Wallet Funded \u{1F4B3}",
+          message: `Your wallet has been credited with \u20A6${numAmount.toLocaleString()} via ${paymentMethod}. Available balance: \u20A6${customer.walletBalance.toLocaleString()}.`,
+          type: "payment",
+          recipient: "customer",
+          userId: customer._id,
+          read: false
+        });
+      } catch (ne) {
+        console.warn("Wallet notification creation error:", ne.message);
+      }
+      console.log(`[Wallet] Successfully credited \u20A6${numAmount} to ${customer.name} (${customer.email}). New Balance: \u20A6${customer.walletBalance}`);
+      return {
+        success: true,
+        alreadyCredited: false,
+        customer,
+        transaction,
+        creditedAmount: numAmount,
+        bonusPoints
+      };
+    };
     var verifyFlutterwavePayment = async (req, res) => {
       try {
         const { tx_ref, transaction_id } = req.body;
-        const authHeader = await getFlutterwaveAuthHeader();
-        let flwData = null;
         if (tx_ref) {
           const Transaction = require_Transaction();
           const existingTx = await Transaction.findOne({
@@ -4968,44 +5145,7 @@ var require_customerController = __commonJS({
             });
           }
         }
-        if (transaction_id) {
-          try {
-            const verifyRes = await axios.get(
-              `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
-              {
-                headers: {
-                  Authorization: authHeader,
-                  "Content-Type": "application/json"
-                },
-                timeout: 1e4
-              }
-            );
-            if (verifyRes.data?.status === "success" && verifyRes.data?.data) {
-              flwData = verifyRes.data.data;
-            }
-          } catch (verifyErr) {
-            console.warn("Flutterwave live verify by id warning:", verifyErr.response?.data || verifyErr.message);
-          }
-        }
-        if (!flwData && tx_ref) {
-          try {
-            const verifyRes = await axios.get(
-              `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(tx_ref)}`,
-              {
-                headers: {
-                  Authorization: authHeader,
-                  "Content-Type": "application/json"
-                },
-                timeout: 1e4
-              }
-            );
-            if (verifyRes.data?.status === "success" && verifyRes.data?.data) {
-              flwData = verifyRes.data.data;
-            }
-          } catch (verifyErr) {
-            console.warn("Flutterwave live verify by tx_ref warning:", verifyErr.response?.data || verifyErr.message);
-          }
-        }
+        const flwData = await verifyFlutterwaveTransaction({ tx_ref, transaction_id });
         const flwStatus = String(flwData?.status || "").toLowerCase();
         const isSuccessful = flwData && (flwStatus === "successful" || flwStatus === "succeeded" || flwStatus === "success");
         if (isSuccessful) {
@@ -5023,6 +5163,140 @@ var require_customerController = __commonJS({
         });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var handleFlutterwaveCallback2 = async (req, res) => {
+      try {
+        const { status, tx_ref, transaction_id } = req.query;
+        console.log("[Flutterwave Callback] Received redirect. Query:", req.query);
+        const targetRef = tx_ref || "";
+        const isWallet = targetRef.includes("WAL") || targetRef.startsWith("DENISH-WAL-");
+        let extractedCustomerId = null;
+        if (targetRef) {
+          const match = targetRef.match(/DENISH-WAL-([a-f0-9]{24})-/i);
+          if (match && mongoose.Types.ObjectId.isValid(match[1])) {
+            extractedCustomerId = match[1];
+          }
+        }
+        const flwData = await verifyFlutterwaveTransaction({ tx_ref: targetRef, transaction_id });
+        const queryStatus = String(status || "").toLowerCase();
+        const flwStatus = String(flwData?.status || queryStatus).toLowerCase();
+        const isSuccessful = flwStatus === "successful" || flwStatus === "succeeded" || flwStatus === "success";
+        let customer = null;
+        let creditedAmt = 0;
+        if (isSuccessful && isWallet) {
+          creditedAmt = flwData?.amount ? Number(flwData.amount) : 0;
+          const custData = flwData?.customer || {};
+          const creditRes = await creditCustomerWalletAtomic({
+            customerId: extractedCustomerId,
+            customerEmail: custData.email,
+            customerPhone: custData.phone_number || custData.phonenumber,
+            amount: creditedAmt,
+            reference: targetRef,
+            paymentMethod: "Flutterwave Callback",
+            transaction_id
+          });
+          if (creditRes?.customer) {
+            customer = creditRes.customer;
+          }
+        } else if (extractedCustomerId) {
+          customer = await Customer.findById(extractedCustomerId);
+        }
+        const balanceText = customer ? `\u20A6${(customer.walletBalance || 0).toLocaleString()}` : "";
+        const amtText = creditedAmt > 0 ? `\u20A6${creditedAmt.toLocaleString()}` : "your money";
+        res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${isSuccessful ? "Wallet Funded Successfully" : "Payment Status"}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              text-align: center;
+              padding: 40px 20px;
+              background-color: #F8F9FA;
+              margin: 0;
+            }
+            .card {
+              background: #FFF;
+              padding: 36px 24px;
+              border-radius: 20px;
+              box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+              max-width: 420px;
+              margin: 20px auto;
+            }
+            .icon {
+              width: 72px;
+              height: 72px;
+              background: ${isSuccessful ? "#E6F7F0" : "#FFF0ED"};
+              color: ${isSuccessful ? "#10B981" : "#EF4444"};
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 36px;
+              font-weight: bold;
+              margin: 0 auto 20px;
+            }
+            h2 { color: #1E293B; margin: 0 0 10px; font-size: 22px; }
+            p { color: #64748B; font-size: 15px; margin: 0 0 24px; line-height: 1.5; }
+            .balance-box {
+              background: #F1F5F9;
+              border-radius: 14px;
+              padding: 16px;
+              margin-bottom: 24px;
+            }
+            .balance-label { font-size: 12px; color: #64748B; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
+            .balance-amount { font-size: 26px; color: #0F172A; font-weight: 800; }
+            .btn {
+              display: block;
+              width: 100%;
+              background: #FF7A00;
+              color: #FFF;
+              padding: 14px 20px;
+              border-radius: 12px;
+              font-size: 16px;
+              font-weight: 700;
+              text-decoration: none;
+              border: none;
+              cursor: pointer;
+            }
+            .subtext { margin-top: 14px; font-size: 12px; color: #94A3B8; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">${isSuccessful ? "\u2713" : "!"}</div>
+            <h2>${isSuccessful ? "Wallet Funded Successfully! \u{1F389}" : "Payment Completed"}</h2>
+            <p>${isSuccessful ? `We have successfully confirmed your Flutterwave payment and credited ${amtText} to your Denish Wallet.` : "Your transaction has been processed. You may close this window and return to the app."}</p>
+            ${customer ? `
+              <div class="balance-box">
+                <div class="balance-label">Current Wallet Balance</div>
+                <div class="balance-amount">${balanceText}</div>
+              </div>
+            ` : ""}
+            <button class="btn" onclick="closeOrBack()">Back to Denish App</button>
+            <div class="subtext">You can safely close this browser window.</div>
+          </div>
+          <script>
+            function closeOrBack() {
+              try {
+                window.location.href = 'denish://wallet';
+                setTimeout(function() { window.close(); }, 600);
+              } catch(e) {
+                window.close();
+              }
+            }
+          </script>
+        </body>
+      </html>
+    `);
+      } catch (err) {
+        console.error("handleFlutterwaveCallback error:", err);
+        res.status(500).send("Error processing callback");
       }
     };
     var flutterwaveWebhook2 = async (req, res) => {
@@ -5051,72 +5325,24 @@ var require_customerController = __commonJS({
           console.log(`[Flutterwave Webhook] Charge successful! Ref: ${effectiveRef}, Amount: \u20A6${amount}, Customer: ${custData.email || "N/A"}`);
           const isWallet = effectiveRef && (effectiveRef.includes("WAL") || effectiveRef.startsWith("DENISH-WAL-")) || meta.isWalletTopup === "true" || meta.type === "wallet_topup";
           if (isWallet && amount > 0) {
-            const Transaction = require_Transaction();
-            const alreadyCredited = await Transaction.findOne({
-              reference: effectiveRef,
-              type: "Wallet Top-up",
-              status: "Completed"
-            });
-            if (alreadyCredited) {
-              console.log(`[Flutterwave Webhook] Reference ${effectiveRef} was already credited. Skipping duplicate.`);
-              return res.sendStatus(200);
-            }
-            let customer = null;
-            if (meta.customerId && mongoose.Types.ObjectId.isValid(meta.customerId)) {
-              customer = await Customer.findById(meta.customerId);
-            }
-            if (!customer && effectiveRef) {
+            let custId = meta.customerId && mongoose.Types.ObjectId.isValid(meta.customerId) ? meta.customerId : null;
+            if (!custId && effectiveRef) {
               const walMatch = effectiveRef.match(/DENISH-WAL-([a-f0-9]{24})-/i);
               if (walMatch && mongoose.Types.ObjectId.isValid(walMatch[1])) {
-                customer = await Customer.findById(walMatch[1]);
+                custId = walMatch[1];
               }
             }
             const custEmail = custData.email || meta.customerEmail;
-            if (!customer && custEmail) {
-              customer = await Customer.findOne({
-                email: { $regex: new RegExp(`^${custEmail.trim()}$`, "i") }
-              });
-            }
             const custPhone = custData.phone_number || custData.phonenumber;
-            if (!customer && custPhone) {
-              const cleanPhone = String(custPhone).replace(/\D/g, "").slice(-10);
-              if (cleanPhone.length >= 7) {
-                customer = await Customer.findOne({
-                  phone: { $regex: cleanPhone }
-                });
-              }
-            }
-            if (customer) {
-              customer.walletBalance = (customer.walletBalance || 0) + amount;
-              const bonusPoints = Math.max(5, Math.floor(amount / 200));
-              customer.loyaltyPoints = (customer.loyaltyPoints || 0) + bonusPoints;
-              await customer.save();
-              await Transaction.create({
-                type: "Wallet Top-up",
-                from: customer.name,
-                to: "Denish Customer Wallet",
-                amount,
-                method: "Flutterwave Webhook",
-                status: "Completed",
-                reference: effectiveRef
-              });
-              try {
-                const Notification = require_Notification();
-                await Notification.create({
-                  title: "Wallet Funded \u{1F4B3}",
-                  message: `Your wallet has been credited with \u20A6${amount.toLocaleString()} via Flutterwave. Available balance: \u20A6${customer.walletBalance.toLocaleString()}.`,
-                  type: "payment",
-                  recipient: "customer",
-                  userId: customer._id,
-                  read: false
-                });
-              } catch (ne) {
-                console.warn("Webhook wallet notification error:", ne.message);
-              }
-              console.log(`[Flutterwave Webhook] Successfully credited \u20A6${amount} to customer ${customer.name} (${customer.email})! New Balance: \u20A6${customer.walletBalance}`);
-            } else {
-              console.warn(`[Flutterwave Webhook] Could not match customer for payment ${effectiveRef}. Email: ${custEmail}, Phone: ${custPhone}`);
-            }
+            await creditCustomerWalletAtomic({
+              customerId: custId,
+              customerEmail: custEmail,
+              customerPhone: custPhone,
+              amount,
+              reference: effectiveRef,
+              paymentMethod: "Flutterwave Webhook",
+              transaction_id: chargeData.id
+            });
           }
         } else if (eventType === "transfer.completed" || eventType === "Transfer") {
           const { handleFlutterwaveTransferWebhook } = require_payoutScheduler();
@@ -5208,8 +5434,8 @@ var require_customerController = __commonJS({
           $or: [
             { from: customer.name },
             { to: customer.name },
-            { to: "Denish Customer Wallet" },
-            { from: `${customer.name} (Wallet)` }
+            { from: `${customer.name} (Wallet)` },
+            { to: "Denish Customer Wallet", from: customer.name }
           ]
         }).sort({ createdAt: -1 }).limit(30);
         res.status(200).json({
@@ -5237,7 +5463,18 @@ var require_customerController = __commonJS({
             error: "Payment reference is required. Wallet cannot be credited without Flutterwave confirmation."
           });
         }
-        const customer = await getCurrentCustomer(req);
+        let customer = null;
+        let extractedCustomerId = null;
+        if (targetRef) {
+          const match = String(targetRef).match(/DENISH-WAL-([a-f0-9]{24})-/i);
+          if (match && mongoose.Types.ObjectId.isValid(match[1])) {
+            extractedCustomerId = match[1];
+            customer = await Customer.findById(extractedCustomerId);
+          }
+        }
+        if (!customer) {
+          customer = await getCurrentCustomer(req);
+        }
         if (!customer) return res.status(404).json({ success: false, error: "Customer not found" });
         const Transaction = require_Transaction();
         if (targetRef) {
@@ -5247,57 +5484,18 @@ var require_customerController = __commonJS({
             status: "Completed"
           });
           if (alreadyCredited) {
+            const freshCustomer = await Customer.findById(customer._id);
             return res.status(200).json({
               success: true,
               message: "Wallet already credited for this payment",
-              balance: customer.walletBalance || 0,
-              loyaltyPoints: customer.loyaltyPoints || 0,
+              balance: freshCustomer ? freshCustomer.walletBalance : customer.walletBalance || 0,
+              loyaltyPoints: freshCustomer ? freshCustomer.loyaltyPoints : customer.loyaltyPoints || 0,
               transaction: alreadyCredited,
-              data: customer
+              data: freshCustomer || customer
             });
           }
         }
-        let verifiedData = null;
-        const { getFlutterwaveAuthHeader: getFlutterwaveAuthHeader2 } = require_flutterwave();
-        const authHeader = await getFlutterwaveAuthHeader2();
-        if (transaction_id) {
-          try {
-            const verifyRes = await axios.get(
-              `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
-              {
-                headers: {
-                  Authorization: authHeader,
-                  "Content-Type": "application/json"
-                },
-                timeout: 1e4
-              }
-            );
-            if (verifyRes.data?.status === "success" && verifyRes.data?.data) {
-              verifiedData = verifyRes.data.data;
-            }
-          } catch (err) {
-            console.warn("Flutterwave verify by id error:", err.response?.data?.message || err.message);
-          }
-        }
-        if (!verifiedData && targetRef) {
-          try {
-            const verifyRes = await axios.get(
-              `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(targetRef)}`,
-              {
-                headers: {
-                  Authorization: authHeader,
-                  "Content-Type": "application/json"
-                },
-                timeout: 1e4
-              }
-            );
-            if (verifyRes.data?.status === "success" && verifyRes.data?.data) {
-              verifiedData = verifyRes.data.data;
-            }
-          } catch (err) {
-            console.warn("Flutterwave verify by tx_ref error:", err.response?.data?.message || err.message);
-          }
-        }
+        const verifiedData = await verifyFlutterwaveTransaction({ tx_ref: targetRef, transaction_id });
         const verifiedStatus = String(verifiedData?.status || "").toLowerCase();
         const isSuccessful = verifiedData && (verifiedStatus === "successful" || verifiedStatus === "succeeded" || verifiedStatus === "success");
         const isTestBypass = process.env.NODE_ENV === "test" && targetRef && targetRef.startsWith("TEST_");
@@ -5309,39 +5507,24 @@ var require_customerController = __commonJS({
           });
         }
         const creditedAmount = verifiedData?.amount ? Number(verifiedData.amount) : numAmount;
-        customer.walletBalance = (customer.walletBalance || 0) + creditedAmount;
-        const bonusPoints = Math.max(5, Math.floor(creditedAmount / 200));
-        customer.loyaltyPoints = (customer.loyaltyPoints || 0) + bonusPoints;
-        await customer.save();
-        const transaction = await Transaction.create({
-          type: "Wallet Top-up",
-          from: customer.name,
-          to: "Denish Customer Wallet",
+        const creditRes = await creditCustomerWalletAtomic({
+          customerId: customer._id,
+          customerEmail: customer.email,
+          customerPhone: customer.phone,
           amount: creditedAmount,
-          method: paymentMethod || "Flutterwave",
-          status: "Completed",
-          reference: targetRef || `WAL-${Date.now()}`
+          reference: targetRef || `WAL-${Date.now()}`,
+          paymentMethod: paymentMethod || "Flutterwave",
+          transaction_id
         });
-        try {
-          const Notification = require_Notification();
-          await Notification.create({
-            title: "Wallet Credited \u{1F4B3}",
-            message: `Your wallet has been funded with \u20A6${creditedAmount.toLocaleString()} via Flutterwave. Available balance: \u20A6${customer.walletBalance.toLocaleString()}.`,
-            type: "payment",
-            recipient: "customer",
-            userId: customer._id,
-            read: false
-          });
-        } catch (nErr) {
-          console.warn("Failed to send wallet notification:", nErr.message);
-        }
+        const updatedCustomer = creditRes.customer || customer;
+        const bonusPoints = creditRes.bonusPoints || Math.max(5, Math.floor(creditedAmount / 200));
         res.status(200).json({
           success: true,
           message: `\u20A6${creditedAmount.toLocaleString()} credited to wallet successfully (+${bonusPoints} loyalty points!)`,
-          balance: customer.walletBalance,
-          loyaltyPoints: customer.loyaltyPoints,
-          transaction,
-          data: customer
+          balance: updatedCustomer.walletBalance,
+          loyaltyPoints: updatedCustomer.loyaltyPoints,
+          transaction: creditRes.transaction,
+          data: updatedCustomer
         });
       } catch (error) {
         console.error("fundCustomerWallet error:", error);
@@ -5420,7 +5603,10 @@ var require_customerController = __commonJS({
       markAllCustomerNotificationsRead,
       getCustomerWallet,
       fundCustomerWallet,
-      redeemLoyaltyPoints
+      redeemLoyaltyPoints,
+      handleFlutterwaveCallback: handleFlutterwaveCallback2,
+      creditCustomerWalletAtomic,
+      verifyFlutterwaveTransaction
     };
   }
 });
@@ -5458,7 +5644,8 @@ var require_customerRoutes = __commonJS({
       markAllCustomerNotificationsRead,
       getCustomerWallet,
       fundCustomerWallet,
-      redeemLoyaltyPoints
+      redeemLoyaltyPoints,
+      handleFlutterwaveCallback: handleFlutterwaveCallback2
     } = require_customerController();
     var { upload } = require_cloudinary();
     router.get("/restaurants", getRestaurants);
@@ -5489,31 +5676,7 @@ var require_customerRoutes = __commonJS({
     router.post("/flw/initialize", initializeFlutterwavePayment);
     router.post("/flw/verify", verifyFlutterwavePayment);
     router.post("/flw/webhook", flutterwaveWebhook2);
-    router.get("/flw/callback", (req, res) => {
-      res.send(`
-    <!Platform html>
-    <html>
-      <head>
-        <title>Payment Successful</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; background-color: #F8F9FA; }
-          .card { background: #FFF; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); max-width: 380px; margin: 0 auto; }
-          .icon { width: 64px; height: 64px; background: #E6F7F0; color: #27A572; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 16px; }
-          h2 { color: #1A1A1A; margin: 0 0 8px; font-size: 20px; }
-          p { color: #666; font-size: 14px; margin: 0 0 24px; line-height: 1.5; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="icon">\u2713</div>
-          <h2>Payment Completed</h2>
-          <p>Your Flutterwave transaction has been processed successfully. You may close this window.</p>
-        </div>
-      </body>
-    </html>
-  `);
-    });
+    router.get("/flw/callback", handleFlutterwaveCallback2);
     router.post("/upload-profile-pic", upload.single("image"), (req, res) => {
       try {
         const imageUrl = req.file ? req.file.path : null;
@@ -7782,7 +7945,7 @@ var paymentRoutes = require_paymentRoutes();
 var driverRoutes = require_driverRoutes();
 var adminRoutes = require_adminRoutes();
 var { initPayoutScheduler } = require_payoutScheduler();
-var { flutterwaveWebhook } = require_customerController();
+var { flutterwaveWebhook, handleFlutterwaveCallback } = require_customerController();
 var app = express();
 var PORT = process.env.PORT || 3e3;
 var corsOptions = {
@@ -7820,6 +7983,9 @@ app.post("/api/webhook", flutterwaveWebhook);
 app.post("/api/flw-webhook", flutterwaveWebhook);
 app.post("/webhook", flutterwaveWebhook);
 app.post("/flw-webhook", flutterwaveWebhook);
+app.get("/api/flw-callback", handleFlutterwaveCallback);
+app.get("/flw-callback", handleFlutterwaveCallback);
+app.get("/api/callback", handleFlutterwaveCallback);
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok", message: "Server is running normally" });
 });

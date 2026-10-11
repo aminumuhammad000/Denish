@@ -51,9 +51,9 @@ async function runTests() {
     assert(resolveBankCode('GTBank') === '058', 'GTBank resolves to 058');
     assert(resolveBankCode('Access Bank') === '044', 'Access Bank resolves to 044');
     assert(resolveBankCode('Kuda Bank') === '090267' || resolveBankCode('Kuda Bank') === '50211', 'Kuda Bank resolves to valid code (090267 / 50211)');
-    assert(resolveBankCode('OPay') === '090405' || resolveBankCode('OPay') === '999992', 'OPay resolves to valid code (090405 / 999992)');
-    assert(resolveBankCode('PalmPay') === '090175' || resolveBankCode('PalmPay') === '999991', 'PalmPay resolves to valid code (090175 / 999991)');
-    assert(resolveBankCode('Moniepoint') === '090392' || resolveBankCode('Moniepoint') === '50515', 'Moniepoint resolves to valid code (090392 / 50515)');
+    assert(resolveBankCode('OPay') === '100004' || resolveBankCode('OPay') === '305', 'OPay resolves to valid code (100004 / 305)');
+    assert(resolveBankCode('PalmPay') === '100033' || resolveBankCode('PalmPay') === '090175', 'PalmPay resolves to valid code (100033 / 090175)');
+    assert(resolveBankCode('Moniepoint') === '090405' || resolveBankCode('Moniepoint') === '090392', 'Moniepoint resolves to valid code (090405 / 090392)');
 
     // ----------------------------------------------------
     // TEST 2: Bank Account Verification (Validation logic)

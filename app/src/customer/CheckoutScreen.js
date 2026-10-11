@@ -9,6 +9,7 @@ import { Colors } from '../constants/Colors';
 import { useCart } from '../context/CartContext';
 import { getCustomerProfile, placeCustomerOrder, saveAddress, savePaymentMethod, initFlutterwaveCheckout, verifyFlutterwaveCheckout } from '../services/api';
 import * as WebBrowser from 'expo-web-browser';
+import { useIsFocused } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -78,9 +79,13 @@ const CheckoutScreen = ({ navigation }) => {
     setCardDetails(prev => ({ ...prev, cvv: cleaned }));
   };
 
+  const isFocused = useIsFocused();
+
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    if (isFocused) {
+      fetchProfile();
+    }
+  }, [isFocused]);
 
   const fetchProfile = async () => {
     try {

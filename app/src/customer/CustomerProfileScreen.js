@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Modal, TextInput, Alert, Clipboard, Platform, Linking
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Modal, TextInput, Alert, Clipboard, Platform, Linking, RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -43,6 +43,13 @@ const CustomerProfileScreen = ({ navigation }) => {
   const [fundingWallet, setFundingWallet] = useState(false);
   const [fundingStatusText, setFundingStatusText] = useState('');
   const [redeemingPoints, setRedeemingPoints] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchProfile();
+    setRefreshing(false);
+  };
 
   const userReferralCode = profile?.referralCode || (profile?.name ? `${profile.name.replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase()}${Math.abs((profile?.phone || '100').slice(-3))}` : 'DENISH100');
 
@@ -99,6 +106,7 @@ const CustomerProfileScreen = ({ navigation }) => {
       return;
     }
 
+    const previousBalance = profile?.walletBalance ?? 0;
     setFundingWallet(true);
     setFundingStatusText('Opening Flutterwave...');
     try {
@@ -126,44 +134,69 @@ const CustomerProfileScreen = ({ navigation }) => {
         await Linking.openURL(checkoutUrl);
       }
 
+      setFundingStatusText('Checking payment status...');
+
+      // 3. Immediately check if wallet was already credited via callback or webhook
+      let freshCheck = null;
+      try {
+        freshCheck = await getCustomerProfile();
+        if (freshCheck?.success && freshCheck.data) {
+          const newBal = freshCheck.data.walletBalance ?? 0;
+          if (newBal > previousBalance) {
+            setProfile(freshCheck.data);
+            setWalletModalVisible(false);
+            setFundAmount('');
+            Alert.alert('Wallet Funded 🎉', `₦${amt.toLocaleString()} has been successfully added to your Denish Wallet via Flutterwave.`);
+            return;
+          }
+        }
+      } catch (quickErr) {
+        console.warn('Quick profile check warning:', quickErr.message);
+      }
+
+      // 4. Submit verification and funding to backend
       setFundingStatusText('Verifying with Flutterwave...');
+      try {
+        const verifyCheck = await verifyFlutterwaveCheckout({ tx_ref: txRef });
+        const flwStatus = verifyCheck.data?.status?.toLowerCase();
 
-      // 3. First verify transaction with Flutterwave resolve endpoint
-      const verifyCheck = await verifyFlutterwaveCheckout({ tx_ref: txRef });
-      const flwStatus = verifyCheck.data?.status?.toLowerCase();
+        if (verifyCheck.success && (flwStatus === 'successful' || flwStatus === 'succeeded' || flwStatus === 'success')) {
+          const fundRes = await fundCustomerWallet({
+            amount: amt,
+            tx_ref: txRef,
+            reference: txRef,
+            paymentMethod: 'Flutterwave',
+          });
 
-      if (!verifyCheck.success || (flwStatus !== 'successful' && flwStatus !== 'succeeded')) {
-        Alert.alert(
-          'Payment Incomplete',
-          'Payment was not completed or confirmed on Flutterwave. Your wallet balance has not changed.'
-        );
-        return;
+          if (fundRes && fundRes.success) {
+            await fetchProfile();
+            setWalletModalVisible(false);
+            setFundAmount('');
+            Alert.alert('Wallet Funded 🎉', `₦${amt.toLocaleString()} has been successfully added to your Denish Wallet via Flutterwave.`);
+            return;
+          }
+        }
+      } catch (verifyErr) {
+        console.warn('Direct verify attempt warning:', verifyErr.message);
       }
 
-      // 4. Submit verified payment to backend for atomic wallet crediting
-      const fundRes = await fundCustomerWallet({
-        amount: amt,
-        tx_ref: txRef,
-        reference: txRef,
-        paymentMethod: 'Flutterwave',
-      });
-
-      if (fundRes && fundRes.success && typeof fundRes.balance === 'number') {
-        // ONLY update walletBalance to the verified balance returned by backend
-        setProfile(prev => ({
-          ...prev,
-          walletBalance: fundRes.balance,
-          loyaltyPoints: typeof fundRes.loyaltyPoints === 'number' ? fundRes.loyaltyPoints : prev?.loyaltyPoints
-        }));
-        setWalletModalVisible(false);
-        setFundAmount('');
-        Alert.alert('Wallet Funded 🎉', `₦${amt.toLocaleString()} has been successfully added to your Denish Wallet via Flutterwave.`);
-      } else {
-        Alert.alert(
-          'Payment Not Confirmed',
-          fundRes?.error || 'Payment was not confirmed by Flutterwave. Your wallet was not credited.'
-        );
+      // 5. Final fallback re-fetch of customer profile
+      const finalRes = await getCustomerProfile();
+      if (finalRes?.success && finalRes.data) {
+        setProfile(finalRes.data);
+        const finalBal = finalRes.data.walletBalance ?? 0;
+        if (finalBal > previousBalance) {
+          setWalletModalVisible(false);
+          setFundAmount('');
+          Alert.alert('Wallet Funded 🎉', `₦${amt.toLocaleString()} has been successfully added to your Denish Wallet.`);
+          return;
+        }
       }
+
+      Alert.alert(
+        'Payment Incomplete',
+        'If your payment was completed on Flutterwave, your balance will reflect shortly. Pull down to refresh your profile.'
+      );
     } catch (e) {
       console.error('Wallet funding error:', e);
       Alert.alert(
@@ -282,7 +315,19 @@ const CustomerProfileScreen = ({ navigation }) => {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { flexGrow: 1 }]}> 
+      <ScrollView 
+        style={{ flex: 1 }} 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={[styles.scroll, { flexGrow: 1 }]}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            colors={['#FF7A00']} 
+            tintColor="#FF7A00" 
+          />
+        }
+      > 
         
         {/* User Info Card */}
         <View style={styles.userCard}>
@@ -315,9 +360,18 @@ const CustomerProfileScreen = ({ navigation }) => {
                 <Text style={styles.walletCardSubtitle}>Instant checkout & cashless orders</Text>
               </View>
             </View>
-            <View style={styles.walletSecureBadge}>
-              <Ionicons name="shield-checkmark" size={12} color="#4ADE80" />
-              <Text style={styles.walletSecureBadgeText}>Secured</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TouchableOpacity 
+                onPress={fetchProfile} 
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ padding: 4 }}
+              >
+                <Ionicons name="refresh-outline" size={16} color="#FF7A00" />
+              </TouchableOpacity>
+              <View style={styles.walletSecureBadge}>
+                <Ionicons name="shield-checkmark" size={12} color="#4ADE80" />
+                <Text style={styles.walletSecureBadgeText}>Secured</Text>
+              </View>
             </View>
           </View>
 
