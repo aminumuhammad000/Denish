@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
   Switch, Modal, ActivityIndicator, StatusBar, Image, RefreshControl, Alert
@@ -31,8 +31,9 @@ const VendorHomeScreen = ({ navigation }) => {
     const checkIncomingCalls = async () => {
       try {
         const session = await getAuthSession();
-        if (!isSubscribed || !session || !session.vendor) return;
-        const nameToQuery = session.vendor.businessName || session.vendor.name;
+        const vendorObj = session?.vendor || session?.user;
+        if (!isSubscribed || !session || !vendorObj) return;
+        const nameToQuery = vendorObj.businessName || vendorObj.name;
         if (!nameToQuery) return;
 
         const res = await fetchIncomingCall(nameToQuery);
@@ -149,7 +150,28 @@ const VendorHomeScreen = ({ navigation }) => {
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <Ionicons name="restaurant-outline" size={54} color={Colors.primary} />
+        <Text style={{ fontSize: 18, fontWeight: 'bold', marginTop: 16, color: '#1a1a1a' }}>
+          Vendor Dashboard
+        </Text>
+        <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', marginTop: 8, marginBottom: 20 }}>
+          Unable to load dashboard data. Please check your connection.
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 }}
+          onPress={() => {
+            setLoading(true);
+            fetchDashboard();
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Try Again</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   const isPending = data.status === 'Pending';
 

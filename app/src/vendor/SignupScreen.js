@@ -27,7 +27,7 @@ const SignupScreen = ({ navigation }) => {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const { handleGoogleAuth, loading: googleLoading } = useClerkGoogleAuth('vendor', navigation);
+  const { handleGoogleAuth, loading: googleLoading, errorMsg: googleErrorMsg } = useClerkGoogleAuth('vendor', navigation);
 
   const validateEmail = (email) => /^\S+@\S+\.\S+$/.test(email);
   const validatePhone = (phone) => /^\+?[0-9]{10,15}$/.test(phone);
@@ -126,7 +126,7 @@ const SignupScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {errorMsg ? <Text style={{ color: 'red', marginBottom: 10, textAlign: 'center' }}>{errorMsg}</Text> : null}
+          {(errorMsg || googleErrorMsg) ? <Text style={{ color: 'red', marginBottom: 10, textAlign: 'center' }}>{errorMsg || googleErrorMsg}</Text> : null}
           <TouchableOpacity
             style={[styles.button, (!canContinue || loading) && styles.buttonDisabled]}
             onPress={handleSignup}

@@ -25,7 +25,7 @@ const VendorLoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { handleGoogleAuth, loading: googleLoading } = useClerkGoogleAuth('vendor', navigation);
+  const { handleGoogleAuth, loading: googleLoading, errorMsg: googleErrorMsg } = useClerkGoogleAuth('vendor', navigation);
 
   const handleLogin = async () => {
     if(!email || !password) return;
@@ -38,6 +38,7 @@ const VendorLoginScreen = ({ navigation }) => {
           role: 'vendor',
           token: response.token,
           vendor: response.vendor,
+          user: response.vendor,
           screen: 'Dashboard'
         });
         navigation.reset({
@@ -114,7 +115,7 @@ const VendorLoginScreen = ({ navigation }) => {
               </View>
             </View>
 
-            {errorMsg ? <Text style={{ color: 'red', marginBottom: 10, textAlign: 'center' }}>{errorMsg}</Text> : null}
+            {(errorMsg || googleErrorMsg) ? <Text style={{ color: 'red', marginBottom: 10, textAlign: 'center' }}>{errorMsg || googleErrorMsg}</Text> : null}
             <TouchableOpacity 
               style={[styles.button, (!email || !password) && { opacity: 0.5 }]} 
               onPress={handleLogin} 

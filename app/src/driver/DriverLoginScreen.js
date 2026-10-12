@@ -22,7 +22,7 @@ const DriverLoginScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const { handleGoogleAuth, loading: googleLoading } = useClerkGoogleAuth('driver', navigation);
+  const { handleGoogleAuth, loading: googleLoading, errorMsg: googleErrorMsg } = useClerkGoogleAuth('driver', navigation);
 
   const handleLogin = async () => {
     if (!email || !password) return;
@@ -114,7 +114,7 @@ const DriverLoginScreen = ({ navigation }) => {
               </View>
             </View>
 
-            {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+            {(errorMsg || googleErrorMsg) ? <Text style={styles.errorText}>{errorMsg || googleErrorMsg}</Text> : null}
 
             <TouchableOpacity 
               style={[styles.button, (!email || !password) && { opacity: 0.5 }]}

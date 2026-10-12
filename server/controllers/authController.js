@@ -539,7 +539,8 @@ const googleAuth = async (req, res) => {
         return res.status(400).json({ success: false, error: check.error });
       }
 
-      const placeholderPhone = `google-${googleId}`;
+      const uniqueSuffix = `${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const placeholderPhone = `google-${googleId || 'user'}-${uniqueSuffix}`;
       const placeholderPassword = Math.random().toString(36).slice(-10);
 
       const createData = {
@@ -570,7 +571,9 @@ const googleAuth = async (req, res) => {
     res.status(200).json({
       success: true,
       token: tokenPrefix + user._id,
-      user
+      user,
+      vendor: role === 'vendor' ? user : undefined,
+      driver: role === 'driver' ? user : undefined,
     });
 
   } catch (error) {

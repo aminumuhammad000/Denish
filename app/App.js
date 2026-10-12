@@ -8,7 +8,7 @@ import { tokenCache } from './src/utils/tokenCache';
 import { CLERK_PUBLISHABLE_KEY } from './src/constants/Config';
 import * as WebBrowser from 'expo-web-browser';
 
-WebBrowser.maybeCompleteAuthSession();
+WebBrowser.maybeCompleteAuthSession({ skipRedirectCheck: true });
 
 import VendorWelcomeScreen    from './src/vendor/VendorWelcomeScreen';
 import RoleSelectionScreen    from './src/RoleSelectionScreen';

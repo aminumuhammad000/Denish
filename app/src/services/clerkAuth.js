@@ -6,8 +6,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { googleAuthApi } from './api';
 import { setAuthSession } from './authStorage';
 
-// Complete pending auth sessions on web/native
-WebBrowser.maybeCompleteAuthSession();
+// Complete pending auth sessions on web/native with skipRedirectCheck
+WebBrowser.maybeCompleteAuthSession({ skipRedirectCheck: true });
 
 export const useClerkGoogleAuth = (role = 'customer', navigation = null) => {
   const [loading, setLoading] = useState(false);
@@ -35,23 +35,37 @@ export const useClerkGoogleAuth = (role = 'customer', navigation = null) => {
         }
 
         // Retrieve user info from Clerk session or user
-        const sessionObj = clerk.client?.sessions?.find((s) => s.id === createdSessionId);
-        const clerkUser = sessionObj?.user || clerk.user;
+        let sessionObj = clerk.client?.sessions?.find((s) => s.id === createdSessionId) || clerk.session;
+        let clerkUser = sessionObj?.user || clerk.user || clerk.client?.users?.[0];
 
-        const email =
+        let email =
           clerkUser?.primaryEmailAddress?.emailAddress ||
           clerkUser?.emailAddresses?.[0]?.emailAddress ||
           signUp?.emailAddress ||
-          signIn?.identifier;
+          signIn?.identifier ||
+          '';
 
-        const name =
+        let name =
           clerkUser?.fullName ||
           `${clerkUser?.firstName || ''} ${clerkUser?.lastName || ''}`.trim() ||
-          (signUp?.firstName ? `${signUp.firstName} ${signUp.lastName || ''}`.trim() : 'User');
+          (signUp?.firstName ? `${signUp.firstName} ${signUp.lastName || ''}`.trim() : '') ||
+          (signIn?.userData?.firstName ? `${signIn.userData.firstName} ${signIn.userData.lastName || ''}`.trim() : '') ||
+          'User';
 
-        const picture = clerkUser?.imageUrl || '';
+        if (!email) {
+          // If Clerk didn't populate user synchronously, wait briefly and try reading from clerk.user or clerk.client
+          await new Promise((res) => setTimeout(res, 500));
+          sessionObj = clerk.client?.sessions?.find((s) => s.id === createdSessionId) || clerk.session;
+          clerkUser = sessionObj?.user || clerk.user || clerk.client?.users?.[0];
+          email = clerkUser?.primaryEmailAddress?.emailAddress || clerkUser?.emailAddresses?.[0]?.emailAddress || signUp?.emailAddress || signIn?.identifier || '';
+          if (!name || name === 'User') {
+            name = clerkUser?.fullName || `${clerkUser?.firstName || ''} ${clerkUser?.lastName || ''}`.trim() || name;
+          }
+        }
+
+        const picture = clerkUser?.imageUrl || signIn?.userData?.imageUrl || '';
         const clerkId = clerkUser?.id || createdSessionId;
-        const sessionToken = (await clerk.session?.getToken()) || createdSessionId;
+        const sessionToken = (await clerk.session?.getToken()) || (sessionObj?.getToken ? await sessionObj.getToken() : null) || createdSessionId;
 
         const response = await googleAuthApi({
           token: sessionToken,
@@ -64,24 +78,24 @@ export const useClerkGoogleAuth = (role = 'customer', navigation = null) => {
         });
 
         if (response && response.success) {
+          const authUser = response.user || response.vendor || response.driver;
           let screenName = 'CustomerHome';
           const sessionPayload = {
             role,
             token: response.token,
+            user: authUser,
           };
 
           if (role === 'customer') {
             screenName = 'CustomerHome';
-            sessionPayload.user = response.user;
             sessionPayload.screen = screenName;
           } else if (role === 'vendor') {
-            const isApproved = response.user?.status === 'Approved';
-            screenName = isApproved ? 'Dashboard' : 'Dashboard';
-            sessionPayload.vendor = response.user;
+            screenName = 'Dashboard';
+            sessionPayload.vendor = authUser;
             sessionPayload.screen = screenName;
           } else if (role === 'driver') {
             screenName = 'DriverDashboard';
-            sessionPayload.driver = response.user;
+            sessionPayload.driver = authUser;
             sessionPayload.screen = screenName;
           }
 
@@ -94,7 +108,7 @@ export const useClerkGoogleAuth = (role = 'customer', navigation = null) => {
             });
           }
 
-          return { success: true, user: response.user };
+          return { success: true, user: authUser };
         } else {
           const err = response?.error || 'Google Sign-In failed';
           setErrorMsg(err);

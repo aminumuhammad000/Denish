@@ -107,7 +107,22 @@ const VendorProfileScreen = ({ navigation }) => {
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <Text style={{ fontSize: 16, color: '#666', marginBottom: 16 }}>Unable to load profile</Text>
+        <TouchableOpacity
+          style={{ backgroundColor: '#FF8C00', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+          onPress={() => {
+            setLoading(true);
+            fetchProfile();
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>

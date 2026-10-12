@@ -4192,7 +4192,8 @@ var require_authController = __commonJS({
           if (check.exists) {
             return res.status(400).json({ success: false, error: check.error });
           }
-          const placeholderPhone = `google-${googleId}`;
+          const uniqueSuffix = `${Date.now()}-${Math.floor(1e3 + Math.random() * 9e3)}`;
+          const placeholderPhone = `google-${googleId || "user"}-${uniqueSuffix}`;
           const placeholderPassword = Math.random().toString(36).slice(-10);
           const createData = {
             name: name || "User",
@@ -4218,7 +4219,9 @@ var require_authController = __commonJS({
         res.status(200).json({
           success: true,
           token: tokenPrefix + user._id,
-          user
+          user,
+          vendor: role === "vendor" ? user : void 0,
+          driver: role === "driver" ? user : void 0
         });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });

@@ -25,7 +25,7 @@ const DriverSignupScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const { handleGoogleAuth, loading: googleLoading } = useClerkGoogleAuth('driver', navigation);
+  const { handleGoogleAuth, loading: googleLoading, errorMsg: googleErrorMsg } = useClerkGoogleAuth('driver', navigation);
 
 
   const handleSignup = async () => {
@@ -138,7 +138,7 @@ const DriverSignupScreen = ({ navigation }) => {
               </View>
             </View>
 
-            {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+            {(errorMsg || googleErrorMsg) ? <Text style={styles.errorText}>{errorMsg || googleErrorMsg}</Text> : null}
 
             <TouchableOpacity 
               style={[styles.button, (!name || !email || !phone || password.length < 6) && styles.buttonDisabled]}
