@@ -128,7 +128,14 @@ const TrackOrderScreen = ({ navigation, route }) => {
              <TouchableOpacity style={styles.driverActionBtn} onPress={handleCallDriver}>
                <Ionicons name="call" size={18} color="#27A572" />
              </TouchableOpacity>
-             <TouchableOpacity style={styles.driverActionBtnChat} onPress={() => navigation.navigate('ChatDetail', { name: trackingData?.driverName || 'Delivery Partner', type: 'Driver' })}>
+             <TouchableOpacity 
+               style={styles.driverActionBtnChat} 
+               onPress={() => navigation.navigate('ChatDetail', { 
+                 name: trackingData?.driverName || 'Delivery Partner', 
+                 recipientId: trackingData?.driverId || trackingData?.order?.driverId,
+                 type: 'Driver' 
+               })}
+             >
                <Ionicons name="chatbubble-ellipses" size={18} color="#FF7D01" />
              </TouchableOpacity>
           </View>

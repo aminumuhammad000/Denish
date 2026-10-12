@@ -22,16 +22,18 @@ api.interceptors.request.use(async (config) => {
     const session = await getAuthSession();
     if (session) {
       const u = session.user || session.vendor || session.driver;
-      if (u) {
-        config.headers['X-User-Id'] = u._id;
-        config.headers['X-Vendor-Id'] = u._id;
+        const resolvedId = u._id || u.id;
+        if (resolvedId) {
+          config.headers['X-User-Id'] = resolvedId;
+          config.headers['X-Vendor-Id'] = resolvedId;
+          config.headers['X-Driver-Id'] = resolvedId;
+        }
         config.headers['X-User-Email'] = u.email;
         config.headers['X-Vendor-Email'] = u.email;
         config.headers['X-User-Role'] = session.role || 'customer';
         if (session.token) {
           config.headers['Authorization'] = `Bearer ${session.token}`;
         }
-      }
     }
   } catch (e) {
     console.error('Interceptor error:', e);

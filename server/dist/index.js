@@ -2699,15 +2699,23 @@ var require_messagingService = __commonJS({
       return null;
     };
     var resolveRecipient = async ({ recipientId, recipientName }) => {
-      if (recipientId && mongoose.Types.ObjectId.isValid(recipientId)) {
-        const [vnd, drv, cust] = await Promise.all([
-          Vendor.findById(recipientId),
-          Driver.findById(recipientId),
-          Customer.findById(recipientId)
-        ]);
-        if (vnd) return { id: vnd._id.toString(), name: vnd.businessName || vnd.name, role: "Vendor", avatar: vnd.logoUrl || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100" };
-        if (drv) return { id: drv._id.toString(), name: drv.name, role: "Driver", avatar: drv.profilePic || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100" };
-        if (cust) return { id: cust._id.toString(), name: cust.name, role: "Customer", avatar: cust.profilePic || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" };
+      if (recipientId) {
+        const rIdStr = String(recipientId).trim();
+        if (mongoose.Types.ObjectId.isValid(rIdStr)) {
+          const [vnd, drv, cust] = await Promise.all([
+            Vendor.findById(rIdStr),
+            Driver.findById(rIdStr),
+            Customer.findById(rIdStr)
+          ]);
+          if (vnd) return { id: vnd._id.toString(), name: vnd.businessName || vnd.name, role: "Vendor", avatar: vnd.logoUrl || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100" };
+          if (drv) return { id: drv._id.toString(), name: drv.name, role: "Driver", avatar: drv.profilePic || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100" };
+          if (cust) return { id: cust._id.toString(), name: cust.name, role: "Customer", avatar: cust.profilePic || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" };
+          try {
+            const adm = await Admin.findById(rIdStr);
+            if (adm) return { id: adm._id.toString(), name: adm.name || "Admin Support", role: "Admin", avatar: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100" };
+          } catch (_) {
+          }
+        }
       }
       if (recipientName && typeof recipientName === "string") {
         const cleanName = recipientName.trim();
@@ -2721,32 +2729,44 @@ var require_messagingService = __commonJS({
         if (vnd) return { id: vnd._id.toString(), name: vnd.businessName || vnd.name, role: "Vendor", avatar: vnd.logoUrl || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100" };
         if (drv) return { id: drv._id.toString(), name: drv.name, role: "Driver", avatar: drv.profilePic || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100" };
         if (cust) return { id: cust._id.toString(), name: cust.name, role: "Customer", avatar: cust.profilePic || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" };
-        let avatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100";
-        let role = "Vendor";
-        if (cleanName.toLowerCase().includes("driver") || cleanName.toLowerCase().includes("rider") || cleanName.toLowerCase().includes("bayo") || cleanName.toLowerCase().includes("adeyemi")) {
-          avatar = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100";
-          role = "Driver";
-        } else if (cleanName.toLowerCase().includes("support") || cleanName.toLowerCase().includes("admin")) {
-          avatar = "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100";
-          role = "Admin";
-        } else if (cleanName.toLowerCase().includes("kitchen") || cleanName.toLowerCase().includes("store") || cleanName.toLowerCase().includes("hub") || cleanName.toLowerCase().includes("restaurant")) {
-          avatar = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100";
-          role = "Vendor";
+        const lowerName = cleanName.toLowerCase();
+        if (lowerName.includes("driver") || lowerName.includes("delivery") || lowerName.includes("rider")) {
+          const activeDriver = await Driver.findOne({ status: "Active" }) || await Driver.findOne();
+          if (activeDriver) {
+            return { id: activeDriver._id.toString(), name: activeDriver.name, role: "Driver", avatar: activeDriver.profilePic || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100" };
+          }
         }
-        return { id: recipientId || `partner-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, "-")}`, name: cleanName, role, avatar };
+        if (lowerName.includes("support") || lowerName.includes("admin") || lowerName.includes("help")) {
+          try {
+            const adm = await Admin.findOne();
+            if (adm) {
+              return { id: adm._id.toString(), name: adm.name || "Support Agent", role: "Admin", avatar: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=100" };
+            }
+          } catch (_) {
+          }
+        }
+        if (lowerName.includes("kitchen") || lowerName.includes("restaurant") || lowerName.includes("store") || lowerName.includes("vendor")) {
+          const anyVendor = await Vendor.findOne({ status: "Approved" }) || await Vendor.findOne();
+          if (anyVendor) {
+            return { id: anyVendor._id.toString(), name: anyVendor.businessName || anyVendor.name, role: "Vendor", avatar: anyVendor.logoUrl || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100" };
+          }
+        }
       }
       return null;
     };
     var findOrCreateConversation = async (authUser, recipient) => {
+      const myId = String(authUser.userId);
+      const otherId = String(recipient.id);
+      const pIds = [myId, otherId].sort();
       let conversation = await Conversation.findOne({
-        participantIds: { $all: [authUser.userId, recipient.id] }
+        participantIds: { $all: pIds }
       });
       if (!conversation) {
         conversation = await Conversation.create({
-          participantIds: [authUser.userId, recipient.id],
+          participantIds: pIds,
           participants: [
             {
-              userId: authUser.userId,
+              userId: myId,
               userModel: authUser.role,
               name: authUser.userName,
               avatar: authUser.userAvatar,
@@ -2754,7 +2774,7 @@ var require_messagingService = __commonJS({
               unreadCount: 0
             },
             {
-              userId: recipient.id,
+              userId: otherId,
               userModel: recipient.role,
               name: recipient.name,
               avatar: recipient.avatar,
@@ -2763,30 +2783,54 @@ var require_messagingService = __commonJS({
             }
           ]
         });
+      } else {
+        let dirty = false;
+        if (Array.isArray(conversation.participants)) {
+          const mePart = conversation.participants.find((p) => String(p.userId) === myId);
+          if (mePart && (mePart.name !== authUser.userName || mePart.avatar !== authUser.userAvatar)) {
+            mePart.name = authUser.userName;
+            mePart.avatar = authUser.userAvatar;
+            dirty = true;
+          }
+          const otherPart = conversation.participants.find((p) => String(p.userId) === otherId);
+          if (otherPart && recipient.name && otherPart.name !== recipient.name) {
+            otherPart.name = recipient.name;
+            dirty = true;
+          }
+        }
+        if (dirty) {
+          await conversation.save();
+        }
       }
       return conversation;
     };
     var getThreadsForUser = async (authUser) => {
-      const userId = authUser.userId;
-      const userName = authUser.userName;
+      const userId = String(authUser.userId);
       const conversations = await Conversation.find({
-        $or: [
-          { participantIds: userId },
-          { "participants.userId": userId },
-          { "participants.name": userName }
-        ]
+        participantIds: userId
       }).sort({ updatedAt: -1 });
       const threads = [];
-      const handledKeys = /* @__PURE__ */ new Set();
+      const handledParticipantIds = /* @__PURE__ */ new Set();
       for (const conv of conversations) {
-        const meParticipant = conv.participants.find((p) => p.userId === userId || p.name === userName);
-        const otherParticipant = conv.participants.find((p) => p.userId !== userId && p.name !== userName) || conv.participants[0] || {};
+        const meParticipant = conv.participants.find((p) => String(p.userId) === userId);
+        const otherParticipant = conv.participants.find((p) => String(p.userId) !== userId) || conv.participants[0] || {};
+        const otherId = String(otherParticipant.userId || conv._id);
         const otherName = otherParticipant.name || "Chat Partner";
-        const otherId = otherParticipant.userId || conv._id.toString();
         const otherAvatar = otherParticipant.avatar || (otherParticipant.role === "Driver" ? "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100" : "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100");
-        const key = otherName.toLowerCase();
-        if (!handledKeys.has(key)) {
-          handledKeys.add(key);
+        if (!handledParticipantIds.has(otherId)) {
+          handledParticipantIds.add(otherId);
+          let unread = meParticipant?.unreadCount || 0;
+          if (Message.countDocuments) {
+            try {
+              unread = await Message.countDocuments({
+                conversationId: conv._id,
+                recipientId: userId,
+                read: false
+              });
+            } catch (_) {
+              unread = meParticipant?.unreadCount || 0;
+            }
+          }
           threads.push({
             id: conv._id.toString(),
             conversationId: conv._id.toString(),
@@ -2795,31 +2839,28 @@ var require_messagingService = __commonJS({
             role: otherParticipant.role || "Vendor",
             lastMsg: conv.lastMessage?.text || (conv.lastMessage?.imageUrl ? "\u{1F4F7} Image" : conv.lastMessage?.type === "call" ? "Voice Call" : ""),
             time: conv.lastMessage?.createdAt ? new Date(conv.lastMessage.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : new Date(conv.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            unread: meParticipant ? meParticipant.unreadCount || 0 : 0,
+            unread,
             avatar: otherAvatar
           });
         }
       }
-      const legacyMessages = await Message.find({
+      const standaloneMessages = await Message.find({
         $or: [
           { senderId: userId },
-          { recipientId: userId },
-          { senderName: userName },
-          { recipientName: userName }
+          { recipientId: userId }
         ]
       }).sort({ createdAt: -1 });
-      for (const msg of legacyMessages) {
-        const isMe = msg.senderId === userId || msg.senderName === userName;
+      for (const msg of standaloneMessages) {
+        const isMe = String(msg.senderId) === userId;
+        const otherId = String(isMe ? msg.recipientId : msg.senderId);
         const otherName = isMe ? msg.recipientName : msg.senderName;
-        const otherId = isMe ? msg.recipientId : msg.senderId;
-        const key = (otherName || "").toLowerCase();
-        if (otherName && !handledKeys.has(key)) {
-          handledKeys.add(key);
+        if (otherId && !handledParticipantIds.has(otherId)) {
+          handledParticipantIds.add(otherId);
           threads.push({
-            id: otherId || key,
+            id: msg.conversationId ? msg.conversationId.toString() : otherId,
             conversationId: msg.conversationId ? msg.conversationId.toString() : null,
             recipientId: otherId,
-            name: otherName,
+            name: otherName || "Chat Partner",
             role: "Chat Partner",
             lastMsg: msg.text || (msg.imageUrl ? "\u{1F4F7} Image" : "Voice Call"),
             time: new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -2831,46 +2872,65 @@ var require_messagingService = __commonJS({
       return threads;
     };
     var getMessagesForUser = async (authUser, { conversationId, recipientName, recipientId }) => {
-      const userId = authUser.userId;
-      const userName = authUser.userName;
-      let query = null;
+      const userId = String(authUser.userId);
+      let conv = null;
       if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
-        const conv = await Conversation.findById(conversationId);
+        conv = await Conversation.findById(conversationId);
         if (!conv) {
           return { error: "Conversation not found", status: 404 };
         }
-        const isParticipant = conv.participantIds?.includes(userId) || conv.participants?.some((p) => p.userId === userId || p.name === userName);
+        const isParticipant = (conv.participantIds || []).map(String).includes(userId);
         if (!isParticipant) {
           return { error: "You are not authorized to access this conversation", status: 403 };
         }
-        query = { conversationId };
-        const mePart = conv.participants.find((p) => p.userId === userId || p.name === userName);
-        if (mePart && mePart.unreadCount > 0) {
-          mePart.unreadCount = 0;
-          await conv.save();
-        }
       } else {
-        const cleanName = (recipientName || "").trim();
-        const conditions = [];
-        if (cleanName) {
-          conditions.push(
-            { senderName: userName, recipientName: cleanName },
-            { senderName: cleanName, recipientName: userName }
-          );
+        const recipient = await resolveRecipient({ recipientId, recipientName });
+        if (recipient && String(recipient.id) !== userId) {
+          conv = await findOrCreateConversation(authUser, recipient);
         }
-        if (recipientId) {
+      }
+      let messages = [];
+      if (conv) {
+        const pIds = (conv.participantIds || []).map(String);
+        const otherPId = pIds.find((id) => id !== userId) || "";
+        messages = await Message.find({ conversationId: conv._id }).sort({ createdAt: 1 });
+        if (!messages || messages.length === 0) {
+          const fallbackConditions = [
+            { conversationId: conv._id.toString() }
+          ];
+          if (otherPId) {
+            fallbackConditions.push(
+              { senderId: userId, recipientId: otherPId },
+              { senderId: otherPId, recipientId: userId }
+            );
+          }
+          messages = await Message.find({ $or: fallbackConditions }).sort({ createdAt: 1 });
+        }
+        messages = (messages || []).filter((m) => String(m.senderId) === userId || String(m.recipientId) === userId);
+        if (Array.isArray(conv.participants)) {
+          const mePart = conv.participants.find((p) => String(p.userId) === userId);
+          if (mePart && mePart.unreadCount > 0) {
+            mePart.unreadCount = 0;
+            await conv.save();
+          }
+        }
+      } else if (recipientId || recipientName) {
+        const rId = recipientId ? String(recipientId) : null;
+        const conditions = [];
+        if (rId) {
           conditions.push(
-            { senderId: userId, recipientId },
-            { senderId: recipientId, recipientId: userId }
+            { senderId: userId, recipientId: rId },
+            { senderId: rId, recipientId: userId }
           );
         }
         if (conditions.length === 0) {
-          return { error: "Recipient name or ID is required", status: 400 };
+          return { error: "Valid recipient ID or conversation is required", status: 400 };
         }
-        query = { $or: conditions };
+        messages = await Message.find({ $or: conditions }).sort({ createdAt: 1 });
+      } else {
+        return { error: "Conversation or recipient is required", status: 400 };
       }
-      const messages = await Message.find(query).sort({ createdAt: 1 });
-      const unreadMsgIds = messages.filter((m) => !m.read && (m.recipientId === userId || m.recipientName === userName)).map((m) => m._id);
+      const unreadMsgIds = messages.filter((m) => !m.read && String(m.recipientId) === userId).map((m) => m._id);
       if (unreadMsgIds.length > 0) {
         await Message.updateMany(
           { _id: { $in: unreadMsgIds } },
@@ -2878,10 +2938,10 @@ var require_messagingService = __commonJS({
         );
       }
       const formatted = messages.map((m) => {
-        const isMe = m.senderId === userId || m.senderName === userName;
+        const isMe = String(m.senderId) === userId;
         return {
           id: m._id.toString(),
-          conversationId: m.conversationId ? m.conversationId.toString() : null,
+          conversationId: m.conversationId ? m.conversationId.toString() : conv ? conv._id.toString() : null,
           text: m.text,
           image: m.imageUrl,
           type: m.type || "text",
@@ -2894,7 +2954,14 @@ var require_messagingService = __commonJS({
           recipientName: m.recipientName
         };
       });
-      return { success: true, messages: formatted };
+      const otherParticipant = conv?.participants?.find((p) => String(p.userId) !== userId);
+      return {
+        success: true,
+        conversationId: conv ? conv._id.toString() : null,
+        recipientId: otherParticipant?.userId || (recipientId ? String(recipientId) : null),
+        recipientName: otherParticipant?.name || recipientName || "",
+        messages: formatted
+      };
     };
     var sendMessageForUser = async (authUser, { conversationId, recipientId, recipientName, text, imageUrl, type = "text", subText = "" }) => {
       const cleanText = typeof text === "string" ? text.trim() : "";
@@ -2910,9 +2977,9 @@ var require_messagingService = __commonJS({
       if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
         conversation = await Conversation.findById(conversationId);
         if (conversation) {
-          const otherPart = conversation.participants.find((p) => p.userId !== authUser.userId && p.name !== authUser.userName);
+          const otherPart = conversation.participants.find((p) => String(p.userId) !== String(authUser.userId));
           if (otherPart) {
-            recipient = { id: otherPart.userId, name: otherPart.name, role: otherPart.role, avatar: otherPart.avatar };
+            recipient = { id: String(otherPart.userId), name: otherPart.name, role: otherPart.role, avatar: otherPart.avatar };
           }
         }
       }
@@ -2922,15 +2989,18 @@ var require_messagingService = __commonJS({
       if (!recipient) {
         return { error: "Invalid or missing message recipient", status: 400 };
       }
+      if (String(authUser.userId) === String(recipient.id)) {
+        return { error: "Cannot send messages to yourself", status: 400 };
+      }
       if (!conversation) {
         conversation = await findOrCreateConversation(authUser, recipient);
       }
       const newMsg = await Message.create({
         conversationId: conversation._id,
-        senderId: authUser.userId,
+        senderId: String(authUser.userId),
         senderModel: authUser.role,
         senderName: authUser.userName,
-        recipientId: recipient.id,
+        recipientId: String(recipient.id),
         recipientModel: recipient.role,
         recipientName: recipient.name,
         text: cleanText,
@@ -2944,11 +3014,11 @@ var require_messagingService = __commonJS({
         imageUrl: imageUrl || null,
         type: cleanType,
         subText: subText ? subText.trim() : "",
-        senderId: authUser.userId,
+        senderId: String(authUser.userId),
         senderName: authUser.userName,
         createdAt: /* @__PURE__ */ new Date()
       };
-      const recipientPart = conversation.participants.find((p) => p.userId === recipient.id || p.name === recipient.name);
+      const recipientPart = conversation.participants.find((p) => String(p.userId) === String(recipient.id));
       if (recipientPart) {
         recipientPart.unreadCount = (recipientPart.unreadCount || 0) + 1;
       }
@@ -2960,7 +3030,7 @@ var require_messagingService = __commonJS({
           message: cleanText ? cleanText.length > 80 ? cleanText.slice(0, 77) + "..." : cleanText : imageUrl ? "Sent you a photo" : "Voice call notification",
           type: "message",
           recipient: notifyRole === "vendor" ? "vendor" : notifyRole === "driver" ? "driver" : "customer",
-          userId: recipient.id,
+          userId: String(recipient.id),
           read: false
         });
       } catch (notifErr) {
@@ -2968,6 +3038,8 @@ var require_messagingService = __commonJS({
       }
       return {
         success: true,
+        conversationId: conversation._id.toString(),
+        recipientId: String(recipient.id),
         data: {
           id: newMsg._id.toString(),
           conversationId: conversation._id.toString(),
@@ -4816,12 +4888,14 @@ var require_customerController = __commonJS({
         const resolvedDriverName = order.driverName || driver?.name || "Delivery Partner";
         const resolvedDriverPhone = order.driverPhone || driver?.phone || "08012345678";
         const resolvedDriverPic = driver?.profilePic || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100";
+        const resolvedDriverId = driver?._id ? driver._id.toString() : order.driverId ? order.driverId.toString() : null;
         res.status(200).json({
           success: true,
           data: {
             order,
             estimatedArrival,
             status: order.status,
+            driverId: resolvedDriverId,
             driverName: resolvedDriverName,
             driverPhone: resolvedDriverPhone,
             driverPic: resolvedDriverPic,

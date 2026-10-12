@@ -19,14 +19,25 @@ const ChatDetailScreen = ({ route, navigation }) => {
 
   const isFocused = useIsFocused();
   const scrollViewRef = useRef(null);
+  const [activeConversationId, setActiveConversationId] = useState(conversationId);
+  const [activeRecipientId, setActiveRecipientId] = useState(recipientId);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (conversationId && conversationId !== activeConversationId) {
+      setActiveConversationId(conversationId);
+    }
+    if (recipientId && recipientId !== activeRecipientId) {
+      setActiveRecipientId(recipientId);
+    }
+  }, [conversationId, recipientId]);
+
+  useEffect(() => {
     loadMessages(true);
-  }, [name, conversationId, recipientId]);
+  }, [name, activeConversationId, activeRecipientId]);
 
   // Real-time live polling every 3 seconds while screen is focused
   useEffect(() => {
@@ -35,19 +46,31 @@ const ChatDetailScreen = ({ route, navigation }) => {
       loadMessages(false);
     }, 3000);
     return () => clearInterval(interval);
-  }, [isFocused, name, conversationId, recipientId]);
+  }, [isFocused, name, activeConversationId, activeRecipientId]);
 
   const loadMessages = async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const params = { conversationId, recipientId, recipientName: name };
+      const params = { 
+        conversationId: activeConversationId || conversationId || undefined, 
+        recipientId: activeRecipientId || recipientId || undefined, 
+        recipientName: name 
+      };
       const res = role === 'Driver' ? await fetchDriverMessages(params) : await fetchMessages(params);
-      if (res && res.success && Array.isArray(res.messages)) {
-        setMessages(res.messages);
-        if (showLoading) {
-          setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: false });
-          }, 100);
+      if (res && res.success) {
+        if (res.conversationId && res.conversationId !== activeConversationId) {
+          setActiveConversationId(res.conversationId);
+        }
+        if (res.recipientId && res.recipientId !== activeRecipientId) {
+          setActiveRecipientId(res.recipientId);
+        }
+        if (Array.isArray(res.messages)) {
+          setMessages(res.messages);
+          if (showLoading) {
+            setTimeout(() => {
+              scrollViewRef.current?.scrollToEnd({ animated: false });
+            }, 100);
+          }
         }
       }
     } catch (e) {
@@ -80,8 +103,8 @@ const ChatDetailScreen = ({ route, navigation }) => {
 
     try {
       const payload = {
-        conversationId,
-        recipientId,
+        conversationId: activeConversationId || conversationId || null,
+        recipientId: activeRecipientId || recipientId || null,
         recipientName: name,
         text: cleanText,
         imageUrl,
@@ -93,8 +116,16 @@ const ChatDetailScreen = ({ route, navigation }) => {
         ? await sendDriverChatMessage(payload) 
         : await sendChatMessage(payload);
 
-      if (res && res.success && res.data) {
-        setMessages(prev => prev.map(m => m.id === tempId ? { ...res.data, sender: 'me' } : m));
+      if (res && res.success) {
+        if (res.conversationId && res.conversationId !== activeConversationId) {
+          setActiveConversationId(res.conversationId);
+        }
+        if (res.recipientId && res.recipientId !== activeRecipientId) {
+          setActiveRecipientId(res.recipientId);
+        }
+        if (res.data) {
+          setMessages(prev => prev.map(m => m.id === tempId ? { ...res.data, sender: 'me' } : m));
+        }
       }
     } catch (e) {
       console.error('Failed to send message to backend:', e);

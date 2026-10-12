@@ -183,6 +183,8 @@ const DriverOrderTracking = ({ route, navigation }) => {
                 style={styles.actionBtn}
                 onPress={() => navigation.navigate('ChatDetail', { 
                   name: displayOrder.customer || displayOrder.customerName || 'Customer', 
+                  recipientId: displayOrder.customerId || displayOrder.customer?._id || displayOrder.userId,
+                  type: 'Customer',
                   role: 'Driver' 
                 })}
               >

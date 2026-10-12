@@ -5,6 +5,7 @@ const Message = require('../models/Message');
 const Customer = require('../models/Customer');
 const Driver = require('../models/Driver');
 const Vendor = require('../models/Vendor');
+const Admin = require('../models/Admin');
 const Notification = require('../models/Notification');
 const {
   resolveAuthUser,
@@ -37,6 +38,7 @@ const runMessagingTests = async () => {
     customers: [],
     drivers: [],
     vendors: [],
+    admins: [],
     conversations: [],
     messages: [],
     notifications: []
@@ -49,12 +51,15 @@ const runMessagingTests = async () => {
   const origDriverFindOne = Driver.findOne;
   const origVendorFindById = Vendor.findById;
   const origVendorFindOne = Vendor.findOne;
+  const origAdminFindById = Admin.findById;
+  const origAdminFindOne = Admin.findOne;
   const origConvFind = Conversation.find;
   const origConvFindOne = Conversation.findOne;
   const origConvCreate = Conversation.create;
   const origMsgFind = Message.find;
   const origMsgCreate = Message.create;
   const origMsgUpdateMany = Message.updateMany;
+  const origMsgCountDocuments = Message.countDocuments;
   const origNotifCreate = Notification.create;
   const origNotifFindOne = Notification.findOne;
 
@@ -102,6 +107,9 @@ const runMessagingTests = async () => {
     return mockDb.vendors[0] || null;
   };
 
+  Admin.findById = async (id) => mockDb.admins.find(a => a._id.toString() === id.toString()) || null;
+  Admin.findOne = async () => mockDb.admins[0] || null;
+
   Conversation.create = async (doc) => {
     const record = {
       ...doc,
@@ -132,7 +140,9 @@ const runMessagingTests = async () => {
   Conversation.find = (q) => ({
     sort: (s) => {
       let results = [...mockDb.conversations];
-      if (q?.$or) {
+      if (q?.participantIds) {
+        results = results.filter(c => c.participantIds.includes(q.participantIds));
+      } else if (q?.$or) {
         results = results.filter(c => {
           return q.$or.some(cond => {
             if (cond.participantIds && c.participantIds.includes(cond.participantIds)) return true;
@@ -197,6 +207,15 @@ const runMessagingTests = async () => {
       });
     }
     return { modifiedCount: count };
+  };
+
+  Message.countDocuments = async (q) => {
+    return mockDb.messages.filter(m => {
+      if (q?.conversationId && m.conversationId?.toString() !== q.conversationId.toString()) return false;
+      if (q?.recipientId && m.recipientId !== q.recipientId) return false;
+      if (q?.read !== undefined && m.read !== q.read) return false;
+      return true;
+    }).length;
   };
 
   Notification.create = async (doc) => {
@@ -390,6 +409,58 @@ const runMessagingTests = async () => {
       assert.strictEqual(notif.recipient, 'driver');
     });
 
+    // 8. Multi-User Name Collision & Privacy Isolation (The Core Bug Fixed)
+    await test('14. Users with identical default names ("Customer") do NOT leak messages or collapse threads', async () => {
+      const customerA = {
+        _id: new mongoose.Types.ObjectId(),
+        name: 'Customer',
+        email: 'custA@denish.ng',
+        profilePic: ''
+      };
+      const customerB = {
+        _id: new mongoose.Types.ObjectId(),
+        name: 'Customer',
+        email: 'custB@denish.ng',
+        profilePic: ''
+      };
+      mockDb.customers.push(customerA, customerB);
+
+      const authCustA = { userId: customerA._id.toString(), userName: 'Customer', role: 'Customer', userAvatar: '' };
+      const authCustB = { userId: customerB._id.toString(), userName: 'Customer', role: 'Customer', userAvatar: '' };
+
+      // Customer A sends private message to Vendor
+      const sendRes = await sendMessageForUser(authCustA, {
+        recipientId: testVendor._id.toString(),
+        text: 'Private secret message from Cust A to Vendor',
+        type: 'text'
+      });
+      assert.strictEqual(sendRes.success, true);
+
+      // Customer B checks their threads: MUST BE 0 (no leakage from Customer A!)
+      const threadsB = await getThreadsForUser(authCustB);
+      assert.strictEqual(threadsB.length, 0, 'Customer B should NOT see Customer A\'s threads even if both named "Customer"');
+
+      // Customer B attempts to fetch messages for Customer A's conversation: MUST BE 403 Forbidden
+      const leakAttempt = await getMessagesForUser(authCustB, { conversationId: sendRes.conversationId });
+      assert.strictEqual(leakAttempt.status, 403, 'Customer B cannot access Customer A\'s conversation');
+
+      // Customer A fetches messages: sees their message, with sender === 'me'
+      const custAMsgs = await getMessagesForUser(authCustA, { conversationId: sendRes.conversationId });
+      assert.strictEqual(custAMsgs.success, true);
+      assert.strictEqual(custAMsgs.messages.length, 1);
+      assert.strictEqual(custAMsgs.messages[0].text, 'Private secret message from Cust A to Vendor');
+      assert.strictEqual(custAMsgs.messages[0].sender, 'me');
+    });
+
+    await test('15. Opening messages by recipientId resolves canonical thread and returns valid conversationId', async () => {
+      // Vendor opens chat with Customer A via recipientId
+      const authVnd = { userId: testVendor._id.toString(), userName: "Mama's Kitchen", role: 'Vendor', userAvatar: '' };
+      const res = await getMessagesForUser(authVnd, { recipientId: testCustomer._id.toString() });
+      assert.strictEqual(res.success, true);
+      assert(res.conversationId, 'Should return canonical conversationId');
+      assert.strictEqual(res.recipientId, testCustomer._id.toString());
+    });
+
   } finally {
     // Restore original Mongoose methods
     Customer.findById = origCustomerFindById;
@@ -398,12 +469,15 @@ const runMessagingTests = async () => {
     Driver.findOne = origDriverFindOne;
     Vendor.findById = origVendorFindById;
     Vendor.findOne = origVendorFindOne;
+    Admin.findById = origAdminFindById;
+    Admin.findOne = origAdminFindOne;
     Conversation.find = origConvFind;
     Conversation.findOne = origConvFindOne;
     Conversation.create = origConvCreate;
     Message.find = origMsgFind;
     Message.create = origMsgCreate;
     Message.updateMany = origMsgUpdateMany;
+    Message.countDocuments = origMsgCountDocuments;
     Notification.create = origNotifCreate;
     Notification.findOne = origNotifFindOne;
   }

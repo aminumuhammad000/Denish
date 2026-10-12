@@ -267,9 +267,28 @@ const OrdersScreen = () => {
               </View>
             </ScrollView>
 
-            <TouchableOpacity style={styles.modalDoneBtn} onPress={() => setSelectedOrder(null)}>
-              <Text style={styles.modalDoneBtnText}>Close</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+              <TouchableOpacity 
+                style={[styles.modalDoneBtn, { flex: 1, backgroundColor: '#FFF3E0', borderWidth: 1, borderColor: '#FFE0B2', marginTop: 0 }]} 
+                onPress={() => {
+                  const ord = selectedOrder;
+                  setSelectedOrder(null);
+                  navigation.navigate('ChatDetail', {
+                    name: ord.customerName || 'Customer',
+                    recipientId: ord.customerId || ord.userId,
+                    type: 'Customer'
+                  });
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="chatbubble-ellipses" size={16} color="#FF7D01" />
+                  <Text style={[styles.modalDoneBtnText, { color: '#FF7D01' }]}>Chat</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalDoneBtn, { flex: 1, marginTop: 0 }]} onPress={() => setSelectedOrder(null)}>
+                <Text style={styles.modalDoneBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

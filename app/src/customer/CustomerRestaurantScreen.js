@@ -121,7 +121,11 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
               </TouchableOpacity>
               <TouchableOpacity 
                 style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF3E0', justifyContent: 'center', alignItems: 'center' }}
-                onPress={() => navigation.navigate('ChatDetail', { name: vendor.businessName || vendor.name, type: 'Vendor' })}
+                onPress={() => navigation.navigate('ChatDetail', { 
+                  name: vendor.businessName || vendor.name, 
+                  recipientId: vendor._id || vendor.id, 
+                  type: 'Vendor' 
+                })}
               >
                 <Ionicons name="chatbubble-ellipses" size={18} color="#FF7D01" />
               </TouchableOpacity>

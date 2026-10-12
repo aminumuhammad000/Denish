@@ -375,12 +375,15 @@ const getOrderTracking = async (req, res) => {
     const resolvedDriverPhone = order.driverPhone || driver?.phone || '08012345678';
     const resolvedDriverPic = driver?.profilePic || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100';
 
+    const resolvedDriverId = driver?._id ? driver._id.toString() : (order.driverId ? order.driverId.toString() : null);
+
     res.status(200).json({
       success: true,
       data: {
         order,
         estimatedArrival,
         status: order.status,
+        driverId: resolvedDriverId,
         driverName: resolvedDriverName,
         driverPhone: resolvedDriverPhone,
         driverPic: resolvedDriverPic,
