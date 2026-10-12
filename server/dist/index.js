@@ -3312,14 +3312,45 @@ var require_vendorController = __commonJS({
     };
     var getVendorNotifications = async (req, res) => {
       try {
+        const vendor = await getCurrentVendor(req);
         const Notification = require_Notification();
-        const notifications = await Notification.find({
-          $or: [
-            { recipient: { $in: ["vendor", "all"] } },
-            { recipient: { $exists: false } },
-            { recipient: null }
-          ]
-        }).sort({ createdAt: -1 }).limit(50);
+        let query;
+        if (vendor && vendor._id) {
+          const validVendorIds = [vendor._id, String(vendor._id)];
+          if (mongoose.Types.ObjectId.isValid(vendor._id)) {
+            validVendorIds.push(new mongoose.Types.ObjectId(vendor._id));
+          }
+          query = {
+            $or: [
+              // 1. Personal notifications for this specific vendor
+              {
+                recipient: "vendor",
+                userId: { $in: validVendorIds }
+              },
+              // 2. Broadcast notifications for vendors (strictly non-payment, non-customer-wallet)
+              {
+                recipient: { $in: ["vendor", "all"] },
+                $or: [
+                  { userId: null },
+                  { userId: { $exists: false } }
+                ],
+                type: { $nin: ["payment"] },
+                title: { $not: /customer wallet|wallet funded|wallet credited/i }
+              }
+            ]
+          };
+        } else {
+          query = {
+            recipient: { $in: ["vendor", "all"] },
+            $or: [
+              { userId: null },
+              { userId: { $exists: false } }
+            ],
+            type: { $nin: ["payment"] },
+            title: { $not: /customer wallet|wallet funded|wallet credited/i }
+          };
+        }
+        const notifications = await Notification.find(query).sort({ createdAt: -1 }).limit(50);
         res.status(200).json({ success: true, data: notifications });
       } catch (error) {
         console.error("getVendorNotifications error:", error);
@@ -3344,18 +3375,27 @@ var require_vendorController = __commonJS({
     };
     var markAllVendorNotificationsRead = async (req, res) => {
       try {
+        const vendor = await getCurrentVendor(req);
         const Notification = require_Notification();
-        await Notification.updateMany(
-          {
-            $or: [
-              { recipient: { $in: ["vendor", "all"] } },
-              { recipient: { $exists: false } },
-              { recipient: null }
-            ],
-            read: false
-          },
-          { read: true }
-        );
+        if (vendor && vendor._id) {
+          const validVendorIds = [vendor._id, String(vendor._id)];
+          if (mongoose.Types.ObjectId.isValid(vendor._id)) {
+            validVendorIds.push(new mongoose.Types.ObjectId(vendor._id));
+          }
+          await Notification.updateMany(
+            {
+              recipient: { $in: ["vendor", "all"] },
+              userId: { $in: validVendorIds },
+              read: false
+            },
+            { read: true }
+          );
+        } else {
+          await Notification.updateMany(
+            { recipient: "vendor", read: false },
+            { read: true }
+          );
+        }
         res.status(200).json({ success: true, message: "All notifications marked as read" });
       } catch (error) {
         console.error("markAllVendorNotificationsRead error:", error);
@@ -4484,8 +4524,8 @@ var require_customerController = __commonJS({
       respondCallService
     } = require_callService();
     var getCurrentCustomer = async (req) => {
-      const userId = req.headers["x-user-id"];
-      const userEmail = req.headers["x-user-email"];
+      const userId = req.headers["x-user-id"] || req.headers["x-customer-id"];
+      const userEmail = req.headers["x-user-email"] || req.headers["x-customer-email"];
       const authHeader = req.headers["authorization"];
       if (userId && mongoose.Types.ObjectId.isValid(userId)) {
         const customer = await Customer.findById(userId);
@@ -4505,6 +4545,9 @@ var require_customerController = __commonJS({
             const customer = await Customer.findById(extractedId);
             if (customer) return customer;
           }
+        } else if (mongoose.Types.ObjectId.isValid(cleanToken)) {
+          const customer = await Customer.findById(cleanToken);
+          if (customer) return customer;
         }
       }
       const ref = req.body?.tx_ref || req.body?.reference || req.query?.tx_ref || req.query?.reference;
@@ -4515,7 +4558,12 @@ var require_customerController = __commonJS({
           if (customer) return customer;
         }
       }
-      return await Customer.findOne().sort({ createdAt: -1 });
+      const explicitId = req.query?.customerId || req.query?.userId || req.body?.customerId || req.body?.userId;
+      if (explicitId && mongoose.Types.ObjectId.isValid(explicitId)) {
+        const customer = await Customer.findById(explicitId);
+        if (customer) return customer;
+      }
+      return null;
     };
     var getRestaurants = async (req, res) => {
       try {
@@ -4613,6 +4661,19 @@ var require_customerController = __commonJS({
             status: "Completed",
             reference: `ORD-WAL-${generatedOrderId}`
           });
+          try {
+            const Notification = require_Notification();
+            await Notification.create({
+              title: "Wallet Payment \u{1F4B3}",
+              message: `\u20A6${finalTotal.toLocaleString()} debited from your wallet for order #${generatedOrderId}. Remaining balance: \u20A6${customer.walletBalance.toLocaleString()}.`,
+              type: "payment",
+              recipient: "customer",
+              userId: customer._id,
+              read: false
+            });
+          } catch (ne) {
+            console.warn("Wallet debit notification error:", ne.message);
+          }
         }
         const newOrder = await Order.create({
           orderId: generatedOrderId,
@@ -5363,19 +5424,40 @@ var require_customerController = __commonJS({
         const Notification = require_Notification();
         let query;
         if (customer && customer._id) {
+          const validUserIds = [customer._id, String(customer._id)];
+          if (mongoose.Types.ObjectId.isValid(customer._id)) {
+            validUserIds.push(new mongoose.Types.ObjectId(customer._id));
+          }
           query = {
             $or: [
-              { recipient: { $in: ["customer", "all"] }, userId: customer._id },
-              { recipient: "all", userId: null },
-              // For general broadcast notifications without specific user, exclude wallet/payment alerts
-              { recipient: "customer", userId: null, type: { $ne: "payment" } }
+              // 1. Personal notifications for this customer (includes wallet credit/debit alerts)
+              {
+                recipient: { $in: ["customer", "all"] },
+                userId: { $in: validUserIds }
+              },
+              // 2. Broadcast announcements for all customers (STRICTLY non-wallet, non-payment, no userId)
+              {
+                recipient: { $in: ["customer", "all"] },
+                $or: [
+                  { userId: null },
+                  { userId: { $exists: false } }
+                ],
+                type: { $nin: ["payment", "payout"] },
+                title: { $not: /wallet|credit|debit|payout/i },
+                message: { $not: /wallet|credited|debited|payout/i }
+              }
             ]
           };
         } else {
           query = {
             recipient: { $in: ["customer", "all"] },
-            type: { $ne: "payment" }
-            // Never show payment/wallet notifications without authenticated customer
+            $or: [
+              { userId: null },
+              { userId: { $exists: false } }
+            ],
+            type: { $nin: ["payment", "payout"] },
+            title: { $not: /wallet|credit|debit|payout/i },
+            message: { $not: /wallet|credited|debited|payout/i }
           };
         }
         const notifications = await Notification.find(query).sort({ createdAt: -1 }).limit(50);
@@ -5406,19 +5488,16 @@ var require_customerController = __commonJS({
         const customer = await getCurrentCustomer(req);
         const Notification = require_Notification();
         if (customer && customer._id) {
+          const validUserIds = [customer._id, String(customer._id)];
+          if (mongoose.Types.ObjectId.isValid(customer._id)) {
+            validUserIds.push(new mongoose.Types.ObjectId(customer._id));
+          }
           await Notification.updateMany(
             {
-              $or: [
-                { userId: customer._id },
-                { recipient: "customer", userId: null }
-              ],
+              recipient: { $in: ["customer", "all"] },
+              userId: { $in: validUserIds },
               read: false
             },
-            { read: true }
-          );
-        } else {
-          await Notification.updateMany(
-            { recipient: "customer", read: false },
             { read: true }
           );
         }
@@ -6564,14 +6643,45 @@ var require_driverController = __commonJS({
     };
     var getDriverNotifications = async (req, res) => {
       try {
+        const driver = await getCurrentDriver(req);
         const Notification = require_Notification();
-        const notifications = await Notification.find({
-          $or: [
-            { recipient: { $in: ["driver", "all"] } },
-            { recipient: { $exists: false } },
-            { recipient: null }
-          ]
-        }).sort({ createdAt: -1 }).limit(50);
+        let query;
+        if (driver && driver._id) {
+          const validDriverIds = [driver._id, String(driver._id)];
+          if (mongoose.Types.ObjectId.isValid(driver._id)) {
+            validDriverIds.push(new mongoose.Types.ObjectId(driver._id));
+          }
+          query = {
+            $or: [
+              // 1. Personal notifications for this specific driver
+              {
+                recipient: "driver",
+                userId: { $in: validDriverIds }
+              },
+              // 2. Broadcast notifications for drivers (strictly non-payment, non-customer-wallet)
+              {
+                recipient: { $in: ["driver", "all"] },
+                $or: [
+                  { userId: null },
+                  { userId: { $exists: false } }
+                ],
+                type: { $nin: ["payment", "wallet"] },
+                title: { $not: /wallet funded|wallet credited|customer wallet/i }
+              }
+            ]
+          };
+        } else {
+          query = {
+            recipient: { $in: ["driver", "all"] },
+            $or: [
+              { userId: null },
+              { userId: { $exists: false } }
+            ],
+            type: { $nin: ["payment", "wallet"] },
+            title: { $not: /wallet funded|wallet credited|customer wallet/i }
+          };
+        }
+        const notifications = await Notification.find(query).sort({ createdAt: -1 }).limit(50);
         res.status(200).json({ success: true, data: notifications });
       } catch (error) {
         console.error("getDriverNotifications error:", error);
@@ -6596,18 +6706,27 @@ var require_driverController = __commonJS({
     };
     var markAllDriverNotificationsRead = async (req, res) => {
       try {
+        const driver = await getCurrentDriver(req);
         const Notification = require_Notification();
-        await Notification.updateMany(
-          {
-            $or: [
-              { recipient: { $in: ["driver", "all"] } },
-              { recipient: { $exists: false } },
-              { recipient: null }
-            ],
-            read: false
-          },
-          { read: true }
-        );
+        if (driver && driver._id) {
+          const validDriverIds = [driver._id, String(driver._id)];
+          if (mongoose.Types.ObjectId.isValid(driver._id)) {
+            validDriverIds.push(new mongoose.Types.ObjectId(driver._id));
+          }
+          await Notification.updateMany(
+            {
+              recipient: { $in: ["driver", "all"] },
+              userId: { $in: validDriverIds },
+              read: false
+            },
+            { read: true }
+          );
+        } else {
+          await Notification.updateMany(
+            { recipient: "driver", read: false },
+            { read: true }
+          );
+        }
         res.status(200).json({ success: true, message: "All notifications marked as read" });
       } catch (error) {
         console.error("markAllDriverNotificationsRead error:", error);

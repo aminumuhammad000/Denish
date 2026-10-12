@@ -511,15 +511,48 @@ const updateDriverLocationHandler = async (req, res) => {
 // ─── GET Driver Notifications ────────────────────────────────────────────────
 const getDriverNotifications = async (req, res) => {
   try {
+    const driver = await getCurrentDriver(req);
     const Notification = require('../models/Notification');
-    const notifications = await Notification.find({
-      $or: [
-        { recipient: { $in: ['driver', 'all'] } },
-        { recipient: { $exists: false } },
-        { recipient: null }
-      ]
-    }).sort({ createdAt: -1 }).limit(50);
+    let query;
 
+    if (driver && driver._id) {
+      const validDriverIds = [driver._id, String(driver._id)];
+      if (mongoose.Types.ObjectId.isValid(driver._id)) {
+        validDriverIds.push(new mongoose.Types.ObjectId(driver._id));
+      }
+
+      query = {
+        $or: [
+          // 1. Personal notifications for this specific driver
+          {
+            recipient: 'driver',
+            userId: { $in: validDriverIds }
+          },
+          // 2. Broadcast notifications for drivers (strictly non-payment, non-customer-wallet)
+          {
+            recipient: { $in: ['driver', 'all'] },
+            $or: [
+              { userId: null },
+              { userId: { $exists: false } }
+            ],
+            type: { $nin: ['payment', 'wallet'] },
+            title: { $not: /wallet funded|wallet credited|customer wallet/i }
+          }
+        ]
+      };
+    } else {
+      query = {
+        recipient: { $in: ['driver', 'all'] },
+        $or: [
+          { userId: null },
+          { userId: { $exists: false } }
+        ],
+        type: { $nin: ['payment', 'wallet'] },
+        title: { $not: /wallet funded|wallet credited|customer wallet/i }
+      };
+    }
+
+    const notifications = await Notification.find(query).sort({ createdAt: -1 }).limit(50);
     res.status(200).json({ success: true, data: notifications });
   } catch (error) {
     console.error('getDriverNotifications error:', error);
@@ -548,18 +581,27 @@ const markDriverNotificationRead = async (req, res) => {
 // ─── MARK ALL Driver Notifications as Read ───────────────────────────────────
 const markAllDriverNotificationsRead = async (req, res) => {
   try {
+    const driver = await getCurrentDriver(req);
     const Notification = require('../models/Notification');
-    await Notification.updateMany(
-      { 
-        $or: [
-          { recipient: { $in: ['driver', 'all'] } },
-          { recipient: { $exists: false } },
-          { recipient: null }
-        ],
-        read: false 
-      },
-      { read: true }
-    );
+    if (driver && driver._id) {
+      const validDriverIds = [driver._id, String(driver._id)];
+      if (mongoose.Types.ObjectId.isValid(driver._id)) {
+        validDriverIds.push(new mongoose.Types.ObjectId(driver._id));
+      }
+      await Notification.updateMany(
+        {
+          recipient: { $in: ['driver', 'all'] },
+          userId: { $in: validDriverIds },
+          read: false
+        },
+        { read: true }
+      );
+    } else {
+      await Notification.updateMany(
+        { recipient: 'driver', read: false },
+        { read: true }
+      );
+    }
     res.status(200).json({ success: true, message: 'All notifications marked as read' });
   } catch (error) {
     console.error('markAllDriverNotificationsRead error:', error);

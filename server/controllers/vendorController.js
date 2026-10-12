@@ -356,15 +356,48 @@ const getVendorTransactions = async (req, res) => {
 // ─── GET Vendor Notifications ────────────────────────────────────────────────
 const getVendorNotifications = async (req, res) => {
   try {
+    const vendor = await getCurrentVendor(req);
     const Notification = require('../models/Notification');
-    const notifications = await Notification.find({
-      $or: [
-        { recipient: { $in: ['vendor', 'all'] } },
-        { recipient: { $exists: false } },
-        { recipient: null }
-      ]
-    }).sort({ createdAt: -1 }).limit(50);
+    let query;
 
+    if (vendor && vendor._id) {
+      const validVendorIds = [vendor._id, String(vendor._id)];
+      if (mongoose.Types.ObjectId.isValid(vendor._id)) {
+        validVendorIds.push(new mongoose.Types.ObjectId(vendor._id));
+      }
+
+      query = {
+        $or: [
+          // 1. Personal notifications for this specific vendor
+          {
+            recipient: 'vendor',
+            userId: { $in: validVendorIds }
+          },
+          // 2. Broadcast notifications for vendors (strictly non-payment, non-customer-wallet)
+          {
+            recipient: { $in: ['vendor', 'all'] },
+            $or: [
+              { userId: null },
+              { userId: { $exists: false } }
+            ],
+            type: { $nin: ['payment'] },
+            title: { $not: /customer wallet|wallet funded|wallet credited/i }
+          }
+        ]
+      };
+    } else {
+      query = {
+        recipient: { $in: ['vendor', 'all'] },
+        $or: [
+          { userId: null },
+          { userId: { $exists: false } }
+        ],
+        type: { $nin: ['payment'] },
+        title: { $not: /customer wallet|wallet funded|wallet credited/i }
+      };
+    }
+
+    const notifications = await Notification.find(query).sort({ createdAt: -1 }).limit(50);
     res.status(200).json({ success: true, data: notifications });
   } catch (error) {
     console.error('getVendorNotifications error:', error);
@@ -393,18 +426,27 @@ const markVendorNotificationRead = async (req, res) => {
 // ─── MARK ALL Vendor Notifications as Read ───────────────────────────────────
 const markAllVendorNotificationsRead = async (req, res) => {
   try {
+    const vendor = await getCurrentVendor(req);
     const Notification = require('../models/Notification');
-    await Notification.updateMany(
-      { 
-        $or: [
-          { recipient: { $in: ['vendor', 'all'] } },
-          { recipient: { $exists: false } },
-          { recipient: null }
-        ],
-        read: false 
-      },
-      { read: true }
-    );
+    if (vendor && vendor._id) {
+      const validVendorIds = [vendor._id, String(vendor._id)];
+      if (mongoose.Types.ObjectId.isValid(vendor._id)) {
+        validVendorIds.push(new mongoose.Types.ObjectId(vendor._id));
+      }
+      await Notification.updateMany(
+        {
+          recipient: { $in: ['vendor', 'all'] },
+          userId: { $in: validVendorIds },
+          read: false
+        },
+        { read: true }
+      );
+    } else {
+      await Notification.updateMany(
+        { recipient: 'vendor', read: false },
+        { read: true }
+      );
+    }
     res.status(200).json({ success: true, message: 'All notifications marked as read' });
   } catch (error) {
     console.error('markAllVendorNotificationsRead error:', error);

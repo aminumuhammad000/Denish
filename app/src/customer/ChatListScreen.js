@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import CustomerBottomTab from './components/CustomerBottomTab';
 import { fetchChatThreads } from '../services/api';
+import { getAuthSession } from '../services/authStorage';
 import { useIsFocused } from '@react-navigation/native';
 
 const ChatListScreen = ({ navigation }) => {
@@ -14,6 +15,13 @@ const ChatListScreen = ({ navigation }) => {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userRole, setUserRole] = useState('customer');
+
+  useEffect(() => {
+    getAuthSession().then(s => {
+      if (s?.role) setUserRole(s.role);
+    });
+  }, [isFocused]);
 
   useEffect(() => {
     if (isFocused) {
@@ -131,7 +139,7 @@ const ChatListScreen = ({ navigation }) => {
           }
         />
       )}
-      <CustomerBottomTab activeTab="Chats" navigation={navigation} />
+      {userRole === 'customer' && <CustomerBottomTab activeTab="Chats" navigation={navigation} />}
     </SafeAreaView>
   );
 };

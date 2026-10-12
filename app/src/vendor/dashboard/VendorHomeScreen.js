@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/Colors';
-import { getVendorDashboardData, updateVendorProfile, updateVendorOrderStatus, fetchIncomingCall, getAppNotifications } from '../../services/api';
+import { getVendorDashboardData, updateVendorProfile, updateVendorOrderStatus, fetchIncomingCall, getAppNotifications, fetchChatThreads } from '../../services/api';
 import { getAuthSession } from '../../services/authStorage';
 
 const statusColor = { new: '#FF8C00', preparing: '#27AE60' };
@@ -21,6 +21,7 @@ const VendorHomeScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   const handledCallsRef = useRef(new Set());
 
@@ -66,9 +67,10 @@ const VendorHomeScreen = ({ navigation }) => {
   const fetchDashboard = useCallback(async (isRef = false) => {
     if (isRef) setRefreshing(true);
     try {
-      const [dashRes, notifRes] = await Promise.allSettled([
+      const [dashRes, notifRes, chatRes] = await Promise.allSettled([
         getVendorDashboardData(),
         getAppNotifications('vendor'),
+        fetchChatThreads(),
       ]);
 
       if (dashRes.status === 'fulfilled' && dashRes.value && dashRes.value.success) {
@@ -80,6 +82,13 @@ const VendorHomeScreen = ({ navigation }) => {
         setUnreadNotifCount(notifRes.value.data.filter(n => !n.read).length);
       } else {
         setUnreadNotifCount(0);
+      }
+
+      if (chatRes.status === 'fulfilled' && chatRes.value?.success && Array.isArray(chatRes.value.threads)) {
+        const unread = chatRes.value.threads.reduce((sum, t) => sum + (t.unread || 0), 0);
+        setUnreadChatCount(unread);
+      } else {
+        setUnreadChatCount(0);
       }
     } catch (err) {
       console.error(err);
@@ -211,7 +220,7 @@ const VendorHomeScreen = ({ navigation }) => {
           <View style={styles.webHeaderInner}>
             <View style={styles.headerTop}>
               <View style={styles.headerUserInfo}>
-                <TouchableOpacity onPress={() => navigation.navigate('VendorProfile')}>
+                <TouchableOpacity onPress={() => navigation.navigate('VendorProfile')} activeOpacity={0.8}>
                   <View style={styles.avatar}>
                     <Image
                       source={{ uri: data.logoUrl || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80' }}
@@ -219,18 +228,33 @@ const VendorHomeScreen = ({ navigation }) => {
                     />
                   </View>
                 </TouchableOpacity>
-                <View style={{ marginLeft: 12 }}>
+                <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={styles.welcomeText}>Welcome back,</Text>
-                  <Text style={styles.businessNameHeader}>{data.businessName || data.name || "Vendor"}</Text>
+                  <Text style={styles.businessNameHeader} numberOfLines={1} ellipsizeMode="tail">
+                    {data.businessName || data.name || "Vendor"}
+                  </Text>
                 </View>
               </View>
-              <TouchableOpacity
-                style={styles.settingsBtn}
-                onPress={() => navigation.navigate('Notifications')}
-              >
-                <Ionicons name="notifications-outline" size={22} color="#fff" />
-                {unreadNotifCount > 0 && <View style={styles.notifBadge} />}
-              </TouchableOpacity>
+              <View style={styles.headerActionBtns}>
+                <TouchableOpacity
+                  style={styles.settingsBtn}
+                  onPress={() => navigation.navigate('ChatList')}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Messages"
+                >
+                  <Ionicons name="chatbubble-ellipses-outline" size={21} color="#fff" />
+                  {unreadChatCount > 0 && <View style={styles.notifBadge} />}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.settingsBtn}
+                  onPress={() => navigation.navigate('Notifications', { role: 'vendor' })}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Notifications"
+                >
+                  <Ionicons name="notifications-outline" size={22} color="#fff" />
+                  {unreadNotifCount > 0 && <View style={styles.notifBadge} />}
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Store Status Card - Floating */}
@@ -454,6 +478,8 @@ const styles = StyleSheet.create({
   headerUserInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
   },
   avatar: {
     width: 44,
@@ -470,6 +496,12 @@ const styles = StyleSheet.create({
   avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   welcomeText: { color: 'rgba(255,255,255,0.85)', fontSize: 12 },
   businessNameHeader: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  headerActionBtns: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 0,
+  },
   settingsBtn: {
     width: 40,
     height: 40,

@@ -18,6 +18,7 @@ import {
   markAppNotificationRead,
   markAllAppNotificationsRead,
 } from '../services/api';
+import { getAuthSession } from '../services/authStorage';
 
 // ─── Helper: relative time ────────────────────────────────────────────────────
 const timeAgo = (dateStr) => {
@@ -91,18 +92,37 @@ const NotificationsScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing]     = useState(false);
   const [error, setError]               = useState('');
 
-  const currentRole = route?.params?.role || 'customer';
+  const [currentRole, setCurrentRole]   = useState(route?.params?.role || null);
   const unreadCountRef = useRef(0);
   unreadCountRef.current = notifications.filter(n => !n.read).length;
 
+  useEffect(() => {
+    let isMounted = true;
+    async function determineRole() {
+      if (route?.params?.role) {
+        if (isMounted) setCurrentRole(route.params.role);
+      } else {
+        const session = await getAuthSession();
+        if (isMounted) setCurrentRole(session?.role || 'customer');
+      }
+    }
+    determineRole();
+    return () => { isMounted = false; };
+  }, [route?.params?.role]);
+
   const fetchNotifications = useCallback(async (isRefresh = false) => {
+    if (!currentRole) return;
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError('');
     try {
       const res = await getAppNotifications(currentRole);
       if (res?.success && Array.isArray(res.data)) {
-        setNotifications(res.data);
+        // Extra safeguard: Only customer accounts should ever see personal wallet/payment notifications
+        const sanitized = currentRole === 'customer'
+          ? res.data
+          : res.data.filter(n => n.type !== 'payment' && !/wallet|customer balance/i.test(n.title || ''));
+        setNotifications(sanitized);
       } else {
         setError('Could not load notifications.');
       }
@@ -115,13 +135,15 @@ const NotificationsScreen = ({ navigation, route }) => {
   }, [currentRole]);
 
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    if (currentRole) {
+      fetchNotifications();
+    }
+  }, [fetchNotifications, currentRole]);
 
   useEffect(() => {
     return () => {
       // When the user leaves the notifications screen, automatically mark unread as read
-      if (unreadCountRef.current > 0) {
+      if (currentRole && unreadCountRef.current > 0) {
         markAllAppNotificationsRead(currentRole).catch(() => {});
       }
     };

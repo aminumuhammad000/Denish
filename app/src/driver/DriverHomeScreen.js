@@ -246,7 +246,7 @@ const DriverHomeScreen = ({ navigation }) => {
 
               <TouchableOpacity
                 style={styles.notifBtn}
-                onPress={() => navigation.navigate('Notifications')}
+                onPress={() => navigation.navigate('Notifications', { role: 'driver' })}
               >
                 <Ionicons name="notifications-outline" size={24} color="#FFF" />
                 {unreadNotifCount > 0 && <View style={styles.notifBadge} />}

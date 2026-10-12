@@ -447,7 +447,9 @@ export const fetchSystemContent = async (key) => {
 
 export const fetchChatThreads = async () => {
   try {
-    const response = await api.get('/customer/chats');
+    const session = await getAuthSession();
+    const prefix = session?.role === 'vendor' ? '/vendor' : (session?.role === 'driver' ? '/driver' : '/customer');
+    const response = await api.get(`${prefix}/chats`);
     return response.data;
   } catch (error) {
     console.error('API fetchChatThreads error:', error);
@@ -457,10 +459,12 @@ export const fetchChatThreads = async () => {
 
 export const fetchMessages = async (paramsOrRecipientName) => {
   try {
+    const session = await getAuthSession();
+    const prefix = session?.role === 'vendor' ? '/vendor' : (session?.role === 'driver' ? '/driver' : '/customer');
     const params = typeof paramsOrRecipientName === 'string'
       ? { recipientName: paramsOrRecipientName }
       : (paramsOrRecipientName || {});
-    const response = await api.get('/customer/messages', { params });
+    const response = await api.get(`${prefix}/messages`, { params });
     return response.data;
   } catch (error) {
     console.error('API fetchMessages error:', error);
@@ -470,7 +474,9 @@ export const fetchMessages = async (paramsOrRecipientName) => {
 
 export const sendChatMessage = async (payload) => {
   try {
-    const response = await api.post('/customer/messages', payload);
+    const session = await getAuthSession();
+    const prefix = session?.role === 'vendor' ? '/vendor' : (session?.role === 'driver' ? '/driver' : '/customer');
+    const response = await api.post(`${prefix}/messages`, payload);
     return response.data;
   } catch (error) {
     console.error('API sendChatMessage error:', error);

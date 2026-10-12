@@ -25,8 +25,8 @@ const {
 } = require('../services/callService');
 
 const getCurrentCustomer = async (req) => {
-  const userId = req.headers['x-user-id'];
-  const userEmail = req.headers['x-user-email'];
+  const userId = req.headers['x-user-id'] || req.headers['x-customer-id'];
+  const userEmail = req.headers['x-user-email'] || req.headers['x-customer-email'];
   const authHeader = req.headers['authorization'];
 
   if (userId && mongoose.Types.ObjectId.isValid(userId)) {
@@ -49,6 +49,9 @@ const getCurrentCustomer = async (req) => {
         const customer = await Customer.findById(extractedId);
         if (customer) return customer;
       }
+    } else if (mongoose.Types.ObjectId.isValid(cleanToken)) {
+      const customer = await Customer.findById(cleanToken);
+      if (customer) return customer;
     }
   }
 
@@ -62,7 +65,14 @@ const getCurrentCustomer = async (req) => {
     }
   }
 
-  return await Customer.findOne().sort({ createdAt: -1 });
+  // Check query / body customerId or userId
+  const explicitId = req.query?.customerId || req.query?.userId || req.body?.customerId || req.body?.userId;
+  if (explicitId && mongoose.Types.ObjectId.isValid(explicitId)) {
+    const customer = await Customer.findById(explicitId);
+    if (customer) return customer;
+  }
+
+  return null;
 };
 
 const getRestaurants = async (req, res) => {
@@ -182,6 +192,20 @@ const placeOrder = async (req, res) => {
         status: 'Completed',
         reference: `ORD-WAL-${generatedOrderId}`
       });
+
+      try {
+        const Notification = require('../models/Notification');
+        await Notification.create({
+          title: 'Wallet Payment 💳',
+          message: `₦${finalTotal.toLocaleString()} debited from your wallet for order #${generatedOrderId}. Remaining balance: ₦${customer.walletBalance.toLocaleString()}.`,
+          type: 'payment',
+          recipient: 'customer',
+          userId: customer._id,
+          read: false
+        });
+      } catch (ne) {
+        console.warn('Wallet debit notification error:', ne.message);
+      }
     }
 
     const newOrder = await Order.create({
@@ -1089,18 +1113,42 @@ const getCustomerNotifications = async (req, res) => {
     
     let query;
     if (customer && customer._id) {
+      const validUserIds = [customer._id, String(customer._id)];
+      if (mongoose.Types.ObjectId.isValid(customer._id)) {
+        validUserIds.push(new mongoose.Types.ObjectId(customer._id));
+      }
+
       query = {
         $or: [
-          { recipient: { $in: ['customer', 'all'] }, userId: customer._id },
-          { recipient: 'all', userId: null },
-          // For general broadcast notifications without specific user, exclude wallet/payment alerts
-          { recipient: 'customer', userId: null, type: { $ne: 'payment' } }
+          // 1. Personal notifications for this customer (includes wallet credit/debit alerts)
+          {
+            recipient: { $in: ['customer', 'all'] },
+            userId: { $in: validUserIds }
+          },
+          // 2. Broadcast announcements for all customers (STRICTLY non-wallet, non-payment, no userId)
+          {
+            recipient: { $in: ['customer', 'all'] },
+            $or: [
+              { userId: null },
+              { userId: { $exists: false } }
+            ],
+            type: { $nin: ['payment', 'payout'] },
+            title: { $not: /wallet|credit|debit|payout/i },
+            message: { $not: /wallet|credited|debited|payout/i }
+          }
         ]
       };
     } else {
+      // Unauthenticated / guest: Only general non-personal broadcasts, strictly NO wallet or payment alerts
       query = {
         recipient: { $in: ['customer', 'all'] },
-        type: { $ne: 'payment' } // Never show payment/wallet notifications without authenticated customer
+        $or: [
+          { userId: null },
+          { userId: { $exists: false } }
+        ],
+        type: { $nin: ['payment', 'payout'] },
+        title: { $not: /wallet|credit|debit|payout/i },
+        message: { $not: /wallet|credited|debited|payout/i }
       };
     }
 
@@ -1139,19 +1187,16 @@ const markAllCustomerNotificationsRead = async (req, res) => {
     const customer = await getCurrentCustomer(req);
     const Notification = require('../models/Notification');
     if (customer && customer._id) {
+      const validUserIds = [customer._id, String(customer._id)];
+      if (mongoose.Types.ObjectId.isValid(customer._id)) {
+        validUserIds.push(new mongoose.Types.ObjectId(customer._id));
+      }
       await Notification.updateMany(
         {
-          $or: [
-            { userId: customer._id },
-            { recipient: 'customer', userId: null }
-          ],
+          recipient: { $in: ['customer', 'all'] },
+          userId: { $in: validUserIds },
           read: false
         },
-        { read: true }
-      );
-    } else {
-      await Notification.updateMany(
-        { recipient: 'customer', read: false },
         { read: true }
       );
     }
