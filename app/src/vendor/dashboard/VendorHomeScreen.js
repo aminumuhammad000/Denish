@@ -238,7 +238,10 @@ const VendorHomeScreen = ({ navigation }) => {
               <View style={styles.headerActionBtns}>
                 <TouchableOpacity
                   style={styles.settingsBtn}
-                  onPress={() => navigation.navigate('ChatList')}
+                  onPress={() => {
+                    setUnreadChatCount(0);
+                    navigation.navigate('ChatList');
+                  }}
                   activeOpacity={0.7}
                   accessibilityLabel="Messages"
                 >
@@ -247,7 +250,10 @@ const VendorHomeScreen = ({ navigation }) => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.settingsBtn}
-                  onPress={() => navigation.navigate('Notifications', { role: 'vendor' })}
+                  onPress={() => {
+                    setUnreadNotifCount(0);
+                    navigation.navigate('Notifications', { role: 'vendor' });
+                  }}
                   activeOpacity={0.7}
                   accessibilityLabel="Notifications"
                 >

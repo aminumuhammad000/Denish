@@ -591,14 +591,18 @@ const markAllDriverNotificationsRead = async (req, res) => {
       await Notification.updateMany(
         {
           recipient: { $in: ['driver', 'all'] },
-          userId: { $in: validDriverIds },
+          $or: [
+            { userId: { $in: validDriverIds } },
+            { userId: null },
+            { userId: { $exists: false } }
+          ],
           read: false
         },
         { read: true }
       );
     } else {
       await Notification.updateMany(
-        { recipient: 'driver', read: false },
+        { recipient: { $in: ['driver', 'all'] }, read: false },
         { read: true }
       );
     }

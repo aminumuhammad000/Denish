@@ -461,6 +461,62 @@ const runMessagingTests = async () => {
       assert.strictEqual(res.recipientId, testCustomer._id.toString());
     });
 
+    await test('16. Customer with zero orders can initiate chat with vendor, and vendor receives thread and can reply', async () => {
+      const prospectiveCustomer = {
+        _id: new mongoose.Types.ObjectId(),
+        name: 'Fatima Sanusi',
+        email: 'fatima@prospective.ng',
+        profilePic: ''
+      };
+      mockDb.customers.push(prospectiveCustomer);
+
+      const authProspective = {
+        userId: prospectiveCustomer._id.toString(),
+        userName: prospectiveCustomer.name,
+        role: 'Customer',
+        userAvatar: ''
+      };
+
+      // Customer with 0 orders messages vendor to inquire about menu items
+      const inquiryRes = await sendMessageForUser(authProspective, {
+        recipientId: testVendor._id.toString(),
+        text: 'Hello, do you have gluten-free jollof rice available today?',
+        type: 'text'
+      });
+
+      assert.strictEqual(inquiryRes.success, true);
+      assert(inquiryRes.conversationId);
+      assert.strictEqual(inquiryRes.data.sender, 'me');
+
+      // Vendor checks threads: finds thread from prospective customer with unread = 1
+      const authVnd = { userId: testVendor._id.toString(), userName: "Mama's Kitchen", role: 'Vendor', userAvatar: '' };
+      const vendorThreads = await getThreadsForUser(authVnd);
+      const prospectiveThread = vendorThreads.find(t => t.recipientId === prospectiveCustomer._id.toString());
+      assert(prospectiveThread, 'Vendor should see conversation from prospective customer');
+      assert.strictEqual(prospectiveThread.name, 'Fatima Sanusi');
+      assert.strictEqual(prospectiveThread.unread, 1);
+
+      // Vendor opens messages: marks read
+      const vendorMsgs = await getMessagesForUser(authVnd, { conversationId: inquiryRes.conversationId });
+      assert.strictEqual(vendorMsgs.success, true);
+      assert.strictEqual(vendorMsgs.messages.length, 1);
+      assert.strictEqual(vendorMsgs.messages[0].sender, 'them');
+
+      // Vendor replies back to customer
+      const replyRes = await sendMessageForUser(authVnd, {
+        conversationId: inquiryRes.conversationId,
+        text: 'Yes Fatima, we have fresh batches ready!',
+        type: 'text'
+      });
+      assert.strictEqual(replyRes.success, true);
+
+      // Customer checks messages: sees both messages with accurate me/them roles
+      const customerMsgs = await getMessagesForUser(authProspective, { conversationId: inquiryRes.conversationId });
+      assert.strictEqual(customerMsgs.messages.length, 2);
+      assert.strictEqual(customerMsgs.messages[0].sender, 'me');
+      assert.strictEqual(customerMsgs.messages[1].sender, 'them');
+    });
+
   } finally {
     // Restore original Mongoose methods
     Customer.findById = origCustomerFindById;

@@ -18,7 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getRestaurants, getCustomerProfile, fetchIncomingCall, getAppNotifications } from '../services/api';
+import { getRestaurants, getCustomerProfile, fetchIncomingCall, getAppNotifications, fetchChatThreads } from '../services/api';
 import { getAuthSession } from '../services/authStorage';
 import CustomerBottomTab from './components/CustomerBottomTab';
 import { useCart } from '../context/CartContext';
@@ -83,17 +83,28 @@ const CustomerHomeScreen = ({ navigation }) => {
   const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const [loading, setLoading] = useState(true);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   const checkUnreadNotifs = useCallback(async () => {
     try {
-      const res = await getAppNotifications('customer');
-      if (res?.success && Array.isArray(res.data)) {
-        setUnreadNotifCount(res.data.filter(n => !n.read).length);
+      const [notifRes, chatRes] = await Promise.allSettled([
+        getAppNotifications('customer'),
+        fetchChatThreads()
+      ]);
+      if (notifRes.status === 'fulfilled' && notifRes.value?.success && Array.isArray(notifRes.value.data)) {
+        setUnreadNotifCount(notifRes.value.data.filter(n => !n.read).length);
       } else {
         setUnreadNotifCount(0);
       }
+      if (chatRes.status === 'fulfilled' && chatRes.value?.success && Array.isArray(chatRes.value.threads)) {
+        const unread = chatRes.value.threads.reduce((sum, t) => sum + (t.unread || 0), 0);
+        setUnreadChatCount(unread);
+      } else {
+        setUnreadChatCount(0);
+      }
     } catch (e) {
       setUnreadNotifCount(0);
+      setUnreadChatCount(0);
     }
   }, []);
 
@@ -221,12 +232,25 @@ const CustomerHomeScreen = ({ navigation }) => {
                 </View>
               </TouchableOpacity>
               <View style={styles.headerActions}>
-                <TouchableOpacity onPress={() => navigation.navigate('Notifications', { role: 'customer' })} style={styles.roundBtn}>
+                <TouchableOpacity 
+                  onPress={() => {
+                    setUnreadNotifCount(0);
+                    navigation.navigate('Notifications', { role: 'customer' });
+                  }} 
+                  style={styles.roundBtn}
+                >
                   <Ionicons name="notifications-outline" size={22} color="#FFF" />
                   {unreadNotifCount > 0 && <View style={styles.notifBadge} />}
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => navigation.navigate('ChatList')} style={styles.roundBtn}>
+                <TouchableOpacity 
+                  onPress={() => {
+                    setUnreadChatCount(0);
+                    navigation.navigate('ChatList');
+                  }} 
+                  style={styles.roundBtn}
+                >
                   <Ionicons name="chatbubble-ellipses-outline" size={22} color="#FFF" />
+                  {unreadChatCount > 0 && <View style={styles.notifBadge} />}
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigation.navigate('Cart')} style={styles.roundBtn}>
                   <Ionicons name="cart-outline" size={22} color="#FFF" />

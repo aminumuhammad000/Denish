@@ -3457,14 +3457,18 @@ var require_vendorController = __commonJS({
           await Notification.updateMany(
             {
               recipient: { $in: ["vendor", "all"] },
-              userId: { $in: validVendorIds },
+              $or: [
+                { userId: { $in: validVendorIds } },
+                { userId: null },
+                { userId: { $exists: false } }
+              ],
               read: false
             },
             { read: true }
           );
         } else {
           await Notification.updateMany(
-            { recipient: "vendor", read: false },
+            { recipient: { $in: ["vendor", "all"] }, read: false },
             { read: true }
           );
         }
@@ -5569,9 +5573,18 @@ var require_customerController = __commonJS({
           await Notification.updateMany(
             {
               recipient: { $in: ["customer", "all"] },
-              userId: { $in: validUserIds },
+              $or: [
+                { userId: { $in: validUserIds } },
+                { userId: null },
+                { userId: { $exists: false } }
+              ],
               read: false
             },
+            { read: true }
+          );
+        } else {
+          await Notification.updateMany(
+            { recipient: { $in: ["customer", "all"] }, read: false },
             { read: true }
           );
         }
@@ -6790,14 +6803,18 @@ var require_driverController = __commonJS({
           await Notification.updateMany(
             {
               recipient: { $in: ["driver", "all"] },
-              userId: { $in: validDriverIds },
+              $or: [
+                { userId: { $in: validDriverIds } },
+                { userId: null },
+                { userId: { $exists: false } }
+              ],
               read: false
             },
             { read: true }
           );
         } else {
           await Notification.updateMany(
-            { recipient: "driver", read: false },
+            { recipient: { $in: ["driver", "all"] }, read: false },
             { read: true }
           );
         }

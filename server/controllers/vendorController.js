@@ -436,14 +436,18 @@ const markAllVendorNotificationsRead = async (req, res) => {
       await Notification.updateMany(
         {
           recipient: { $in: ['vendor', 'all'] },
-          userId: { $in: validVendorIds },
+          $or: [
+            { userId: { $in: validVendorIds } },
+            { userId: null },
+            { userId: { $exists: false } }
+          ],
           read: false
         },
         { read: true }
       );
     } else {
       await Notification.updateMany(
-        { recipient: 'vendor', read: false },
+        { recipient: { $in: ['vendor', 'all'] }, read: false },
         { read: true }
       );
     }

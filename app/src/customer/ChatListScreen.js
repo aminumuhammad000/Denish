@@ -135,6 +135,17 @@ const ChatListScreen = ({ navigation }) => {
             <View style={styles.empty}>
               <Ionicons name="chatbubbles-outline" size={60} color="#DDD" />
               <Text style={styles.emptyText}>No conversations yet</Text>
+              <Text style={{ fontSize: 13, color: '#888', marginTop: 6, textAlign: 'center', marginHorizontal: 28, lineHeight: 18 }}>
+                You can message any restaurant or delivery partner directly even before ordering!
+              </Text>
+              {userRole === 'customer' && (
+                <TouchableOpacity 
+                  style={{ marginTop: 16, backgroundColor: '#FF8C00', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 }}
+                  onPress={() => navigation.navigate('CustomerHome')}
+                >
+                  <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 14 }}>Browse Restaurants</Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
         />

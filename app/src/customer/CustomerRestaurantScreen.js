@@ -123,7 +123,7 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
                 style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF3E0', justifyContent: 'center', alignItems: 'center' }}
                 onPress={() => navigation.navigate('ChatDetail', { 
                   name: vendor.businessName || vendor.name, 
-                  recipientId: vendor._id || vendor.id, 
+                  recipientId: vendor._id || vendor.id || restaurantId, 
                   type: 'Vendor' 
                 })}
               >
@@ -149,6 +149,22 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
               <Text style={styles.metaValue}>{vendor.deliveryFee || 500}</Text>
             </View>
           </View>
+
+          {/* Direct Pre-Order Chat Banner */}
+          <TouchableOpacity 
+            style={styles.chatPromptBar}
+            onPress={() => navigation.navigate('ChatDetail', { 
+              name: vendor.businessName || vendor.name, 
+              recipientId: vendor._id || vendor.id || restaurantId, 
+              type: 'Vendor' 
+            })}
+          >
+            <View style={styles.chatPromptLeft}>
+              <Ionicons name="chatbubbles-outline" size={18} color="#FF7D01" />
+              <Text style={styles.chatPromptText}>Questions before ordering? Chat with us</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#FF7D01" />
+          </TouchableOpacity>
         </View>
 
         {/* Category Chips */}
@@ -524,6 +540,28 @@ const styles = StyleSheet.create({
   badgeSmallText: { color: '#FFF', fontSize: 8, fontWeight: 'bold' },
   viewCartText: { color: '#FFF', fontSize: 17, fontWeight: '700' },
   totalPriceText: { color: '#FFF', fontSize: 17, fontWeight: '700' },
+  chatPromptBar: {
+    marginTop: 12,
+    backgroundColor: '#FFF8F0',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  chatPromptLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  chatPromptText: {
+    fontSize: 13,
+    color: '#D96500',
+    fontWeight: '600',
+  },
 });
 
 export default CustomerRestaurantScreen;

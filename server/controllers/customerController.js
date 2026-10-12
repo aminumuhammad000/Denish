@@ -1197,9 +1197,18 @@ const markAllCustomerNotificationsRead = async (req, res) => {
       await Notification.updateMany(
         {
           recipient: { $in: ['customer', 'all'] },
-          userId: { $in: validUserIds },
+          $or: [
+            { userId: { $in: validUserIds } },
+            { userId: null },
+            { userId: { $exists: false } }
+          ],
           read: false
         },
+        { read: true }
+      );
+    } else {
+      await Notification.updateMany(
+        { recipient: { $in: ['customer', 'all'] }, read: false },
         { read: true }
       );
     }

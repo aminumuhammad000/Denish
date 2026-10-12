@@ -123,6 +123,10 @@ const NotificationsScreen = ({ navigation, route }) => {
           ? res.data
           : res.data.filter(n => n.type !== 'payment' && !/wallet|customer balance/i.test(n.title || ''));
         setNotifications(sanitized);
+        // Automatically mark all as read when viewing the notifications screen
+        if (sanitized.some(n => !n.read)) {
+          markAllAppNotificationsRead(currentRole).catch(e => console.error('Auto mark read error:', e));
+        }
       } else {
         setError('Could not load notifications.');
       }
