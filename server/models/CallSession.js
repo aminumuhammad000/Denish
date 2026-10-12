@@ -19,7 +19,11 @@ const callSessionSchema = new mongoose.Schema({
   subtitle: { type: String, default: '' },
   startedAt: { type: Date, default: null },
   endedAt: { type: Date, default: null },
-  durationSeconds: { type: Number, default: 0 }
+  durationSeconds: { type: Number, default: 0 },
+  offer: { type: Object, default: null },
+  answer: { type: Object, default: null },
+  callerCandidates: { type: Array, default: [] },
+  receiverCandidates: { type: Array, default: [] }
 }, { timestamps: true });
 
 // Auto expire call sessions after 10 minutes in DB

@@ -54,9 +54,10 @@ const TrackOrderScreen = ({ navigation, route }) => {
   const handleCallDriver = () => {
     navigation.navigate('Calling', {
       name: trackingData?.driverName || 'Delivery Partner',
-      phone: trackingData?.driverPhone || '08012345678',
+      phone: trackingData?.driverPhone || '',
+      receiverId: trackingData?.driverId || undefined,
       orderId,
-      subtitle: `${trackingData?.totalAmount ? '₦' + trackingData.totalAmount.toLocaleString() : '₦5,700'} | 3.5 km`
+      subtitle: trackingData?.totalAmount ? `Order ₦${Number(trackingData.totalAmount).toLocaleString()}` : `Order #${orderId}`
     });
   };
 

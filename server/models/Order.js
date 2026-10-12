@@ -22,7 +22,9 @@ const orderSchema = new mongoose.Schema({
   }],
   total: { type: Number, required: true },
   totalAmount: { type: Number },
+  subtotal: { type: Number },
   deliveryFee: { type: Number, default: 500 },
+  serviceFee: { type: Number, default: 200 },
   paymentMethod: { type: String, default: 'Card' },
   pickupCoordinates: {
     latitude: { type: Number, default: 6.4474 },

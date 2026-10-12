@@ -329,6 +329,16 @@ export const requestVendorPayout = async (amount) => {
   }
 };
 
+export const getPlatformSettings = async () => {
+  try {
+    const response = await api.get('/customer/platform-settings');
+    return response.data;
+  } catch (error) {
+    console.error('API getPlatformSettings error:', error);
+    throw error;
+  }
+};
+
 export const getRestaurants = async () => {
   try {
     const response = await api.get('/customer/restaurants');
@@ -522,6 +532,26 @@ export const fetchCallStatus = async (callId) => {
     return response.data;
   } catch (error) {
     console.error('API fetchCallStatus error:', error);
+    throw error;
+  }
+};
+
+export const sendCallSignalApi = async (payload) => {
+  try {
+    const response = await api.post('/customer/call/signal', payload);
+    return response.data;
+  } catch (error) {
+    console.error('API sendCallSignalApi error:', error);
+    throw error;
+  }
+};
+
+export const fetchCallSignalsApi = async (callId) => {
+  try {
+    const response = await api.get(`/customer/call/signals/${callId}`);
+    return response.data;
+  } catch (error) {
+    console.error('API fetchCallSignalsApi error:', error);
     throw error;
   }
 };

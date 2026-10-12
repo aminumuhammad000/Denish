@@ -1,17 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const { 
+  getPlatformSettings,
   getRestaurants, getRestaurantDetails, placeOrder, getCustomerProfile, 
   updateCustomerProfile, getCustomerOrders, search, addAddress, 
   addPaymentMethod, deleteAddress, deletePaymentMethod, getOrderTracking, 
   getChatThreads, getMessages, sendMessage, initiateCall, getIncomingCall, 
-  getCallStatus, respondCall, initializeFlutterwavePayment, 
+  getCallStatus, respondCall, sendCallSignal, getCallSignals, initializeFlutterwavePayment, 
   verifyFlutterwavePayment, flutterwaveWebhook,
   getCustomerNotifications, markCustomerNotificationRead, markAllCustomerNotificationsRead,
   getCustomerWallet, fundCustomerWallet, redeemLoyaltyPoints, handleFlutterwaveCallback
 } = require('../controllers/customerController');
 const { upload } = require('../config/cloudinary');
 
+router.get('/platform-settings', getPlatformSettings);
 router.get('/restaurants', getRestaurants);
 router.get('/restaurant/:id', getRestaurantDetails);
 router.get('/search', search);
@@ -41,6 +43,8 @@ router.post('/call/initiate', initiateCall);
 router.get('/call/incoming', getIncomingCall);
 router.get('/call/status/:callId', getCallStatus);
 router.post('/call/respond', respondCall);
+router.post('/call/signal', sendCallSignal);
+router.get('/call/signals/:callId', getCallSignals);
 
 router.post('/flw/initialize', initializeFlutterwavePayment);
 router.post('/flw/verify', verifyFlutterwavePayment);

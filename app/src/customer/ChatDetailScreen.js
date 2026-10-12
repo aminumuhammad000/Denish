@@ -14,7 +14,8 @@ const ChatDetailScreen = ({ route, navigation }) => {
     type = 'Vendor', 
     role = 'Customer',
     conversationId = null,
-    recipientId = null
+    recipientId = null,
+    phone = ''
   } = route?.params || {};
 
   const isFocused = useIsFocused();
@@ -169,7 +170,13 @@ const ChatDetailScreen = ({ route, navigation }) => {
 
   const handleCall = () => {
     sendMessage('Voice Call', null, 'call', 'Outgoing');
-    navigation.navigate('Calling', { name, phone: '09123882672' });
+    navigation.navigate('Calling', { 
+      name, 
+      phone: route?.params?.phone || phone || '',
+      receiverId: activeRecipientId || recipientId,
+      orderId: `Voice Call`,
+      subtitle: `${type || 'Contact'}`
+    });
   };
 
   const canSend = message.trim().length > 0 && !sending;

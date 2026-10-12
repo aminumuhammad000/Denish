@@ -184,9 +184,66 @@ const respondCallService = async (req) => {
   return { success: true, call };
 };
 
+/**
+ * Exchange WebRTC signals (offer, answer, ice-candidate)
+ */
+const sendCallSignalService = async (req) => {
+  const { callId, type, signal, senderRole } = req.body;
+  if (!callId || !mongoose.Types.ObjectId.isValid(callId)) {
+    return { success: false, error: 'Invalid call ID' };
+  }
+
+  const call = await CallSession.findById(callId);
+  if (!call) {
+    return { success: false, error: 'Call not found' };
+  }
+
+  if (type === 'offer') {
+    call.offer = signal;
+  } else if (type === 'answer') {
+    call.answer = signal;
+  } else if (type === 'ice-candidate') {
+    if (senderRole === 'caller') {
+      call.callerCandidates = call.callerCandidates || [];
+      call.callerCandidates.push(signal);
+    } else {
+      call.receiverCandidates = call.receiverCandidates || [];
+      call.receiverCandidates.push(signal);
+    }
+  }
+
+  await call.save();
+  return { success: true };
+};
+
+/**
+ * Fetch WebRTC signals for a call session
+ */
+const getCallSignalsService = async (req) => {
+  const { callId } = req.params;
+  if (!callId || !mongoose.Types.ObjectId.isValid(callId)) {
+    return { success: false, error: 'Invalid call ID' };
+  }
+
+  const call = await CallSession.findById(callId);
+  if (!call) {
+    return { success: false, error: 'Call not found' };
+  }
+
+  return {
+    success: true,
+    offer: call.offer || null,
+    answer: call.answer || null,
+    callerCandidates: call.callerCandidates || [],
+    receiverCandidates: call.receiverCandidates || []
+  };
+};
+
 module.exports = {
   initiateCallService,
   getIncomingCallService,
   getCallStatusService,
-  respondCallService
+  respondCallService,
+  sendCallSignalService,
+  getCallSignalsService
 };

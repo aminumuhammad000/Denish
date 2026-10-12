@@ -21,7 +21,9 @@ const {
   initiateCallService,
   getIncomingCallService,
   getCallStatusService,
-  respondCallService
+  respondCallService,
+  sendCallSignalService,
+  getCallSignalsService
 } = require('../services/callService');
 
 const getCurrentCustomer = async (req) => {
@@ -148,14 +150,13 @@ const placeOrder = async (req, res) => {
     }
     
     const generatedOrderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
-    const finalTotal = totalAmount || req.body.total || 0;
     const finalAddress = deliveryAddress || req.body.address || 'No address provided';
 
     const formattedItems = (items || []).map(item => ({
       menuItemId: (item.menuItemId && mongoose.Types.ObjectId.isValid(item.menuItemId)) ? item.menuItemId : undefined,
       name: item.name || 'Item',
-      price: item.price || 0,
-      quantity: item.quantity || 1
+      price: Number(item.price) || 0,
+      quantity: Number(item.quantity) || 1
     }));
 
     const customer = await getCurrentCustomer(req);
@@ -167,6 +168,23 @@ const placeOrder = async (req, res) => {
     const vendorDoc = await Vendor.findById(validVendorId);
     const resolvedVendorName = vendorDoc ? (vendorDoc.businessName || vendorDoc.name) : 'Unknown Vendor';
     const resolvedVendorEmail = vendorDoc ? vendorDoc.email : '';
+
+    const Settings = require('../models/Settings');
+    let platformSettings = await Settings.findOne();
+    const defaultDeliveryFee = parseFloat(platformSettings?.platform?.baseFee || '500') || 500;
+    const defaultServiceFee = parseFloat(platformSettings?.platform?.serviceFee || '200') || 200;
+
+    const resolvedDeliveryFee = req.body.deliveryFee !== undefined 
+      ? Number(req.body.deliveryFee) 
+      : (vendorDoc?.deliveryFee !== undefined ? Number(vendorDoc.deliveryFee) : defaultDeliveryFee);
+    const resolvedServiceFee = req.body.serviceFee !== undefined 
+      ? Number(req.body.serviceFee) 
+      : defaultServiceFee;
+    const resolvedSubtotal = req.body.subtotal !== undefined
+      ? Number(req.body.subtotal)
+      : formattedItems.reduce((acc, it) => acc + (it.price * it.quantity), 0);
+    const calculatedTotal = resolvedSubtotal + resolvedDeliveryFee + resolvedServiceFee;
+    const finalTotal = totalAmount !== undefined ? Number(totalAmount) : (req.body.total !== undefined ? Number(req.body.total) : calculatedTotal);
 
     const paymentMethod = req.body.paymentMethod || 'Card';
     if (paymentMethod && paymentMethod.toLowerCase() === 'wallet') {
@@ -220,6 +238,9 @@ const placeOrder = async (req, res) => {
       address: finalAddress,
       deliveryAddress: finalAddress,
       items: formattedItems,
+      subtotal: resolvedSubtotal,
+      deliveryFee: resolvedDeliveryFee,
+      serviceFee: resolvedServiceFee,
       total: finalTotal,
       totalAmount: finalTotal,
       paymentMethod: paymentMethod,
@@ -528,6 +549,26 @@ const respondCall = async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     console.error('respondCall error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const sendCallSignal = async (req, res) => {
+  try {
+    const result = await sendCallSignalService(req);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('sendCallSignal error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const getCallSignals = async (req, res) => {
+  try {
+    const result = await getCallSignalsService(req);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('getCallSignals error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -1399,7 +1440,32 @@ const redeemLoyaltyPoints = async (req, res) => {
   }
 };
 
+const getPlatformSettings = async (req, res) => {
+  try {
+    const Settings = require('../models/Settings');
+    let settings = await Settings.findOne();
+    if (!settings) {
+      settings = new Settings();
+      await settings.save();
+    }
+    res.status(200).json({
+      success: true,
+      settings: {
+        baseDeliveryFee: parseFloat(settings.platform?.baseFee || '500') || 500,
+        serviceFee: parseFloat(settings.platform?.serviceFee || '200') || 200,
+        commission: parseFloat(settings.platform?.commission || '15') || 15,
+        currency: settings.platform?.currency || 'NGN',
+        platformName: settings.platform?.platformName || 'Denish'
+      }
+    });
+  } catch (error) {
+    console.error('getPlatformSettings error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
+  getPlatformSettings,
   getRestaurants,
   getRestaurantDetails,
   placeOrder,
@@ -1419,6 +1485,8 @@ module.exports = {
   getIncomingCall,
   getCallStatus,
   respondCall,
+  sendCallSignal,
+  getCallSignals,
   initializeFlutterwavePayment,
   verifyFlutterwavePayment,
   flutterwaveWebhook,

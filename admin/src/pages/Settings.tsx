@@ -22,6 +22,7 @@ interface PlatformState {
   currency: string;
   deliveryModel: "flat" | "distance";
   baseFee: string;
+  serviceFee: string;
   commission: string;
   autoCancelMin: number;
   deliveryDeadlineMin: number;
@@ -90,6 +91,7 @@ const initialSettings: SettingsState = {
     currency: "NGN",
     deliveryModel: "flat",
     baseFee: "500",
+    serviceFee: "200",
     commission: "15",
     autoCancelMin: 60,
     deliveryDeadlineMin: 40,
@@ -241,6 +243,7 @@ const normalizeSettings = (serverSettings?: any): SettingsState => {
       currency: base.platform?.currency || initialSettings.platform.currency,
       deliveryModel: base.platform?.deliveryModel === "distance" ? "distance" : "flat",
       baseFee: String(base.platform?.baseFee ?? initialSettings.platform.baseFee),
+      serviceFee: String(base.platform?.serviceFee ?? initialSettings.platform.serviceFee),
       commission: String(base.platform?.commission ?? initialSettings.platform.commission),
       autoCancelMin: Number(base.platform?.autoCancelMin ?? initialSettings.platform.autoCancelMin),
       deliveryDeadlineMin: Number(base.platform?.deliveryDeadlineMin ?? initialSettings.platform.deliveryDeadlineMin),
@@ -972,6 +975,20 @@ export default function SettingsPage() {
                     value={draftSettings.platform.baseFee}
                     onChange={(e) =>
                       handleUpdateDraft("platform", "baseFee", e.target.value)
+                    }
+                    className="w-full h-[48px] border border-[#EAEAEA] rounded-[8px] px-4 text-[14px] text-[#191C1C] focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[12px] text-[#191C1C]">
+                    Customer service fee (₦)
+                  </label>
+                  <input
+                    type="text"
+                    value={draftSettings.platform.serviceFee}
+                    onChange={(e) =>
+                      handleUpdateDraft("platform", "serviceFee", e.target.value)
                     }
                     className="w-full h-[48px] border border-[#EAEAEA] rounded-[8px] px-4 text-[14px] text-[#191C1C] focus:outline-none"
                   />

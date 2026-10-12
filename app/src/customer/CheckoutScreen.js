@@ -7,13 +7,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useCart } from '../context/CartContext';
-import { getCustomerProfile, placeCustomerOrder, saveAddress, savePaymentMethod, initFlutterwaveCheckout, verifyFlutterwaveCheckout } from '../services/api';
+import { getCustomerProfile, placeCustomerOrder, saveAddress, savePaymentMethod, initFlutterwaveCheckout, verifyFlutterwaveCheckout, getPlatformSettings, getCustomerRestaurantDetails } from '../services/api';
 import * as WebBrowser from 'expo-web-browser';
 import { useIsFocused } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
-const CheckoutScreen = ({ navigation }) => {
+const CheckoutScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { cartItems, restaurantId, getTotal, clearCart } = useCart();
   
@@ -22,6 +22,12 @@ const CheckoutScreen = ({ navigation }) => {
   const [selectedAddressId, setSelectedAddressId] = useState('saved-0');
   const [selectedPaymentId, setSelectedPaymentId] = useState('flutterwave');
   const [profile, setProfile] = useState(null);
+  const [deliveryFee, setDeliveryFee] = useState(route?.params?.deliveryFee ?? 500);
+  const [serviceFee, setServiceFee] = useState(route?.params?.serviceFee ?? 200);
+
+  const rawSubtotal = getTotal();
+  const subtotal = rawSubtotal;
+  const total = subtotal + deliveryFee + serviceFee;
   
   const isCardExpired = (expiryStr) => {
     if (!expiryStr) return false;
@@ -79,13 +85,35 @@ const CheckoutScreen = ({ navigation }) => {
     setCardDetails(prev => ({ ...prev, cvv: cleaned }));
   };
 
-  const isFocused = useIsFocused();
-
   useEffect(() => {
+    let isMounted = true;
+    const fetchFees = async () => {
+      try {
+        const platRes = await getPlatformSettings();
+        if (platRes?.success && isMounted) {
+          if (platRes.settings?.serviceFee !== undefined && !route?.params?.serviceFee) {
+            setServiceFee(Number(platRes.settings.serviceFee) || 200);
+          }
+          if (platRes.settings?.baseDeliveryFee !== undefined && !route?.params?.deliveryFee) {
+            setDeliveryFee(Number(platRes.settings.baseDeliveryFee) || 500);
+          }
+        }
+        if (restaurantId && !route?.params?.deliveryFee) {
+          const restRes = await getCustomerRestaurantDetails(restaurantId);
+          if (restRes?.data?.deliveryFee !== undefined && isMounted) {
+            setDeliveryFee(Number(restRes.data.deliveryFee) || 500);
+          }
+        }
+      } catch (e) {
+        console.error('Fetch fees error in CheckoutScreen:', e);
+      }
+    };
+    fetchFees();
     if (isFocused) {
       fetchProfile();
     }
-  }, [isFocused]);
+    return () => { isMounted = false; };
+  }, [isFocused, restaurantId]);
 
   const fetchProfile = async () => {
     try {
@@ -205,12 +233,6 @@ const CheckoutScreen = ({ navigation }) => {
     }
   };
 
-  const rawSubtotal = getTotal();
-  const subtotal = rawSubtotal;
-  const deliveryFee = 500;
-  const serviceFee = 200;
-  const total = subtotal + deliveryFee + serviceFee;
-
   const handlePlaceOrder = async () => {
     if (!cartItems || cartItems.length === 0) {
       Alert.alert('Empty Cart', 'Please add items to your cart before placing an order');
@@ -246,6 +268,10 @@ const CheckoutScreen = ({ navigation }) => {
             quantity: item.quantity
           };
         }),
+        subtotal: subtotal,
+        deliveryFee: deliveryFee,
+        serviceFee: serviceFee,
+        total: total,
         totalAmount: total,
         deliveryAddress: selectedAddrObj.addr,
         customerName: profile?.name || "Customer",

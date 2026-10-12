@@ -11,6 +11,7 @@ const settingsSchema = new mongoose.Schema({
     currency: { type: String, default: "NGN" },
     deliveryModel: { type: String, enum: ["flat", "distance"], default: "flat" },
     baseFee: { type: String, default: "500" },
+    serviceFee: { type: String, default: "200" },
     commission: { type: String, default: "15" },
     deliveryFeeCommission: { type: String, default: "5" },
     autoCancelMin: { type: Number, default: 60 },

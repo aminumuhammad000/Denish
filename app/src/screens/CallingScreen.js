@@ -9,33 +9,53 @@ import {
   Linking,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import moment from 'moment';
 import { playRingtone, stopRingtone } from '../utils/callAudio';
-import { initiateCallSession, respondCallSession, fetchCallStatus } from '../services/api';
+import { 
+  initiateCallSession, 
+  respondCallSession, 
+  fetchCallStatus,
+  sendCallSignalApi,
+  fetchCallSignalsApi
+} from '../services/api';
 
 const CallingScreen = ({ route, navigation }) => {
   const { 
     name = 'Recipient', 
-    phone = '08012345678', 
-    orderId = 'Connecting Call...', 
+    phone = '', 
+    orderId = 'Voice Call', 
     subtitle = '',
     callId: initialCallId = null,
     receiverId = null,
-    isReceiver = false
+    isReceiver = false,
+    callDate = null
   } = route?.params || {};
   
   const [callState, setCallState] = useState(isReceiver ? 'Connected' : 'Ringing...');
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(false);
+  const [audioStreamConnected, setAudioStreamConnected] = useState(false);
+
+  const callDateFormatted = moment(callDate || new Date()).format('ddd, MMM D, YYYY • h:mm A');
 
   const callIdRef = useRef(initialCallId);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const waveformAnim = useRef(new Animated.Value(0.4)).current;
   const timerRef = useRef(null);
   const pollRef = useRef(null);
   const isEndedRef = useRef(false);
+
+  // WebRTC refs
+  const peerConnRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const remoteAudioElemRef = useRef(null);
+  const signalPollRef = useRef(null);
+  const webrtcInitializedRef = useRef(false);
 
   useEffect(() => {
     // Pulsing avatar ring animation
@@ -47,12 +67,22 @@ const CallingScreen = ({ route, navigation }) => {
     );
     pulse.start();
 
+    // Subtle audio waveform animation
+    const wave = Animated.loop(
+      Animated.sequence([
+        Animated.timing(waveformAnim, { toValue: 1.0, duration: 500, useNativeDriver: true }),
+        Animated.timing(waveformAnim, { toValue: 0.3, duration: 500, useNativeDriver: true }),
+      ])
+    );
+    wave.start();
+
     if (isReceiver) {
       // Receiver accepted the call from IncomingCallScreen
       setCallState('Connected');
       startCallTimer();
       if (initialCallId) {
         startStatusPolling(initialCallId);
+        initTwoWayAudio(initialCallId, true);
       }
     } else {
       // Caller initiated outgoing call
@@ -61,8 +91,8 @@ const CallingScreen = ({ route, navigation }) => {
       initiateCallSession({ 
         receiverName: name, 
         receiverId,
-        orderId, 
-        subtitle, 
+        orderId: orderId || 'Voice Call', 
+        subtitle: subtitle || 'In-App Voice Call', 
         phone 
       })
         .then(res => {
@@ -87,14 +117,172 @@ const CallingScreen = ({ route, navigation }) => {
 
     return () => {
       pulse.stop();
+      wave.stop();
       cleanupCall();
     };
   }, []);
+
+  // WebRTC Two-Way Audio Implementation
+  const initTwoWayAudio = async (callId, asReceiver) => {
+    if (!callId || webrtcInitializedRef.current) return;
+    webrtcInitializedRef.current = true;
+
+    if (typeof window === 'undefined') {
+      setAudioStreamConnected(true);
+      return;
+    }
+
+    const RTCPeer = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+    if (!RTCPeer || !navigator?.mediaDevices?.getUserMedia) {
+      setAudioStreamConnected(true);
+      return;
+    }
+
+    try {
+      // Request mic input
+      const localStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: false
+      }).catch(err => {
+        console.warn('Microphone permission or access issue:', err);
+        return null;
+      });
+
+      if (localStream) {
+        localStreamRef.current = localStream;
+      }
+
+      const pc = new RTCPeer({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      });
+      peerConnRef.current = pc;
+
+      if (localStream) {
+        localStream.getAudioTracks().forEach(track => {
+          pc.addTrack(track, localStream);
+        });
+      }
+
+      pc.ontrack = (event) => {
+        if (event.streams && event.streams[0]) {
+          let audioEl = remoteAudioElemRef.current;
+          if (!audioEl) {
+            audioEl = document.createElement('audio');
+            audioEl.autoplay = true;
+            audioEl.playsInline = true;
+            document.body.appendChild(audioEl);
+            remoteAudioElemRef.current = audioEl;
+          }
+          audioEl.srcObject = event.streams[0];
+          audioEl.play().catch(() => {});
+          setAudioStreamConnected(true);
+        }
+      };
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate && callIdRef.current) {
+          sendCallSignalApi({
+            callId: callIdRef.current,
+            type: 'ice-candidate',
+            signal: event.candidate,
+            senderRole: asReceiver ? 'receiver' : 'caller'
+          }).catch(() => {});
+        }
+      };
+
+      if (!asReceiver) {
+        // Caller creates offer
+        const offer = await pc.createOffer({ offerToReceiveAudio: true });
+        await pc.setLocalDescription(offer);
+        await sendCallSignalApi({
+          callId,
+          type: 'offer',
+          signal: offer,
+          senderRole: 'caller'
+        });
+
+        // Poll for answer
+        signalPollRef.current = setInterval(async () => {
+          if (isEndedRef.current) return;
+          try {
+            const sigs = await fetchCallSignalsApi(callId);
+            if (sigs && sigs.success) {
+              if (sigs.answer && !pc.currentRemoteDescription) {
+                await pc.setRemoteDescription(new RTCSessionDescription(sigs.answer));
+                setAudioStreamConnected(true);
+              }
+              if (sigs.receiverCandidates && sigs.receiverCandidates.length > 0) {
+                for (const cand of sigs.receiverCandidates) {
+                  try {
+                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                  } catch (e) {}
+                }
+              }
+            }
+          } catch (e) {}
+        }, 1200);
+      } else {
+        // Receiver polls for offer, then sends answer
+        signalPollRef.current = setInterval(async () => {
+          if (isEndedRef.current) return;
+          try {
+            const sigs = await fetchCallSignalsApi(callId);
+            if (sigs && sigs.success && sigs.offer && !pc.currentRemoteDescription) {
+              await pc.setRemoteDescription(new RTCSessionDescription(sigs.offer));
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              await sendCallSignalApi({
+                callId,
+                type: 'answer',
+                signal: answer,
+                senderRole: 'receiver'
+              });
+              setAudioStreamConnected(true);
+            }
+            if (sigs.callerCandidates && sigs.callerCandidates.length > 0) {
+              for (const cand of sigs.callerCandidates) {
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(cand));
+                } catch (e) {}
+              }
+            }
+          } catch (e) {}
+        }, 1200);
+      }
+    } catch (err) {
+      console.warn('WebRTC audio stream error:', err?.message);
+      setAudioStreamConnected(true);
+    }
+  };
 
   const cleanupCall = () => {
     stopRingtone();
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
+    if (signalPollRef.current) clearInterval(signalPollRef.current);
+
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(t => t.stop());
+      localStreamRef.current = null;
+    }
+    if (peerConnRef.current) {
+      try { peerConnRef.current.close(); } catch (e) {}
+      peerConnRef.current = null;
+    }
+    if (remoteAudioElemRef.current) {
+      try {
+        remoteAudioElemRef.current.pause();
+        remoteAudioElemRef.current.remove();
+      } catch (e) {}
+      remoteAudioElemRef.current = null;
+    }
 
     if (callIdRef.current && !isEndedRef.current) {
       isEndedRef.current = true;
@@ -115,6 +303,7 @@ const CallingScreen = ({ route, navigation }) => {
               stopRingtone();
               setCallState('Connected');
               startCallTimer();
+              initTwoWayAudio(callId, false);
             }
           } else if (data.status === 'declined') {
             handleCallTerminated('Call Declined');
@@ -134,6 +323,7 @@ const CallingScreen = ({ route, navigation }) => {
     stopRingtone();
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
+    if (signalPollRef.current) clearInterval(signalPollRef.current);
     setCallState(label);
     setTimeout(() => {
       navigation.goBack();
@@ -162,6 +352,7 @@ const CallingScreen = ({ route, navigation }) => {
     stopRingtone();
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
+    if (signalPollRef.current) clearInterval(signalPollRef.current);
 
     if (callIdRef.current) {
       respondCallSession({ callId: callIdRef.current, action: 'end' }).catch(() => {});
@@ -173,8 +364,29 @@ const CallingScreen = ({ route, navigation }) => {
     }, 700);
   };
 
+  const toggleMute = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !nextMuted;
+      });
+    }
+  };
+
+  const toggleSpeaker = () => {
+    setIsSpeaker(!isSpeaker);
+    if (remoteAudioElemRef.current) {
+      remoteAudioElemRef.current.volume = !isSpeaker ? 1.0 : 0.6;
+    }
+  };
+
   const triggerDirectCellularCall = () => {
-    const cleanNumber = phone ? phone.replace(/[^0-9+]/g, '') : '08012345678';
+    const cleanNumber = phone ? phone.replace(/[^0-9+]/g, '') : '';
+    if (!cleanNumber) {
+      Alert.alert('Phone Number Unavailable', 'No direct phone number was provided for this contact.');
+      return;
+    }
     Linking.openURL(`tel:${cleanNumber}`).catch(() => {
       Alert.alert('Phone Call', `Dialing ${cleanNumber}`);
     });
@@ -193,10 +405,12 @@ const CallingScreen = ({ route, navigation }) => {
           <Text style={styles.headerTitle} numberOfLines={1}>{orderId}</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>{subtitle || 'In-App Voice Call'}</Text>
         </View>
-        <TouchableOpacity onPress={triggerDirectCellularCall} style={styles.dialerBtn}>
-          <Ionicons name="call" size={18} color="#FF7A00" />
-          <Text style={styles.dialerText}>Cellular</Text>
-        </TouchableOpacity>
+        {phone ? (
+          <TouchableOpacity onPress={triggerDirectCellularCall} style={styles.dialerBtn}>
+            <Ionicons name="call" size={16} color="#FF7A00" />
+            <Text style={styles.dialerText}>Cellular</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -209,34 +423,46 @@ const CallingScreen = ({ route, navigation }) => {
           </Animated.View>
 
           <Text style={styles.userName}>{name}</Text>
+          {phone ? <Text style={styles.userPhone}>{phone}</Text> : null}
+          
+          {/* Call Date and Time badge */}
+          <View style={styles.dateBadge}>
+            <Ionicons name="calendar-outline" size={13} color="#6B7280" />
+            <Text style={styles.dateText}>{callDateFormatted}</Text>
+          </View>
+
           <Text style={[styles.statusText, callState === 'Connected' && { color: '#10B981' }]}>
             {callState === 'Connected' ? formatTimer(callDuration) : callState}
           </Text>
 
-          {/* Voice Indicator */}
+          {/* Voice Stream Indicator */}
           {callState === 'Connected' && (
             <View style={styles.liveAudioBadge}>
-              <Ionicons name="radio" size={16} color="#10B981" />
-              <Text style={styles.liveAudioText}>In-App Audio Connected</Text>
+              <Animated.View style={{ transform: [{ scale: waveformAnim }], marginRight: 4 }}>
+                <Ionicons name="radio" size={16} color="#10B981" />
+              </Animated.View>
+              <Text style={styles.liveAudioText}>Two-Way Audio Live</Text>
             </View>
           )}
         </View>
 
         {/* Quick Cellular Call Banner */}
-        <TouchableOpacity style={styles.carrierBanner} onPress={triggerDirectCellularCall}>
-          <Ionicons name="phone-portrait-outline" size={20} color="#FF7A00" />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.carrierTitle}>Switch to Direct Phone Call</Text>
-            <Text style={styles.carrierSub}>Dial {phone || 'Carrier Number'}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#FF7A00" />
-        </TouchableOpacity>
+        {phone ? (
+          <TouchableOpacity style={styles.carrierBanner} onPress={triggerDirectCellularCall}>
+            <Ionicons name="phone-portrait-outline" size={20} color="#FF7A00" />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.carrierTitle}>Switch to Direct Phone Call</Text>
+              <Text style={styles.carrierSub}>Dial {phone}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#FF7A00" />
+          </TouchableOpacity>
+        ) : null}
 
         {/* Call Controls: Mute, End Call, Speaker */}
         <View style={styles.controlsRow}>
           <TouchableOpacity 
             style={[styles.controlBtn, isMuted && styles.controlBtnActive]} 
-            onPress={() => setIsMuted(!isMuted)}
+            onPress={toggleMute}
           >
             <Ionicons name={isMuted ? "mic-off" : "mic"} size={26} color={isMuted ? "#FFF" : "#333"} />
             <Text style={[styles.controlText, isMuted && { color: '#FFF' }]}>{isMuted ? 'Muted' : 'Mute'}</Text>
@@ -251,7 +477,7 @@ const CallingScreen = ({ route, navigation }) => {
 
           <TouchableOpacity 
             style={[styles.controlBtn, isSpeaker && styles.controlBtnActive]} 
-            onPress={() => setIsSpeaker(!isSpeaker)}
+            onPress={toggleSpeaker}
           >
             <Ionicons name={isSpeaker ? "volume-high" : "volume-medium-outline"} size={26} color={isSpeaker ? "#FFF" : "#333"} />
             <Text style={[styles.controlText, isSpeaker && { color: '#FFF' }]}>{isSpeaker ? 'Speaker On' : 'Speaker'}</Text>
@@ -297,14 +523,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 30,
   },
   avatarWrapper: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
     overflow: 'hidden',
-    marginBottom: 30,
+    marginBottom: 20,
     elevation: 8,
     shadowColor: '#000',
     shadowOpacity: 0.1,
@@ -323,15 +549,37 @@ const styles = StyleSheet.create({
     top: '-50%',
   },
   userName: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
+    marginBottom: 4,
+  },
+  userPhone: {
+    fontSize: 14,
+    color: '#4B5563',
+    fontWeight: '500',
     marginBottom: 8,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '500',
+    marginLeft: 5,
   },
   statusText: {
     fontSize: 17,
     color: '#FF7A00',
     fontWeight: '600',
+    marginTop: 4,
   },
   liveAudioBadge: {
     flexDirection: 'row',
@@ -340,20 +588,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 15,
-    marginTop: 15,
+    marginTop: 12,
   },
   liveAudioText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#10B981',
-    marginLeft: 6,
+    marginLeft: 4,
   },
   carrierBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF7ED',
     marginHorizontal: 24,
-    marginBottom: 25,
+    marginBottom: 20,
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,

@@ -8,7 +8,9 @@ const {
   initiateCallService,
   getIncomingCallService,
   getCallStatusService,
-  respondCallService
+  respondCallService,
+  sendCallSignalService,
+  getCallSignalsService
 } = require('../services/callService');
 
 const runCallTests = async () => {
@@ -241,6 +243,67 @@ const runCallTests = async () => {
       const res = await getIncomingCallService(mockReq);
       assert(res.success);
       assert.strictEqual(res.call, null, 'No phantom/ghost call should be returned');
+    });
+
+    // 9. WebRTC Signaling Offer & Answer Exchange
+    await test('9. WebRTC signaling sends and stores offer and answer correctly', async () => {
+      const offerSignal = { type: 'offer', sdp: 'v=0\r\no=- 12345 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n' };
+      const offerRes = await sendCallSignalService({
+        body: {
+          callId: activeCallId,
+          type: 'offer',
+          signal: offerSignal,
+          senderRole: 'caller'
+        }
+      });
+      assert(offerRes.success);
+
+      const answerSignal = { type: 'answer', sdp: 'v=0\r\no=- 67890 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n' };
+      const answerRes = await sendCallSignalService({
+        body: {
+          callId: activeCallId,
+          type: 'answer',
+          signal: answerSignal,
+          senderRole: 'receiver'
+        }
+      });
+      assert(answerRes.success);
+
+      const signalsRes = await getCallSignalsService({ params: { callId: activeCallId } });
+      assert(signalsRes.success);
+      assert.deepStrictEqual(signalsRes.offer, offerSignal);
+      assert.deepStrictEqual(signalsRes.answer, answerSignal);
+    });
+
+    // 10. WebRTC ICE Candidate Exchange
+    await test('10. WebRTC ICE candidates are stored and returned for both caller and receiver', async () => {
+      const callerCand = { candidate: 'candidate:1 1 UDP 2130706431 192.168.1.1 50000 typ host', sdpMid: '0' };
+      const receiverCand = { candidate: 'candidate:2 1 UDP 2130706431 192.168.1.2 50001 typ host', sdpMid: '0' };
+
+      await sendCallSignalService({
+        body: {
+          callId: activeCallId,
+          type: 'ice-candidate',
+          signal: callerCand,
+          senderRole: 'caller'
+        }
+      });
+
+      await sendCallSignalService({
+        body: {
+          callId: activeCallId,
+          type: 'ice-candidate',
+          signal: receiverCand,
+          senderRole: 'receiver'
+        }
+      });
+
+      const signalsRes = await getCallSignalsService({ params: { callId: activeCallId } });
+      assert(signalsRes.success);
+      assert.strictEqual(signalsRes.callerCandidates.length, 1);
+      assert.strictEqual(signalsRes.receiverCandidates.length, 1);
+      assert.deepStrictEqual(signalsRes.callerCandidates[0], callerCand);
+      assert.deepStrictEqual(signalsRes.receiverCandidates[0], receiverCand);
     });
 
   } finally {

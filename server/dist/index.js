@@ -539,7 +539,9 @@ var require_Order = __commonJS({
       }],
       total: { type: Number, required: true },
       totalAmount: { type: Number },
+      subtotal: { type: Number },
       deliveryFee: { type: Number, default: 500 },
+      serviceFee: { type: Number, default: 200 },
       paymentMethod: { type: String, default: "Card" },
       pickupCoordinates: {
         latitude: { type: Number, default: 6.4474 },
@@ -1518,6 +1520,7 @@ var require_Settings = __commonJS({
         currency: { type: String, default: "NGN" },
         deliveryModel: { type: String, enum: ["flat", "distance"], default: "flat" },
         baseFee: { type: String, default: "500" },
+        serviceFee: { type: String, default: "200" },
         commission: { type: String, default: "15" },
         deliveryFeeCommission: { type: String, default: "5" },
         autoCancelMin: { type: Number, default: 60 },
@@ -4401,7 +4404,11 @@ var require_CallSession = __commonJS({
       subtitle: { type: String, default: "" },
       startedAt: { type: Date, default: null },
       endedAt: { type: Date, default: null },
-      durationSeconds: { type: Number, default: 0 }
+      durationSeconds: { type: Number, default: 0 },
+      offer: { type: Object, default: null },
+      answer: { type: Object, default: null },
+      callerCandidates: { type: Array, default: [] },
+      receiverCandidates: { type: Array, default: [] }
     }, { timestamps: true });
     callSessionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 600 });
     module2.exports = mongoose.model("CallSession", callSessionSchema);
@@ -4563,11 +4570,55 @@ var require_callService = __commonJS({
       await call.save();
       return { success: true, call };
     };
+    var sendCallSignalService = async (req) => {
+      const { callId, type, signal, senderRole } = req.body;
+      if (!callId || !mongoose.Types.ObjectId.isValid(callId)) {
+        return { success: false, error: "Invalid call ID" };
+      }
+      const call = await CallSession.findById(callId);
+      if (!call) {
+        return { success: false, error: "Call not found" };
+      }
+      if (type === "offer") {
+        call.offer = signal;
+      } else if (type === "answer") {
+        call.answer = signal;
+      } else if (type === "ice-candidate") {
+        if (senderRole === "caller") {
+          call.callerCandidates = call.callerCandidates || [];
+          call.callerCandidates.push(signal);
+        } else {
+          call.receiverCandidates = call.receiverCandidates || [];
+          call.receiverCandidates.push(signal);
+        }
+      }
+      await call.save();
+      return { success: true };
+    };
+    var getCallSignalsService = async (req) => {
+      const { callId } = req.params;
+      if (!callId || !mongoose.Types.ObjectId.isValid(callId)) {
+        return { success: false, error: "Invalid call ID" };
+      }
+      const call = await CallSession.findById(callId);
+      if (!call) {
+        return { success: false, error: "Call not found" };
+      }
+      return {
+        success: true,
+        offer: call.offer || null,
+        answer: call.answer || null,
+        callerCandidates: call.callerCandidates || [],
+        receiverCandidates: call.receiverCandidates || []
+      };
+    };
     module2.exports = {
       initiateCallService,
       getIncomingCallService,
       getCallStatusService,
-      respondCallService
+      respondCallService,
+      sendCallSignalService,
+      getCallSignalsService
     };
   }
 });
@@ -4597,7 +4648,9 @@ var require_customerController = __commonJS({
       initiateCallService,
       getIncomingCallService,
       getCallStatusService,
-      respondCallService
+      respondCallService,
+      sendCallSignalService,
+      getCallSignalsService
     } = require_callService();
     var getCurrentCustomer = async (req) => {
       const userId = req.headers["x-user-id"] || req.headers["x-customer-id"];
@@ -4698,13 +4751,12 @@ var require_customerController = __commonJS({
           validVendorId = defaultVendor ? defaultVendor._id : new mongoose.Types.ObjectId();
         }
         const generatedOrderId = `ORD-${Math.floor(1e5 + Math.random() * 9e5)}`;
-        const finalTotal = totalAmount || req.body.total || 0;
         const finalAddress = deliveryAddress || req.body.address || "No address provided";
         const formattedItems = (items || []).map((item) => ({
           menuItemId: item.menuItemId && mongoose.Types.ObjectId.isValid(item.menuItemId) ? item.menuItemId : void 0,
           name: item.name || "Item",
-          price: item.price || 0,
-          quantity: item.quantity || 1
+          price: Number(item.price) || 0,
+          quantity: Number(item.quantity) || 1
         }));
         const customer = await getCurrentCustomer(req);
         const resolvedCustomerName = customer ? customer.name : customerName || req.body.name || "Customer";
@@ -4714,6 +4766,15 @@ var require_customerController = __commonJS({
         const vendorDoc = await Vendor.findById(validVendorId);
         const resolvedVendorName = vendorDoc ? vendorDoc.businessName || vendorDoc.name : "Unknown Vendor";
         const resolvedVendorEmail = vendorDoc ? vendorDoc.email : "";
+        const Settings = require_Settings();
+        let platformSettings = await Settings.findOne();
+        const defaultDeliveryFee = parseFloat(platformSettings?.platform?.baseFee || "500") || 500;
+        const defaultServiceFee = parseFloat(platformSettings?.platform?.serviceFee || "200") || 200;
+        const resolvedDeliveryFee = req.body.deliveryFee !== void 0 ? Number(req.body.deliveryFee) : vendorDoc?.deliveryFee !== void 0 ? Number(vendorDoc.deliveryFee) : defaultDeliveryFee;
+        const resolvedServiceFee = req.body.serviceFee !== void 0 ? Number(req.body.serviceFee) : defaultServiceFee;
+        const resolvedSubtotal = req.body.subtotal !== void 0 ? Number(req.body.subtotal) : formattedItems.reduce((acc, it) => acc + it.price * it.quantity, 0);
+        const calculatedTotal = resolvedSubtotal + resolvedDeliveryFee + resolvedServiceFee;
+        const finalTotal = totalAmount !== void 0 ? Number(totalAmount) : req.body.total !== void 0 ? Number(req.body.total) : calculatedTotal;
         const paymentMethod = req.body.paymentMethod || "Card";
         if (paymentMethod && paymentMethod.toLowerCase() === "wallet") {
           if (!customer) {
@@ -4763,6 +4824,9 @@ var require_customerController = __commonJS({
           address: finalAddress,
           deliveryAddress: finalAddress,
           items: formattedItems,
+          subtotal: resolvedSubtotal,
+          deliveryFee: resolvedDeliveryFee,
+          serviceFee: resolvedServiceFee,
           total: finalTotal,
           totalAmount: finalTotal,
           paymentMethod,
@@ -5032,6 +5096,24 @@ var require_customerController = __commonJS({
         res.status(200).json(result);
       } catch (error) {
         console.error("respondCall error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var sendCallSignal = async (req, res) => {
+      try {
+        const result = await sendCallSignalService(req);
+        res.status(200).json(result);
+      } catch (error) {
+        console.error("sendCallSignal error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var getCallSignals = async (req, res) => {
+      try {
+        const result = await getCallSignalsService(req);
+        res.status(200).json(result);
+      } catch (error) {
+        console.error("getCallSignals error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
@@ -5744,7 +5826,31 @@ var require_customerController = __commonJS({
         res.status(500).json({ success: false, error: error.message });
       }
     };
+    var getPlatformSettings = async (req, res) => {
+      try {
+        const Settings = require_Settings();
+        let settings = await Settings.findOne();
+        if (!settings) {
+          settings = new Settings();
+          await settings.save();
+        }
+        res.status(200).json({
+          success: true,
+          settings: {
+            baseDeliveryFee: parseFloat(settings.platform?.baseFee || "500") || 500,
+            serviceFee: parseFloat(settings.platform?.serviceFee || "200") || 200,
+            commission: parseFloat(settings.platform?.commission || "15") || 15,
+            currency: settings.platform?.currency || "NGN",
+            platformName: settings.platform?.platformName || "Denish"
+          }
+        });
+      } catch (error) {
+        console.error("getPlatformSettings error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
     module2.exports = {
+      getPlatformSettings,
       getRestaurants,
       getRestaurantDetails,
       placeOrder,
@@ -5764,6 +5870,8 @@ var require_customerController = __commonJS({
       getIncomingCall,
       getCallStatus,
       respondCall,
+      sendCallSignal,
+      getCallSignals,
       initializeFlutterwavePayment,
       verifyFlutterwavePayment,
       flutterwaveWebhook: flutterwaveWebhook2,
@@ -5786,6 +5894,7 @@ var require_customerRoutes = __commonJS({
     var express2 = require("express");
     var router = express2.Router();
     var {
+      getPlatformSettings,
       getRestaurants,
       getRestaurantDetails,
       placeOrder,
@@ -5805,6 +5914,8 @@ var require_customerRoutes = __commonJS({
       getIncomingCall,
       getCallStatus,
       respondCall,
+      sendCallSignal,
+      getCallSignals,
       initializeFlutterwavePayment,
       verifyFlutterwavePayment,
       flutterwaveWebhook: flutterwaveWebhook2,
@@ -5817,6 +5928,7 @@ var require_customerRoutes = __commonJS({
       handleFlutterwaveCallback: handleFlutterwaveCallback2
     } = require_customerController();
     var { upload } = require_cloudinary();
+    router.get("/platform-settings", getPlatformSettings);
     router.get("/restaurants", getRestaurants);
     router.get("/restaurant/:id", getRestaurantDetails);
     router.get("/search", search);
@@ -5842,6 +5954,8 @@ var require_customerRoutes = __commonJS({
     router.get("/call/incoming", getIncomingCall);
     router.get("/call/status/:callId", getCallStatus);
     router.post("/call/respond", respondCall);
+    router.post("/call/signal", sendCallSignal);
+    router.get("/call/signals/:callId", getCallSignals);
     router.post("/flw/initialize", initializeFlutterwavePayment);
     router.post("/flw/verify", verifyFlutterwavePayment);
     router.post("/flw/webhook", flutterwaveWebhook2);

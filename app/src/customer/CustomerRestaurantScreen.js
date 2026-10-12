@@ -111,10 +111,11 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
               <TouchableOpacity 
                 style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E6F7F0', justifyContent: 'center', alignItems: 'center' }}
                 onPress={() => navigation.navigate('Calling', {
-                  name: vendor.businessName || vendor.name,
-                  phone: vendor.phone || '08123456789',
-                  orderId: 'VND-001',
-                  subtitle: vendor.address || 'Lagos, Nigeria'
+                  name: vendor.businessName || vendor.name || 'Restaurant',
+                  phone: vendor.phone || '',
+                  receiverId: vendor._id || vendor.id || restaurantId,
+                  orderId: vendor.businessName || 'Restaurant Call',
+                  subtitle: vendor.address || 'Vendor Call'
                 })}
               >
                 <Ionicons name="call" size={18} color="#27A572" />

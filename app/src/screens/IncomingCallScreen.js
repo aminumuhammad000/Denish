@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import moment from 'moment';
 import { playRingtone, stopRingtone } from '../utils/callAudio';
 import { respondCallSession, fetchCallStatus } from '../services/api';
 
@@ -17,14 +18,17 @@ const IncomingCallScreen = ({ route, navigation }) => {
   const { 
     callId = null, 
     callerName = 'Incoming Caller', 
-    phone = '08012345678', 
-    orderId = 'Delivery Voice Call', 
-    subtitle = '' 
+    phone = '', 
+    orderId = 'Voice Call', 
+    subtitle = '',
+    callDate = null
   } = route?.params || {};
   
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pollRef = useRef(null);
   const isHandledRef = useRef(false);
+
+  const callDateFormatted = moment(callDate || new Date()).format('ddd, MMM D, YYYY • h:mm A');
 
   useEffect(() => {
     // Ringing pulse animation
@@ -92,7 +96,8 @@ const IncomingCallScreen = ({ route, navigation }) => {
       name: callerName,
       phone,
       orderId,
-      subtitle
+      subtitle,
+      callDate: new Date().toISOString()
     });
   };
 
@@ -138,6 +143,12 @@ const IncomingCallScreen = ({ route, navigation }) => {
           <Text style={styles.incomingLabel}>INCOMING CALL...</Text>
           <Text style={styles.userName}>{callerName}</Text>
           {phone ? <Text style={styles.phoneText}>{phone}</Text> : null}
+
+          {/* Date and time badge */}
+          <View style={styles.dateBadge}>
+            <Ionicons name="calendar-outline" size={13} color="#6B7280" />
+            <Text style={styles.dateText}>{callDateFormatted}</Text>
+          </View>
         </View>
 
         {/* Accept & Decline Buttons */}
@@ -209,9 +220,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 30,
     elevation: 8,
-    shadowColor: '#3DD26A',
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
   },
   avatarGradient: {
     flex: 1,
@@ -227,34 +238,49 @@ const styles = StyleSheet.create({
   },
   incomingLabel: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#3DD26A',
     letterSpacing: 1.5,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   userName: {
     fontSize: 26,
     fontWeight: 'bold',
     color: '#000',
-    textAlign: 'center',
-    paddingHorizontal: 20,
+    marginBottom: 4,
   },
   phoneText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#666',
-    marginTop: 6,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  dateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '500',
+    marginLeft: 5,
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-evenly',
-    paddingBottom: 60,
-    paddingHorizontal: 30,
+    justifyContent: 'space-around',
+    paddingBottom: 50,
+    paddingHorizontal: 40,
   },
   declineBtn: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: '#EF4444',
     justifyContent: 'center',
     alignItems: 'center',
@@ -264,22 +290,22 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   acceptBtn: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#3DD26A',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#22C55E',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#3DD26A',
+    shadowColor: '#22C55E',
     shadowOpacity: 0.4,
     shadowRadius: 15,
     elevation: 8,
   },
   btnLabel: {
-    marginTop: 10,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#333',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 8,
   }
 });
 

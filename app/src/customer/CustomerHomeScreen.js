@@ -142,9 +142,10 @@ const CustomerHomeScreen = ({ navigation }) => {
             navigation.navigate('IncomingCall', {
               callId: res.call._id,
               callerName: res.call.callerName,
-              phone: res.call.receiverPhone || res.call.callerPhone || res.call.phone || '08123456789',
+              phone: res.call.callerPhone || res.call.receiverPhone || res.call.phone || '',
               orderId: res.call.orderId,
-              subtitle: res.call.subtitle
+              subtitle: res.call.subtitle,
+              callDate: res.call.createdAt
             });
           }
         }

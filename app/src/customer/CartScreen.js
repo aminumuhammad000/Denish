@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
   Image, ActivityIndicator, Dimensions, Platform
@@ -7,7 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useCart } from '../context/CartContext';
-import { placeCustomerOrder } from '../services/api';
+import { placeCustomerOrder, getPlatformSettings, getCustomerRestaurantDetails } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -15,15 +15,42 @@ const CartScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { cartItems, restaurantId, getTotal, clearCart, removeFromCart, addToCart } = useCart();
   const [loading, setLoading] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(500);
+  const [serviceFee, setServiceFee] = useState(200);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFees = async () => {
+      try {
+        const platRes = await getPlatformSettings();
+        if (platRes?.success && isMounted) {
+          if (platRes.settings?.serviceFee !== undefined) {
+            setServiceFee(Number(platRes.settings.serviceFee) || 200);
+          }
+          if (platRes.settings?.baseDeliveryFee !== undefined) {
+            setDeliveryFee(Number(platRes.settings.baseDeliveryFee) || 500);
+          }
+        }
+        if (restaurantId) {
+          const restRes = await getCustomerRestaurantDetails(restaurantId);
+          if (restRes?.data?.deliveryFee !== undefined && isMounted) {
+            setDeliveryFee(Number(restRes.data.deliveryFee) || 500);
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching fees in CartScreen:', e);
+      }
+    };
+    fetchFees();
+    return () => { isMounted = false; };
+  }, [restaurantId]);
 
   const subtotal = getTotal();
-  const deliveryFee = 500;
-  const serviceFee = 200;
   const total = subtotal + deliveryFee + serviceFee;
 
   const handleCheckout = () => {
     if (cartItems.length > 0) {
-      navigation.navigate('Checkout');
+      navigation.navigate('Checkout', { deliveryFee, serviceFee });
     }
   };
 

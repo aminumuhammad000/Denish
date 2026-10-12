@@ -172,7 +172,7 @@ const DriverOrderTracking = ({ route, navigation }) => {
                 style={styles.actionBtn}
                 onPress={() => navigation.navigate('Calling', {
                   name: displayOrder.customer || displayOrder.customerName || 'Customer',
-                  phone: displayOrder.customerPhone || displayOrder.phone || '08033030303',
+                  phone: displayOrder.customerPhone || displayOrder.phone || '',
                   orderId: displayOrder.id || displayOrder.orderId || orderId,
                   subtitle: displayOrder.dropoffAddress || displayOrder.deliveryAddress || 'Delivery Address'
                 })}
