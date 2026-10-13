@@ -26,7 +26,7 @@ const callSessionSchema = new mongoose.Schema({
   receiverCandidates: { type: Array, default: [] }
 }, { timestamps: true });
 
-// Auto expire call sessions after 10 minutes in DB
-callSessionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 600 });
+// Auto expire call sessions after 24 hours in DB to prevent active calls from getting dropped
+callSessionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 });
 
 module.exports = mongoose.model('CallSession', callSessionSchema);

@@ -4410,7 +4410,7 @@ var require_CallSession = __commonJS({
       callerCandidates: { type: Array, default: [] },
       receiverCandidates: { type: Array, default: [] }
     }, { timestamps: true });
-    callSessionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 600 });
+    callSessionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 });
     module2.exports = mongoose.model("CallSession", callSessionSchema);
   }
 });
@@ -4438,7 +4438,9 @@ var require_callService = __commonJS({
     var Customer = require_Customer();
     var Driver = require_Driver();
     var Vendor = require_Vendor();
-    var { resolveAuthUser, resolveRecipient } = require_messagingService();
+    var Message = require_Message();
+    var Conversation = require_Conversation();
+    var { resolveAuthUser, resolveRecipient, findOrCreateConversation } = require_messagingService();
     var CALL_RING_TIMEOUT_MS = 45e3;
     var initiateCallService = async (req) => {
       const authUser = await resolveAuthUser(req);
@@ -4451,14 +4453,16 @@ var require_callService = __commonJS({
         callerId: customCallerId,
         phone: customPhone
       } = req.body;
-      const callerId = authUser ? authUser.userId : customCallerId || "guest-caller";
+      const callerId = authUser ? authUser.userId : customCallerId || `guest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const callerName = authUser ? authUser.userName : customCallerName || "Caller";
       const callerRole = authUser ? authUser.role : "Customer";
       const callerPhone = authUser && authUser.user && authUser.user.phone || customPhone || "";
-      await CallSession.updateMany(
-        { callerId, status: { $in: ["ringing", "accepted"] } },
-        { $set: { status: "ended", endedAt: /* @__PURE__ */ new Date() } }
-      );
+      if (callerId && !callerId.startsWith("guest-")) {
+        await CallSession.updateMany(
+          { callerId, status: { $in: ["ringing", "accepted"] } },
+          { $set: { status: "ended", endedAt: /* @__PURE__ */ new Date() } }
+        );
+      }
       let targetRecipient = null;
       if (receiverId || receiverName) {
         targetRecipient = await resolveRecipient({ recipientId: receiverId, recipientName: receiverName });
@@ -4540,9 +4544,90 @@ var require_callService = __commonJS({
           call.status = "missed";
           call.endedAt = /* @__PURE__ */ new Date();
           await call.save();
+          await recordCallLogMessage(call);
         }
       }
       return { success: true, status: call.status, call };
+    };
+    var recordCallLogMessage = async (call) => {
+      try {
+        if (!call || !call.callerId || !call.receiverId) return;
+        let subText = "Missed Call";
+        if (call.status === "declined") {
+          subText = "Call Declined";
+        } else if (call.status === "accepted" || call.status === "ended") {
+          if (call.durationSeconds && call.durationSeconds > 0) {
+            const mins = Math.floor(call.durationSeconds / 60);
+            const secs = call.durationSeconds % 60;
+            subText = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+          } else {
+            subText = call.startedAt ? "Completed" : "Missed Call";
+          }
+        }
+        const callerObj = {
+          userId: String(call.callerId),
+          userName: call.callerName || "Caller",
+          userAvatar: "",
+          role: call.callerRole || "Customer"
+        };
+        const receiverObj = {
+          id: String(call.receiverId),
+          name: call.receiverName || "Recipient",
+          avatar: "",
+          role: call.receiverRole || "Driver"
+        };
+        let conv = null;
+        try {
+          conv = await findOrCreateConversation(callerObj, receiverObj);
+        } catch (_) {
+        }
+        if (conv) {
+          const windowStart = new Date(new Date(call.createdAt).getTime() - 15e3);
+          const windowEnd = new Date(Date.now() + 15e3);
+          const existingMsg = await Message.findOne({
+            conversationId: conv._id,
+            type: "call",
+            createdAt: { $gte: windowStart, $lte: windowEnd }
+          });
+          if (existingMsg) {
+            existingMsg.subText = subText;
+            await existingMsg.save();
+            conv.lastMessage = {
+              text: "Voice Call",
+              type: "call",
+              subText,
+              senderId: String(call.callerId),
+              senderName: call.callerName || "Caller",
+              createdAt: /* @__PURE__ */ new Date()
+            };
+            await conv.save();
+            return;
+          }
+          await Message.create({
+            conversationId: conv._id,
+            senderId: String(call.callerId),
+            senderModel: call.callerRole || "Customer",
+            senderName: call.callerName || "Caller",
+            recipientId: String(call.receiverId),
+            recipientModel: call.receiverRole || "Driver",
+            recipientName: call.receiverName || "Recipient",
+            text: "Voice Call",
+            type: "call",
+            subText
+          });
+          conv.lastMessage = {
+            text: "Voice Call",
+            type: "call",
+            subText,
+            senderId: String(call.callerId),
+            senderName: call.callerName || "Caller",
+            createdAt: /* @__PURE__ */ new Date()
+          };
+          await conv.save();
+        }
+      } catch (err) {
+        console.warn("Could not record call log message:", err?.message);
+      }
     };
     var respondCallService = async (req) => {
       const { callId, action } = req.body;
@@ -4568,6 +4653,9 @@ var require_callService = __commonJS({
         }
       }
       await call.save();
+      if (action === "end" || action === "decline") {
+        await recordCallLogMessage(call);
+      }
       return { success: true, call };
     };
     var sendCallSignalService = async (req) => {
@@ -4612,13 +4700,65 @@ var require_callService = __commonJS({
         receiverCandidates: call.receiverCandidates || []
       };
     };
+    var getCallLogsService = async (req) => {
+      const authUser = await resolveAuthUser(req);
+      const { userId: queryUserId, userName: queryUserName } = req.query;
+      const targetId = authUser ? authUser.userId : queryUserId || "";
+      const targetName = authUser ? authUser.userName : queryUserName ? queryUserName.trim() : "";
+      if (!targetId && !targetName) {
+        return { success: true, logs: [] };
+      }
+      const conditions = [];
+      if (targetId) {
+        conditions.push({ callerId: targetId });
+        conditions.push({ receiverId: targetId });
+      }
+      if (targetName) {
+        let escaped = targetName.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+        escaped = escaped.replace(/[’']/g, "['\u2019]");
+        const regex = new RegExp(`^${escaped}$`, "i");
+        conditions.push({ callerName: { $regex: regex } });
+        conditions.push({ receiverName: { $regex: regex } });
+      }
+      const calls = await CallSession.find({ $or: conditions }).sort({ createdAt: -1 }).limit(100);
+      const logs = calls.map((c) => {
+        const isCaller = targetId && String(c.callerId) === String(targetId) || targetName && c.callerName && c.callerName.toLowerCase() === targetName.toLowerCase();
+        let formattedDuration = "";
+        if (c.durationSeconds && c.durationSeconds > 0) {
+          const mins = Math.floor(c.durationSeconds / 60);
+          const secs = c.durationSeconds % 60;
+          formattedDuration = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+        }
+        return {
+          id: c._id.toString(),
+          callId: c._id.toString(),
+          isCaller,
+          direction: isCaller ? "outgoing" : "incoming",
+          otherPartyId: isCaller ? c.receiverId : c.callerId,
+          otherPartyName: isCaller ? c.receiverName : c.callerName,
+          otherPartyRole: isCaller ? c.receiverRole : c.callerRole,
+          otherPartyPhone: isCaller ? c.receiverPhone : c.callerPhone,
+          status: c.status,
+          // 'accepted', 'ended', 'missed', 'declined', 'ringing'
+          durationSeconds: c.durationSeconds || 0,
+          durationFormatted: formattedDuration,
+          orderId: c.orderId || "Voice Call",
+          subtitle: c.subtitle || "",
+          createdAt: c.createdAt,
+          startedAt: c.startedAt,
+          endedAt: c.endedAt
+        };
+      });
+      return { success: true, logs };
+    };
     module2.exports = {
       initiateCallService,
       getIncomingCallService,
       getCallStatusService,
       respondCallService,
       sendCallSignalService,
-      getCallSignalsService
+      getCallSignalsService,
+      getCallLogsService
     };
   }
 });
@@ -4650,7 +4790,8 @@ var require_customerController = __commonJS({
       getCallStatusService,
       respondCallService,
       sendCallSignalService,
-      getCallSignalsService
+      getCallSignalsService,
+      getCallLogsService
     } = require_callService();
     var getCurrentCustomer = async (req) => {
       const userId = req.headers["x-user-id"] || req.headers["x-customer-id"];
@@ -5114,6 +5255,15 @@ var require_customerController = __commonJS({
         res.status(200).json(result);
       } catch (error) {
         console.error("getCallSignals error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var getCallLogs = async (req, res) => {
+      try {
+        const result = await getCallLogsService(req);
+        res.status(200).json(result);
+      } catch (error) {
+        console.error("getCallLogs error:", error);
         res.status(500).json({ success: false, error: error.message });
       }
     };
@@ -5872,6 +6022,7 @@ var require_customerController = __commonJS({
       respondCall,
       sendCallSignal,
       getCallSignals,
+      getCallLogs,
       initializeFlutterwavePayment,
       verifyFlutterwavePayment,
       flutterwaveWebhook: flutterwaveWebhook2,
@@ -5916,6 +6067,7 @@ var require_customerRoutes = __commonJS({
       respondCall,
       sendCallSignal,
       getCallSignals,
+      getCallLogs,
       initializeFlutterwavePayment,
       verifyFlutterwavePayment,
       flutterwaveWebhook: flutterwaveWebhook2,
@@ -5956,6 +6108,7 @@ var require_customerRoutes = __commonJS({
     router.post("/call/respond", respondCall);
     router.post("/call/signal", sendCallSignal);
     router.get("/call/signals/:callId", getCallSignals);
+    router.get("/call/logs", getCallLogs);
     router.post("/flw/initialize", initializeFlutterwavePayment);
     router.post("/flw/verify", verifyFlutterwavePayment);
     router.post("/flw/webhook", flutterwaveWebhook2);

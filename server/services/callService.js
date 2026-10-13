@@ -3,7 +3,9 @@ const CallSession = require('../models/CallSession');
 const Customer = require('../models/Customer');
 const Driver = require('../models/Driver');
 const Vendor = require('../models/Vendor');
-const { resolveAuthUser, resolveRecipient } = require('./messagingService');
+const Message = require('../models/Message');
+const Conversation = require('../models/Conversation');
+const { resolveAuthUser, resolveRecipient, findOrCreateConversation } = require('./messagingService');
 
 const CALL_RING_TIMEOUT_MS = 45000; // 45 seconds max ringing time
 
@@ -22,16 +24,18 @@ const initiateCallService = async (req) => {
     phone: customPhone
   } = req.body;
 
-  const callerId = authUser ? authUser.userId : (customCallerId || 'guest-caller');
+  const callerId = authUser ? authUser.userId : (customCallerId || `guest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
   const callerName = authUser ? authUser.userName : (customCallerName || 'Caller');
   const callerRole = authUser ? authUser.role : 'Customer';
   const callerPhone = (authUser && authUser.user && authUser.user.phone) || customPhone || '';
 
-  // Clean up any existing active calls from this caller
-  await CallSession.updateMany(
-    { callerId, status: { $in: ['ringing', 'accepted'] } },
-    { $set: { status: 'ended', endedAt: new Date() } }
-  );
+  // Clean up any existing active calls from this specific caller
+  if (callerId && !callerId.startsWith('guest-')) {
+    await CallSession.updateMany(
+      { callerId, status: { $in: ['ringing', 'accepted'] } },
+      { $set: { status: 'ended', endedAt: new Date() } }
+    );
+  }
 
   // Resolve Recipient
   let targetRecipient = null;
@@ -143,10 +147,102 @@ const getCallStatusService = async (req) => {
       call.status = 'missed';
       call.endedAt = new Date();
       await call.save();
+      await recordCallLogMessage(call);
     }
   }
 
   return { success: true, status: call.status, call };
+};
+
+/**
+ * Record a call log entry into chat conversation for both caller and receiver
+ */
+const recordCallLogMessage = async (call) => {
+  try {
+    if (!call || !call.callerId || !call.receiverId) return;
+
+    let subText = 'Missed Call';
+    if (call.status === 'declined') {
+      subText = 'Call Declined';
+    } else if (call.status === 'accepted' || call.status === 'ended') {
+      if (call.durationSeconds && call.durationSeconds > 0) {
+        const mins = Math.floor(call.durationSeconds / 60);
+        const secs = call.durationSeconds % 60;
+        subText = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+      } else {
+        subText = call.startedAt ? 'Completed' : 'Missed Call';
+      }
+    }
+
+    const callerObj = {
+      userId: String(call.callerId),
+      userName: call.callerName || 'Caller',
+      userAvatar: '',
+      role: call.callerRole || 'Customer'
+    };
+    const receiverObj = {
+      id: String(call.receiverId),
+      name: call.receiverName || 'Recipient',
+      avatar: '',
+      role: call.receiverRole || 'Driver'
+    };
+
+    let conv = null;
+    try {
+      conv = await findOrCreateConversation(callerObj, receiverObj);
+    } catch (_) {}
+
+    if (conv) {
+      const windowStart = new Date(new Date(call.createdAt).getTime() - 15000);
+      const windowEnd = new Date(Date.now() + 15000);
+
+      const existingMsg = await Message.findOne({
+        conversationId: conv._id,
+        type: 'call',
+        createdAt: { $gte: windowStart, $lte: windowEnd }
+      });
+
+      if (existingMsg) {
+        existingMsg.subText = subText;
+        await existingMsg.save();
+        conv.lastMessage = {
+          text: 'Voice Call',
+          type: 'call',
+          subText,
+          senderId: String(call.callerId),
+          senderName: call.callerName || 'Caller',
+          createdAt: new Date()
+        };
+        await conv.save();
+        return;
+      }
+
+      await Message.create({
+        conversationId: conv._id,
+        senderId: String(call.callerId),
+        senderModel: call.callerRole || 'Customer',
+        senderName: call.callerName || 'Caller',
+        recipientId: String(call.receiverId),
+        recipientModel: call.receiverRole || 'Driver',
+        recipientName: call.receiverName || 'Recipient',
+        text: 'Voice Call',
+        type: 'call',
+        subText
+      });
+
+      conv.lastMessage = {
+        text: 'Voice Call',
+        type: 'call',
+        subText,
+        senderId: String(call.callerId),
+        senderName: call.callerName || 'Caller',
+        createdAt: new Date()
+      };
+      await conv.save();
+    }
+  } catch (err) {
+    console.warn('Could not record call log message:', err?.message);
+  }
 };
 
 /**
@@ -181,6 +277,11 @@ const respondCallService = async (req) => {
   }
 
   await call.save();
+
+  if (action === 'end' || action === 'decline') {
+    await recordCallLogMessage(call);
+  }
+
   return { success: true, call };
 };
 
@@ -239,11 +340,77 @@ const getCallSignalsService = async (req) => {
   };
 };
 
+/**
+ * Fetch call logs for authenticated user (both outgoing and incoming calls)
+ */
+const getCallLogsService = async (req) => {
+  const authUser = await resolveAuthUser(req);
+  const { userId: queryUserId, userName: queryUserName } = req.query;
+
+  const targetId = authUser ? authUser.userId : (queryUserId || '');
+  const targetName = authUser ? authUser.userName : (queryUserName ? queryUserName.trim() : '');
+
+  if (!targetId && !targetName) {
+    return { success: true, logs: [] };
+  }
+
+  const conditions = [];
+  if (targetId) {
+    conditions.push({ callerId: targetId });
+    conditions.push({ receiverId: targetId });
+  }
+  if (targetName) {
+    let escaped = targetName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    escaped = escaped.replace(/[’']/g, "['’]");
+    const regex = new RegExp(`^${escaped}$`, 'i');
+    conditions.push({ callerName: { $regex: regex } });
+    conditions.push({ receiverName: { $regex: regex } });
+  }
+
+  const calls = await CallSession.find({ $or: conditions })
+    .sort({ createdAt: -1 })
+    .limit(100);
+
+  const logs = calls.map(c => {
+    const isCaller = (targetId && String(c.callerId) === String(targetId)) ||
+      (targetName && c.callerName && c.callerName.toLowerCase() === targetName.toLowerCase());
+
+    let formattedDuration = '';
+    if (c.durationSeconds && c.durationSeconds > 0) {
+      const mins = Math.floor(c.durationSeconds / 60);
+      const secs = c.durationSeconds % 60;
+      formattedDuration = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+    }
+
+    return {
+      id: c._id.toString(),
+      callId: c._id.toString(),
+      isCaller,
+      direction: isCaller ? 'outgoing' : 'incoming',
+      otherPartyId: isCaller ? c.receiverId : c.callerId,
+      otherPartyName: isCaller ? c.receiverName : c.callerName,
+      otherPartyRole: isCaller ? c.receiverRole : c.callerRole,
+      otherPartyPhone: isCaller ? c.receiverPhone : c.callerPhone,
+      status: c.status, // 'accepted', 'ended', 'missed', 'declined', 'ringing'
+      durationSeconds: c.durationSeconds || 0,
+      durationFormatted: formattedDuration,
+      orderId: c.orderId || 'Voice Call',
+      subtitle: c.subtitle || '',
+      createdAt: c.createdAt,
+      startedAt: c.startedAt,
+      endedAt: c.endedAt
+    };
+  });
+
+  return { success: true, logs };
+};
+
 module.exports = {
   initiateCallService,
   getIncomingCallService,
   getCallStatusService,
   respondCallService,
   sendCallSignalService,
-  getCallSignalsService
+  getCallSignalsService,
+  getCallLogsService
 };

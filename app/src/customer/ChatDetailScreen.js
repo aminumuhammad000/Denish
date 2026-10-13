@@ -226,17 +226,33 @@ const ChatDetailScreen = ({ route, navigation }) => {
                     m.type === 'call' && styles.callBubble
                   ]}>
                     {m.type === 'call' ? (
-                      <View style={styles.callMessageContainer}>
-                        <Ionicons name="call" size={18} color={m.sender === 'me' ? "#FFF" : "#333"} />
+                      <TouchableOpacity 
+                        style={styles.callMessageContainer}
+                        activeOpacity={0.7}
+                        onPress={handleCall}
+                      >
+                        <View style={[
+                          styles.callIconBadge,
+                          m.sender === 'me' ? styles.callBadgeMe : (m.subText?.toLowerCase().includes('missed') ? styles.callBadgeMissed : styles.callBadgeThem)
+                        ]}>
+                          <Ionicons 
+                            name={m.sender === 'me' ? "call" : (m.subText?.toLowerCase().includes('missed') ? "call-outline" : "call")} 
+                            size={16} 
+                            color="#FFF" 
+                          />
+                        </View>
                         <View style={styles.callMessageInfo}>
-                          <Text style={[styles.messageText, m.sender === 'me' ? styles.meText : styles.themText]}>
-                            {m.text || 'Voice Call'}
+                          <Text style={[styles.callTitleText, m.sender === 'me' ? styles.meText : styles.themText]}>
+                            {m.sender === 'me' ? 'Outgoing Voice Call' : (m.subText?.toLowerCase().includes('missed') ? 'Missed Voice Call' : 'Incoming Voice Call')}
                           </Text>
-                          <Text style={[styles.callSubText, m.sender === 'me' ? styles.meTime : styles.themTime]}>
-                            {m.subText || ''}
+                          <Text style={[styles.callSubText, m.sender === 'me' ? styles.meTime : (m.subText?.toLowerCase().includes('missed') ? { color: '#EF4444' } : styles.themTime)]}>
+                            {m.subText || 'Tap to call back'}
                           </Text>
                         </View>
-                      </View>
+                        <View style={[styles.callActionBtn, m.sender === 'me' ? styles.callActionBtnMe : styles.callActionBtnThem]}>
+                          <Ionicons name="call" size={13} color={m.sender === 'me' ? "#FF8C00" : "#FFF"} />
+                        </View>
+                      </TouchableOpacity>
                     ) : m.image ? (
                       <Image source={{ uri: m.image }} style={styles.messageImage} resizeMode="cover" />
                     ) : (
@@ -350,15 +366,36 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   callBubble: { 
-    paddingHorizontal: 16, 
+    paddingHorizontal: 14, 
     paddingVertical: 10, 
-    minWidth: 200,
+    minWidth: 220,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)'
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   callMessageContainer: { flexDirection: 'row', alignItems: 'center' },
-  callMessageInfo: { marginLeft: 12, flex: 1 },
-  callSubText: { fontSize: 12, marginTop: 2, opacity: 0.8 },
+  callIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  callBadgeMe: { backgroundColor: 'rgba(255,255,255,0.25)' },
+  callBadgeThem: { backgroundColor: '#10B981' },
+  callBadgeMissed: { backgroundColor: '#EF4444' },
+  callMessageInfo: { marginLeft: 10, flex: 1 },
+  callTitleText: { fontSize: 13, fontWeight: '700' },
+  callSubText: { fontSize: 11, marginTop: 2, fontWeight: '500' },
+  callActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  callActionBtnMe: { backgroundColor: '#FFF' },
+  callActionBtnThem: { backgroundColor: '#FF8C00' },
 
   messageText: { fontSize: 14, lineHeight: 20 },
   meText: { color: '#FFF' },

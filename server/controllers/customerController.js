@@ -23,7 +23,8 @@ const {
   getCallStatusService,
   respondCallService,
   sendCallSignalService,
-  getCallSignalsService
+  getCallSignalsService,
+  getCallLogsService
 } = require('../services/callService');
 
 const getCurrentCustomer = async (req) => {
@@ -569,6 +570,16 @@ const getCallSignals = async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     console.error('getCallSignals error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const getCallLogs = async (req, res) => {
+  try {
+    const result = await getCallLogsService(req);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('getCallLogs error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -1487,6 +1498,7 @@ module.exports = {
   respondCall,
   sendCallSignal,
   getCallSignals,
+  getCallLogs,
   initializeFlutterwavePayment,
   verifyFlutterwavePayment,
   flutterwaveWebhook,

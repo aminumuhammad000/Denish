@@ -556,6 +556,16 @@ export const fetchCallSignalsApi = async (callId) => {
   }
 };
 
+export const fetchCallLogsApi = async (params = {}) => {
+  try {
+    const response = await api.get('/customer/call/logs', { params });
+    return response.data;
+  } catch (error) {
+    console.error('API fetchCallLogsApi error:', error);
+    throw error;
+  }
+};
+
 export const initFlutterwaveCheckout = async (payload) => {
   try {
     const response = await api.post('/customer/flw/initialize', payload);

@@ -6,7 +6,7 @@ const {
   updateCustomerProfile, getCustomerOrders, search, addAddress, 
   addPaymentMethod, deleteAddress, deletePaymentMethod, getOrderTracking, 
   getChatThreads, getMessages, sendMessage, initiateCall, getIncomingCall, 
-  getCallStatus, respondCall, sendCallSignal, getCallSignals, initializeFlutterwavePayment, 
+  getCallStatus, respondCall, sendCallSignal, getCallSignals, getCallLogs, initializeFlutterwavePayment, 
   verifyFlutterwavePayment, flutterwaveWebhook,
   getCustomerNotifications, markCustomerNotificationRead, markAllCustomerNotificationsRead,
   getCustomerWallet, fundCustomerWallet, redeemLoyaltyPoints, handleFlutterwaveCallback
@@ -45,6 +45,7 @@ router.get('/call/status/:callId', getCallStatus);
 router.post('/call/respond', respondCall);
 router.post('/call/signal', sendCallSignal);
 router.get('/call/signals/:callId', getCallSignals);
+router.get('/call/logs', getCallLogs);
 
 router.post('/flw/initialize', initializeFlutterwavePayment);
 router.post('/flw/verify', verifyFlutterwavePayment);

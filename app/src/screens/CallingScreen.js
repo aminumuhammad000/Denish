@@ -22,6 +22,7 @@ import {
   sendCallSignalApi,
   fetchCallSignalsApi
 } from '../services/api';
+import { getAuthSession } from '../services/authStorage';
 
 const CallingScreen = ({ route, navigation }) => {
   const { 
@@ -49,6 +50,9 @@ const CallingScreen = ({ route, navigation }) => {
   const timerRef = useRef(null);
   const pollRef = useRef(null);
   const isEndedRef = useRef(false);
+  const isConnectedRef = useRef(isReceiver);
+  const ringTimeoutRef = useRef(null);
+  const callStateRef = useRef(isReceiver ? 'Connected' : 'Ringing...');
 
   // WebRTC refs
   const peerConnRef = useRef(null);
@@ -78,6 +82,8 @@ const CallingScreen = ({ route, navigation }) => {
 
     if (isReceiver) {
       // Receiver accepted the call from IncomingCallScreen
+      isConnectedRef.current = true;
+      callStateRef.current = 'Connected';
       setCallState('Connected');
       startCallTimer();
       if (initialCallId) {
@@ -88,36 +94,52 @@ const CallingScreen = ({ route, navigation }) => {
       // Caller initiated outgoing call
       playRingtone('outgoing');
       
-      initiateCallSession({ 
-        receiverName: name, 
-        receiverId,
-        orderId: orderId || 'Voice Call', 
-        subtitle: subtitle || 'In-App Voice Call', 
-        phone 
-      })
-        .then(res => {
+      const initiate = async () => {
+        try {
+          const session = await getAuthSession();
+          const callerUser = session?.user || session?.vendor || session?.driver;
+          const callerId = callerUser?._id || callerUser?.id || undefined;
+          const callerName = callerUser?.name || callerUser?.businessName || undefined;
+          const callerPhone = callerUser?.phone || undefined;
+
+          const res = await initiateCallSession({ 
+            receiverName: name, 
+            receiverId,
+            orderId: orderId || 'Voice Call', 
+            subtitle: subtitle || 'In-App Voice Call', 
+            phone,
+            callerId,
+            callerName,
+            callerPhone
+          });
+
           if (res && res.success && res.call?._id) {
             callIdRef.current = res.call._id;
             startStatusPolling(res.call._id);
           }
-        })
-        .catch(err => {
+        } catch (err) {
           console.error('Call initiation error:', err);
-        });
+        }
+      };
 
-      // Auto-timeout after 45 seconds of ringing
-      const autoTimeout = setTimeout(() => {
-        if (callState === 'Ringing...' && !isEndedRef.current) {
+      initiate();
+
+      // Ringing timeout ONLY if the call is never answered (45 seconds)
+      ringTimeoutRef.current = setTimeout(() => {
+        // If the call has connected or ended, never end the call
+        if (!isConnectedRef.current && !isEndedRef.current) {
           handleEndCall('No Answer');
         }
       }, 45000);
-
-      return () => clearTimeout(autoTimeout);
     }
 
     return () => {
       pulse.stop();
       wave.stop();
+      if (ringTimeoutRef.current) {
+        clearTimeout(ringTimeoutRef.current);
+        ringTimeoutRef.current = null;
+      }
       cleanupCall();
     };
   }, []);
@@ -263,6 +285,10 @@ const CallingScreen = ({ route, navigation }) => {
   };
 
   const cleanupCall = () => {
+    if (ringTimeoutRef.current) {
+      clearTimeout(ringTimeoutRef.current);
+      ringTimeoutRef.current = null;
+    }
     stopRingtone();
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
@@ -299,7 +325,14 @@ const CallingScreen = ({ route, navigation }) => {
         const data = await fetchCallStatus(callId);
         if (data && data.success) {
           if (data.status === 'accepted') {
-            if (callState !== 'Connected') {
+            // Once accepted, cancel ring timeout immediately so call never auto-ends
+            if (ringTimeoutRef.current) {
+              clearTimeout(ringTimeoutRef.current);
+              ringTimeoutRef.current = null;
+            }
+            if (!isConnectedRef.current) {
+              isConnectedRef.current = true;
+              callStateRef.current = 'Connected';
               stopRingtone();
               setCallState('Connected');
               startCallTimer();
@@ -307,8 +340,13 @@ const CallingScreen = ({ route, navigation }) => {
             }
           } else if (data.status === 'declined') {
             handleCallTerminated('Call Declined');
-          } else if (data.status === 'ended' || data.status === 'missed') {
+          } else if (data.status === 'ended') {
             handleCallTerminated('Call Ended');
+          } else if (data.status === 'missed') {
+            // Only terminate if the call never connected
+            if (!isConnectedRef.current) {
+              handleCallTerminated('No Answer');
+            }
           }
         }
       } catch (e) {
@@ -320,10 +358,15 @@ const CallingScreen = ({ route, navigation }) => {
   const handleCallTerminated = (label) => {
     if (isEndedRef.current) return;
     isEndedRef.current = true;
+    if (ringTimeoutRef.current) {
+      clearTimeout(ringTimeoutRef.current);
+      ringTimeoutRef.current = null;
+    }
     stopRingtone();
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
     if (signalPollRef.current) clearInterval(signalPollRef.current);
+    callStateRef.current = label;
     setCallState(label);
     setTimeout(() => {
       navigation.goBack();
@@ -349,6 +392,11 @@ const CallingScreen = ({ route, navigation }) => {
     if (isEndedRef.current) return;
     isEndedRef.current = true;
 
+    if (ringTimeoutRef.current) {
+      clearTimeout(ringTimeoutRef.current);
+      ringTimeoutRef.current = null;
+    }
+
     stopRingtone();
     if (timerRef.current) clearInterval(timerRef.current);
     if (pollRef.current) clearInterval(pollRef.current);
@@ -358,6 +406,7 @@ const CallingScreen = ({ route, navigation }) => {
       respondCallSession({ callId: callIdRef.current, action: 'end' }).catch(() => {});
     }
 
+    callStateRef.current = customLabel;
     setCallState(customLabel);
     setTimeout(() => {
       navigation.goBack();

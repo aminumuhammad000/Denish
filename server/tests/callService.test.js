@@ -10,7 +10,8 @@ const {
   getCallStatusService,
   respondCallService,
   sendCallSignalService,
-  getCallSignalsService
+  getCallSignalsService,
+  getCallLogsService
 } = require('../services/callService');
 
 const runCallTests = async () => {
@@ -79,6 +80,26 @@ const runCallTests = async () => {
       }
       return results[results.length - 1] || null;
     }
+  });
+
+  CallSession.find = (q) => ({
+    sort: (s) => ({
+      limit: (l) => {
+        let results = [...mockDb.callSessions];
+        if (q?.$or) {
+          results = results.filter(c => {
+            return q.$or.some(cond => {
+              if (cond.callerId && c.callerId === cond.callerId) return true;
+              if (cond.receiverId && c.receiverId === cond.receiverId) return true;
+              if (cond.callerName && (cond.callerName.test ? cond.callerName.test(c.callerName) : c.callerName === cond.callerName)) return true;
+              if (cond.receiverName && (cond.receiverName.test ? cond.receiverName.test(c.receiverName) : c.receiverName === cond.receiverName)) return true;
+              return false;
+            });
+          });
+        }
+        return results.reverse().slice(0, l);
+      }
+    })
   });
 
   CallSession.updateMany = async (filter, update) => {
@@ -304,6 +325,42 @@ const runCallTests = async () => {
       assert.strictEqual(signalsRes.receiverCandidates.length, 1);
       assert.deepStrictEqual(signalsRes.callerCandidates[0], callerCand);
       assert.deepStrictEqual(signalsRes.receiverCandidates[0], receiverCand);
+    });
+
+    // 11. Caller views call logs
+    await test('11. Caller views call logs with direction outgoing', async () => {
+      const mockReq = {
+        headers: { authorization: `Bearer cust-token-${caller._id}` },
+        query: {}
+      };
+
+      const res = await getCallLogsService(mockReq);
+      assert(res.success);
+      assert(Array.isArray(res.logs));
+      assert(res.logs.length > 0);
+      const myCall = res.logs.find(l => l.callId === activeCallId.toString());
+      assert(myCall, 'Active call should appear in caller call logs');
+      assert.strictEqual(myCall.direction, 'outgoing');
+      assert.strictEqual(myCall.isCaller, true);
+      assert.strictEqual(myCall.otherPartyName, receiver.name);
+    });
+
+    // 12. Receiver views call logs
+    await test('12. Receiver views call logs with direction incoming', async () => {
+      const mockReq = {
+        headers: { authorization: `Bearer driver-token-${receiver._id}` },
+        query: {}
+      };
+
+      const res = await getCallLogsService(mockReq);
+      assert(res.success);
+      assert(Array.isArray(res.logs));
+      assert(res.logs.length > 0);
+      const myCall = res.logs.find(l => l.callId === activeCallId.toString());
+      assert(myCall, 'Active call should appear in receiver call logs');
+      assert.strictEqual(myCall.direction, 'incoming');
+      assert.strictEqual(myCall.isCaller, false);
+      assert.strictEqual(myCall.otherPartyName, caller.name);
     });
 
   } finally {
