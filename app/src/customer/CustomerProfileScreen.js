@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Modal, TextInput, Alert, Clipboard, Platform, Linking, RefreshControl
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Switch, ActivityIndicator, Modal, TextInput, Alert, Share, Platform, Linking, RefreshControl
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -30,6 +31,7 @@ const CustomerProfileScreen = ({ navigation }) => {
   const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [referralModalVisible, setReferralModalVisible] = useState(false);
+  const [copiedReferral, setCopiedReferral] = useState(false);
   const [addressLabel, setAddressLabel] = useState('');
   const [addressStreet, setAddressStreet] = useState('');
   const [cardNumber, setCardNumber] = useState('');
@@ -52,6 +54,42 @@ const CustomerProfileScreen = ({ navigation }) => {
   };
 
   const userReferralCode = profile?.referralCode || (profile?.name ? `${profile.name.replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase()}${Math.abs((profile?.phone || '100').slice(-3))}` : 'DENISH100');
+
+  const handleCopyReferralCode = async () => {
+    try {
+      if (Clipboard && typeof Clipboard.setStringAsync === 'function') {
+        await Clipboard.setStringAsync(userReferralCode);
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(userReferralCode);
+      }
+      setCopiedReferral(true);
+      setTimeout(() => setCopiedReferral(false), 3000);
+      Alert.alert('Code Copied!', `Referral code "${userReferralCode}" has been copied to your clipboard.`);
+    } catch (err) {
+      console.warn('Clipboard copy error:', err);
+      try {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(userReferralCode);
+          setCopiedReferral(true);
+          setTimeout(() => setCopiedReferral(false), 3000);
+          Alert.alert('Code Copied!', `Referral code "${userReferralCode}" has been copied to your clipboard.`);
+          return;
+        }
+      } catch (e) {}
+      Alert.alert('Referral Code', `Your referral code is: ${userReferralCode}`);
+    }
+  };
+
+  const handleShareReferralCode = async () => {
+    try {
+      await Share.share({
+        message: `Join me on Denish! Use my referral code ${userReferralCode} when you sign up to get rewards on your orders: https://denishng.com`,
+        title: 'Referral Code - Denish'
+      });
+    } catch (err) {
+      console.warn('Share error:', err);
+    }
+  };
 
   const handleRedeemLoyaltyPoints = async () => {
     const currentPoints = profile?.loyaltyPoints || 0;
@@ -615,8 +653,9 @@ const CustomerProfileScreen = ({ navigation }) => {
             <MaterialCommunityIcons name="gift-outline" size={22} color="#FF8C00" />
             <View style={{ flex: 1, marginLeft: 15 }}>
               <Text style={styles.optionTitle}>Refer and earn</Text>
-              <Text style={styles.optionSubtitle}>Code: EMEKA340</Text>
+              <Text style={styles.optionSubtitle}>Code: {userReferralCode}</Text>
             </View>
+            <Ionicons name="chevron-forward" size={18} color="#CCC" />
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity style={styles.optionRow} onPress={() => navigation.navigate('SystemContent', { key: 'terms_of_service', title: 'Terms of Service' })}>
@@ -780,26 +819,48 @@ const CustomerProfileScreen = ({ navigation }) => {
             <Text style={styles.modalHeaderTitle}>Refer friends, earn rewards</Text>
 
             <View style={{ alignItems: 'center', marginVertical: 18 }}>
-              <MaterialCommunityIcons name="gift-outline" size={54} color="#FF7A00" />
+              <View style={styles.giftIconCircle}>
+                <MaterialCommunityIcons name="gift-outline" size={44} color="#FF7A00" />
+              </View>
             </View>
 
             <Text style={styles.referralSubtitle}>
               Share your referral code with friends and earn 50 loyalty points when they complete their first order!
             </Text>
 
-            <View style={styles.codeBox}>
-              <Text style={styles.codeText}>{userReferralCode}</Text>
-            </View>
-
             <TouchableOpacity 
-              style={styles.copyBtn}
-              onPress={() => {
-                Clipboard.setString(userReferralCode);
-                Alert.alert('Copied!', `Referral code "${userReferralCode}" copied to clipboard.`);
-              }}
+              style={[styles.codeBox, copiedReferral && styles.codeBoxCopied]}
+              onPress={handleCopyReferralCode}
+              activeOpacity={0.7}
             >
-              <Text style={styles.copyBtnText}>Copy code</Text>
+              <Text style={styles.codeText}>{userReferralCode}</Text>
+              <View style={styles.tapToCopyRow}>
+                <Ionicons name={copiedReferral ? "checkmark-circle" : "copy-outline"} size={14} color={copiedReferral ? "#27A572" : "#888"} />
+                <Text style={[styles.tapToCopyText, copiedReferral && { color: '#27A572', fontWeight: '700' }]}>
+                  {copiedReferral ? "Copied to clipboard!" : "Tap to copy code"}
+                </Text>
+              </View>
             </TouchableOpacity>
+
+            <View style={styles.referralActionRow}>
+              <TouchableOpacity 
+                style={[styles.copyBtn, copiedReferral && styles.copyBtnSuccess]}
+                onPress={handleCopyReferralCode}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={copiedReferral ? "checkmark-circle" : "copy-outline"} size={18} color="#FFF" style={{ marginRight: 6 }} />
+                <Text style={styles.copyBtnText}>{copiedReferral ? "Copied!" : "Copy code"}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.shareBtn}
+                onPress={handleShareReferralCode}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="share-social-outline" size={18} color="#FF7A00" style={{ marginRight: 6 }} />
+                <Text style={styles.shareBtnText}>Share</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1456,36 +1517,88 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600'
   },
+  giftIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFF4EA',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
   referralSubtitle: {
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 20
+    marginBottom: 20,
+    lineHeight: 20
   },
   codeBox: {
     backgroundColor: '#F8F9FA',
     borderRadius: 14,
-    paddingVertical: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     alignItems: 'center',
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#EAEAEA'
+    borderWidth: 1.5,
+    borderColor: '#EAEAEA',
+    borderStyle: 'dashed'
+  },
+  codeBoxCopied: {
+    borderColor: '#27A572',
+    backgroundColor: '#F0FDF4'
   },
   codeText: {
     fontSize: 22,
     fontWeight: '800',
     color: '#1A1A1A',
-    letterSpacing: 1.5
+    letterSpacing: 2
+  },
+  tapToCopyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6
+  },
+  tapToCopyText: {
+    fontSize: 12,
+    color: '#888'
+  },
+  referralActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4
   },
   copyBtn: {
+    flex: 1,
+    flexDirection: 'row',
     backgroundColor: '#FF7A00',
     borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center'
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  copyBtnSuccess: {
+    backgroundColor: '#27A572'
   },
   copyBtnText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '700'
+  },
+  shareBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#FFF4EA',
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FFD4B2'
+  },
+  shareBtnText: {
+    color: '#FF7A00',
+    fontSize: 15,
     fontWeight: '700'
   }
 });
