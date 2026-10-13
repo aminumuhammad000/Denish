@@ -242,7 +242,7 @@ interface AdminState {
   updateDisputeStatusOnServer: (id: string, status: string) => Promise<void>;
   addTransactionOnServer: (transaction: Transaction) => Promise<void>;
   updateOrderOnServer: (id: string, updatedData: Partial<Order>) => Promise<void>;
-  updateSettingsOnServer: (updatedSettings: any) => Promise<void>;
+  updateSettingsOnServer: (updatedSettings: any) => Promise<{ success: boolean; settings?: any; error?: string }>;
   addBannerOnServer: (bannerData: any) => Promise<void>;
   updateBannerOnServer: (id: string, bannerData: any) => Promise<void>;
   deleteBannerOnServer: (id: string) => Promise<void>;
@@ -822,21 +822,24 @@ export const useAdminStore = create<AdminState>()(
           console.error("Error updating order:", error);
         }
       },
-      updateSettingsOnServer: async (updatedSettings: any) => {
+      updateSettingsOnServer: async (updatedSettings: any): Promise<{ success: boolean; settings?: any; error?: string }> => {
         try {
           const response = await fetch(`${API_BASE_URL}/settings`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(updatedSettings),
           });
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.settings) {
+          const data = await response.json().catch(() => ({}));
+          if (response.ok && data.success) {
+            if (data.settings) {
               set({ settings: data.settings });
             }
+            return { success: true, settings: data.settings };
           }
-        } catch (error) {
+          return { success: false, error: data.error || `HTTP ${response.status}: Failed to update settings` };
+        } catch (error: any) {
           console.error("Error updating settings:", error);
+          return { success: false, error: error.message || "Failed to update settings" };
         }
       },
       addBannerOnServer: async (bannerData: any) => {

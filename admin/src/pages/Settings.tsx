@@ -542,7 +542,11 @@ export default function SettingsPage() {
       }));
       return;
     } else {
-      await updateSettingsOnServer({ [section]: draftSettings[section] });
+      const res = await updateSettingsOnServer({ [section]: draftSettings[section] });
+      if (res && res.success === false) {
+        toast.error(res.error || `Failed to update ${section} settings`);
+        return;
+      }
       toast.success(`${section.charAt(0).toUpperCase() + section.slice(1)} settings saved!`);
     }
 

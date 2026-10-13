@@ -13,28 +13,48 @@ const { width } = Dimensions.get('window');
 
 const CartScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { cartItems, restaurantId, getTotal, clearCart, removeFromCart, addToCart } = useCart();
+  const { cartItems, restaurantId, getTotal, clearCart, removeFromCart, addToCart, platformSettings } = useCart();
   const [loading, setLoading] = useState(false);
-  const [deliveryFee, setDeliveryFee] = useState(500);
-  const [serviceFee, setServiceFee] = useState(200);
+  const [deliveryFee, setDeliveryFee] = useState(
+    platformSettings?.baseDeliveryFee !== undefined && platformSettings?.baseDeliveryFee !== null
+      ? Number(platformSettings.baseDeliveryFee)
+      : 500
+  );
+  const [serviceFee, setServiceFee] = useState(
+    platformSettings?.serviceFee !== undefined && platformSettings?.serviceFee !== null
+      ? Number(platformSettings.serviceFee)
+      : 200
+  );
 
   useEffect(() => {
     let isMounted = true;
     const fetchFees = async () => {
       try {
         const platRes = await getPlatformSettings();
-        if (platRes?.success && isMounted) {
-          if (platRes.settings?.serviceFee !== undefined) {
-            setServiceFee(Number(platRes.settings.serviceFee) || 200);
+        let activeBaseFee = 500;
+        if (platRes?.success && platRes.settings && isMounted) {
+          if (platRes.settings.serviceFee !== undefined && platRes.settings.serviceFee !== null) {
+            const parsedServiceFee = Number(platRes.settings.serviceFee);
+            if (!isNaN(parsedServiceFee)) {
+              setServiceFee(parsedServiceFee);
+            }
           }
-          if (platRes.settings?.baseDeliveryFee !== undefined) {
-            setDeliveryFee(Number(platRes.settings.baseDeliveryFee) || 500);
+          if (platRes.settings.baseDeliveryFee !== undefined && platRes.settings.baseDeliveryFee !== null) {
+            const parsedBaseFee = Number(platRes.settings.baseDeliveryFee);
+            if (!isNaN(parsedBaseFee)) {
+              activeBaseFee = parsedBaseFee;
+              setDeliveryFee(parsedBaseFee);
+            }
           }
         }
         if (restaurantId) {
           const restRes = await getCustomerRestaurantDetails(restaurantId);
-          if (restRes?.data?.deliveryFee !== undefined && isMounted) {
-            setDeliveryFee(Number(restRes.data.deliveryFee) || 500);
+          const vendorObj = restRes?.data?.vendor || restRes?.data;
+          if (vendorObj?.deliveryFee !== undefined && vendorObj?.deliveryFee !== null && vendorObj?.deliveryFee !== '' && isMounted) {
+            const parsedVendorFee = Number(vendorObj.deliveryFee);
+            if (!isNaN(parsedVendorFee)) {
+              setDeliveryFee(parsedVendorFee);
+            }
           }
         }
       } catch (e) {
@@ -146,11 +166,11 @@ const CartScreen = ({ navigation }) => {
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Delivery</Text>
-            <Text style={styles.summaryValue}>₦{deliveryFee.toLocaleString()}</Text>
+            <Text style={styles.summaryValue}>₦{Number(deliveryFee).toLocaleString()}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Service fee</Text>
-            <Text style={styles.summaryValue}>₦{serviceFee.toLocaleString()}</Text>
+            <Text style={styles.summaryValue}>₦{Number(serviceFee).toLocaleString()}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.totalRow}>

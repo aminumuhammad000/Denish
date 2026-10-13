@@ -93,6 +93,8 @@ router.put('/order/:id', updateOrder);
 
 router.get('/settings', getSettings);
 router.put('/settings', updateSettings);
+router.post('/settings', updateSettings);
+router.patch('/settings', updateSettings);
 
 // Payout Management routes
 router.get('/payouts', getAllPayoutsAdmin);

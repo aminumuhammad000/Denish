@@ -172,12 +172,17 @@ const placeOrder = async (req, res) => {
 
     const Settings = require('../models/Settings');
     let platformSettings = await Settings.findOne();
-    const defaultDeliveryFee = parseFloat(platformSettings?.platform?.baseFee || '500') || 500;
-    const defaultServiceFee = parseFloat(platformSettings?.platform?.serviceFee || '200') || 200;
+    const parseSettingNum = (val, fallback) => {
+      if (val === undefined || val === null || val === '') return fallback;
+      const num = Number(val);
+      return isNaN(num) ? fallback : num;
+    };
+    const defaultDeliveryFee = parseSettingNum(platformSettings?.platform?.baseFee, 500);
+    const defaultServiceFee = parseSettingNum(platformSettings?.platform?.serviceFee, 200);
 
     const resolvedDeliveryFee = req.body.deliveryFee !== undefined 
       ? Number(req.body.deliveryFee) 
-      : (vendorDoc?.deliveryFee !== undefined ? Number(vendorDoc.deliveryFee) : defaultDeliveryFee);
+      : (vendorDoc?.deliveryFee !== undefined && vendorDoc?.deliveryFee !== null ? Number(vendorDoc.deliveryFee) : defaultDeliveryFee);
     const resolvedServiceFee = req.body.serviceFee !== undefined 
       ? Number(req.body.serviceFee) 
       : defaultServiceFee;
@@ -1459,12 +1464,19 @@ const getPlatformSettings = async (req, res) => {
       settings = new Settings();
       await settings.save();
     }
+    const parseSettingNum = (val, fallback) => {
+      if (val === undefined || val === null || val === '') return fallback;
+      const num = Number(val);
+      return isNaN(num) ? fallback : num;
+    };
     res.status(200).json({
       success: true,
       settings: {
-        baseDeliveryFee: parseFloat(settings.platform?.baseFee || '500') || 500,
-        serviceFee: parseFloat(settings.platform?.serviceFee || '200') || 200,
-        commission: parseFloat(settings.platform?.commission || '15') || 15,
+        baseDeliveryFee: parseSettingNum(settings.platform?.baseFee, 500),
+        serviceFee: parseSettingNum(settings.platform?.serviceFee, 200),
+        commission: parseSettingNum(settings.platform?.commission, 15),
+        deliveryFeeCommission: parseSettingNum(settings.platform?.deliveryFeeCommission, 5),
+        deliveryModel: settings.platform?.deliveryModel || 'flat',
         currency: settings.platform?.currency || 'NGN',
         platformName: settings.platform?.platformName || 'Denish'
       }

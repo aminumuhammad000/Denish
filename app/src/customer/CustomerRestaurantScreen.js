@@ -6,7 +6,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
-import { getCustomerRestaurantDetails } from '../services/api';
+import { getCustomerRestaurantDetails, getPlatformSettings } from '../services/api';
 import { useCart } from '../context/CartContext';
 
 const { width, height } = Dimensions.get('window');
@@ -18,6 +18,7 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(null);
+  const [baseDeliveryFee, setBaseDeliveryFee] = useState(500);
 
   // Item Modal State
   const [selectedItem, setSelectedItem] = useState(null);
@@ -28,22 +29,33 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
   const { addToCart, getTotal, cartItems } = useCart();
 
   useEffect(() => {
+    let isMounted = true;
     const fetchData = async () => {
       try {
-        const response = await getCustomerRestaurantDetails(restaurantId);
-        if (response.success) {
+        const [response, platRes] = await Promise.all([
+          getCustomerRestaurantDetails(restaurantId),
+          getPlatformSettings().catch(() => null)
+        ]);
+        if (response?.success && isMounted) {
           setData(response.data);
           if (response.data.menu?.length > 0) {
             setActiveCategory(response.data.menu[0].category);
           }
         }
+        if (platRes?.success && platRes.settings?.baseDeliveryFee !== undefined && isMounted) {
+          const parsedBaseFee = Number(platRes.settings.baseDeliveryFee);
+          if (!isNaN(parsedBaseFee)) {
+            setBaseDeliveryFee(parsedBaseFee);
+          }
+        }
       } catch (error) {
         console.error(error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
     fetchData();
+    return () => { isMounted = false; };
   }, [restaurantId]);
 
   if (loading) {
@@ -147,7 +159,11 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
             </View>
             <View style={styles.metaItem}>
               <MaterialCommunityIcons name="currency-ngn" size={14} color="#999" />
-              <Text style={styles.metaValue}>{vendor.deliveryFee || 500}</Text>
+              <Text style={styles.metaValue}>
+                {vendor.deliveryFee !== undefined && vendor.deliveryFee !== null && vendor.deliveryFee !== ''
+                  ? Number(vendor.deliveryFee).toLocaleString()
+                  : Number(baseDeliveryFee).toLocaleString()}
+              </Text>
             </View>
           </View>
 

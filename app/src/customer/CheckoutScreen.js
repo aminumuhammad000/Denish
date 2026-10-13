@@ -15,15 +15,27 @@ const { width, height } = Dimensions.get('window');
 
 const CheckoutScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const { cartItems, restaurantId, getTotal, clearCart } = useCart();
+  const { cartItems, restaurantId, getTotal, clearCart, platformSettings } = useCart();
   
   const [loading, setLoading] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [selectedAddressId, setSelectedAddressId] = useState('saved-0');
   const [selectedPaymentId, setSelectedPaymentId] = useState('flutterwave');
   const [profile, setProfile] = useState(null);
-  const [deliveryFee, setDeliveryFee] = useState(route?.params?.deliveryFee ?? 500);
-  const [serviceFee, setServiceFee] = useState(route?.params?.serviceFee ?? 200);
+  const [deliveryFee, setDeliveryFee] = useState(
+    route?.params?.deliveryFee !== undefined && route?.params?.deliveryFee !== null
+      ? Number(route.params.deliveryFee)
+      : (platformSettings?.baseDeliveryFee !== undefined && platformSettings?.baseDeliveryFee !== null
+          ? Number(platformSettings.baseDeliveryFee)
+          : 500)
+  );
+  const [serviceFee, setServiceFee] = useState(
+    route?.params?.serviceFee !== undefined && route?.params?.serviceFee !== null
+      ? Number(route.params.serviceFee)
+      : (platformSettings?.serviceFee !== undefined && platformSettings?.serviceFee !== null
+          ? Number(platformSettings.serviceFee)
+          : 200)
+  );
 
   const rawSubtotal = getTotal();
   const subtotal = rawSubtotal;
@@ -90,18 +102,28 @@ const CheckoutScreen = ({ navigation, route }) => {
     const fetchFees = async () => {
       try {
         const platRes = await getPlatformSettings();
-        if (platRes?.success && isMounted) {
-          if (platRes.settings?.serviceFee !== undefined && !route?.params?.serviceFee) {
-            setServiceFee(Number(platRes.settings.serviceFee) || 200);
+        if (platRes?.success && platRes.settings && isMounted) {
+          if (platRes.settings.serviceFee !== undefined && platRes.settings.serviceFee !== null) {
+            const parsedServiceFee = Number(platRes.settings.serviceFee);
+            if (!isNaN(parsedServiceFee)) {
+              setServiceFee(parsedServiceFee);
+            }
           }
-          if (platRes.settings?.baseDeliveryFee !== undefined && !route?.params?.deliveryFee) {
-            setDeliveryFee(Number(platRes.settings.baseDeliveryFee) || 500);
+          if (platRes.settings.baseDeliveryFee !== undefined && platRes.settings.baseDeliveryFee !== null) {
+            const parsedBaseFee = Number(platRes.settings.baseDeliveryFee);
+            if (!isNaN(parsedBaseFee) && (route?.params?.deliveryFee === undefined || route?.params?.deliveryFee === null)) {
+              setDeliveryFee(parsedBaseFee);
+            }
           }
         }
-        if (restaurantId && !route?.params?.deliveryFee) {
+        if (restaurantId && (route?.params?.deliveryFee === undefined || route?.params?.deliveryFee === null)) {
           const restRes = await getCustomerRestaurantDetails(restaurantId);
-          if (restRes?.data?.deliveryFee !== undefined && isMounted) {
-            setDeliveryFee(Number(restRes.data.deliveryFee) || 500);
+          const vendorObj = restRes?.data?.vendor || restRes?.data;
+          if (vendorObj?.deliveryFee !== undefined && vendorObj?.deliveryFee !== null && vendorObj?.deliveryFee !== '' && isMounted) {
+            const parsedVendorFee = Number(vendorObj.deliveryFee);
+            if (!isNaN(parsedVendorFee)) {
+              setDeliveryFee(parsedVendorFee);
+            }
           }
         }
       } catch (e) {
@@ -457,11 +479,11 @@ const CheckoutScreen = ({ navigation, route }) => {
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Delivery</Text>
-            <Text style={styles.summaryValue}>₦{deliveryFee.toLocaleString()}</Text>
+            <Text style={styles.summaryValue}>₦{Number(deliveryFee).toLocaleString()}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Service fee</Text>
-            <Text style={styles.summaryValue}>₦{serviceFee.toLocaleString()}</Text>
+            <Text style={styles.summaryValue}>₦{Number(serviceFee).toLocaleString()}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.totalRow}>

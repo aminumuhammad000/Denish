@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getPlatformSettings } from '../services/api';
 
 const CART_STORAGE_KEY = 'denish_customer_cart_data';
 
@@ -10,6 +11,24 @@ export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [restaurantId, setRestaurantId] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [platformSettings, setPlatformSettings] = useState(null);
+
+  const fetchPlatformSettings = async () => {
+    try {
+      const platRes = await getPlatformSettings();
+      if (platRes?.success && platRes.settings) {
+        setPlatformSettings(platRes.settings);
+        return platRes.settings;
+      }
+    } catch (e) {
+      console.warn('Error fetching platform settings in CartContext:', e.message);
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    fetchPlatformSettings();
+  }, []);
 
   // Load cart from persistent storage on mount
   useEffect(() => {
@@ -116,7 +135,7 @@ export const CartProvider = ({ children }) => {
   };
 
   return (
-    <CartContext.Provider value={{ cartItems, restaurantId, addToCart, removeFromCart, clearCart, getTotal, isLoaded }}>
+    <CartContext.Provider value={{ cartItems, restaurantId, addToCart, removeFromCart, clearCart, getTotal, isLoaded, platformSettings, fetchPlatformSettings }}>
       {children}
     </CartContext.Provider>
   );
