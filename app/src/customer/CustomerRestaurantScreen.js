@@ -8,17 +8,19 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { getCustomerRestaurantDetails, getPlatformSettings } from '../services/api';
 import { useCart } from '../context/CartContext';
+import { getItemImageUrl, ItemImage } from '../utils/imageUtils';
 
 const { width, height } = Dimensions.get('window');
 
 const CustomerRestaurantScreen = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
-  const { restaurantId = 'demo' } = route?.params || {};
+  const { restaurantId = 'demo', initialCategory = null, initialItemId = null } = route?.params || {};
   
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState(null);
+  const [activeCategory, setActiveCategory] = useState(initialCategory || null);
   const [baseDeliveryFee, setBaseDeliveryFee] = useState(500);
+  const [coverUri, setCoverUri] = useState(null);
 
   // Item Modal State
   const [selectedItem, setSelectedItem] = useState(null);
@@ -38,14 +40,39 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
         ]);
         if (response?.success && isMounted) {
           setData(response.data);
-          if (response.data.menu?.length > 0) {
-            setActiveCategory(response.data.menu[0].category);
+          if (response.data.vendor?.coverUrl) {
+            setCoverUri(response.data.vendor.coverUrl);
+          }
+          const menu = response.data.menu || [];
+          if (menu.length > 0) {
+            let matchedCategory = null;
+            if (initialCategory) {
+              matchedCategory = menu.find(m => m.category?.toLowerCase() === initialCategory.toLowerCase())?.category;
+            }
+            if (!matchedCategory && initialItemId) {
+              matchedCategory = menu.find(m => m.data?.some(d => (d._id === initialItemId || d.id === initialItemId)))?.category;
+            }
+            setActiveCategory(matchedCategory || menu[0].category);
+
+            if (initialItemId) {
+              const allItems = menu.flatMap(m => m.data || []);
+              const foundItem = allItems.find(i => (i._id === initialItemId || i.id === initialItemId));
+              if (foundItem) {
+                setSelectedItem(foundItem);
+                setItemQuantity(1);
+                setInstructions('');
+                setItemModalVisible(true);
+              }
+            }
           }
         }
-        if (platRes?.success && platRes.settings?.baseDeliveryFee !== undefined && isMounted) {
-          const parsedBaseFee = Number(platRes.settings.baseDeliveryFee);
-          if (!isNaN(parsedBaseFee)) {
-            setBaseDeliveryFee(parsedBaseFee);
+        if (platRes?.success && platRes.settings && isMounted) {
+          const platDeliveryFee = platRes.settings.baseDeliveryFee ?? platRes.settings.deliveryFee;
+          if (platDeliveryFee !== undefined && platDeliveryFee !== null) {
+            const parsedBaseFee = Number(platDeliveryFee);
+            if (!isNaN(parsedBaseFee)) {
+              setBaseDeliveryFee(parsedBaseFee);
+            }
           }
         }
       } catch (error) {
@@ -89,7 +116,9 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
   };
 
   const handleAddToCart = () => {
-    addToCart(selectedItem, vendor._id, itemQuantity, instructions);
+    const vId = vendor._id || vendor.id || restaurantId;
+    const vName = vendor.businessName || vendor.name || 'Restaurant';
+    addToCart(selectedItem, vId, itemQuantity, instructions, vName);
     setItemModalVisible(false);
   };
 
@@ -101,8 +130,9 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
         {/* Hero Section */}
         <View style={styles.heroContainer}>
           <Image 
-            source={{ uri: vendor.coverUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800' }} 
+            source={{ uri: coverUri || vendor.coverUrl || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80' }} 
             style={styles.heroImage} 
+            onError={() => setCoverUri('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80')}
           />
           <TouchableOpacity 
             style={[styles.backBtn, { top: insets.top + 10 }]} 
@@ -160,9 +190,7 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
             <View style={styles.metaItem}>
               <MaterialCommunityIcons name="currency-ngn" size={14} color="#999" />
               <Text style={styles.metaValue}>
-                {vendor.deliveryFee !== undefined && vendor.deliveryFee !== null && vendor.deliveryFee !== ''
-                  ? Number(vendor.deliveryFee).toLocaleString()
-                  : Number(baseDeliveryFee).toLocaleString()}
+                {Number(baseDeliveryFee).toLocaleString()}
               </Text>
             </View>
           </View>
@@ -178,7 +206,7 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
           >
             <View style={styles.chatPromptLeft}>
               <Ionicons name="chatbubbles-outline" size={18} color="#FF7D01" />
-              <Text style={styles.chatPromptText}>Questions before ordering? Chat with us</Text>
+              <Text style={styles.chatPromptText} numberOfLines={1}>Questions? Chat with us</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#FF7D01" />
           </TouchableOpacity>
@@ -204,12 +232,12 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
         {/* Menu Items */}
         <View style={styles.menuContainer}>
           {filteredItems.map(item => (
-            <TouchableOpacity key={item._id} style={styles.itemCard} onPress={() => openItemDetails(item)}>
-              <Image source={{ uri: item.image || 'https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=400' }} style={styles.itemImage} />
+            <TouchableOpacity key={item._id || item.id} style={styles.itemCard} onPress={() => openItemDetails(item)}>
+              <ItemImage item={item} style={styles.itemImage} />
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 <Text style={styles.itemDesc} numberOfLines={2}>{item.description || 'Authentic flavor, made with fresh local ingredients.'}</Text>
-                <Text style={styles.itemPrice}>₦{item.price.toLocaleString()}</Text>
+                <Text style={styles.itemPrice}>₦{item.price?.toLocaleString()}</Text>
               </View>
               <View style={styles.addBtn}>
                 <Ionicons name="add" size={20} color={Colors.primary} />
@@ -242,8 +270,8 @@ const CustomerRestaurantScreen = ({ route, navigation }) => {
             </View>
             
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContent}>
-              <Image 
-                source={{ uri: selectedItem?.image || 'https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=400' }} 
+              <ItemImage 
+                item={selectedItem} 
                 style={styles.modalItemImage} 
               />
               
@@ -563,18 +591,21 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FFE0B2',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   chatPromptLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginRight: 6,
   },
   chatPromptText: {
+    flexShrink: 1,
     fontSize: 13,
     color: '#D96500',
     fontWeight: '600',

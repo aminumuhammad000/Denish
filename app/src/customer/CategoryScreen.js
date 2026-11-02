@@ -1,11 +1,13 @@
 import React from 'react';
 import {
   StyleSheet, Text, View, Image, TouchableOpacity,
-  Dimensions, FlatList, StatusBar
+  Dimensions, FlatList, StatusBar, ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
+import { getRestaurants } from '../services/api';
+import { getItemImageUrl, getFoodFallbackImage, isDrinkItem, ItemImage } from '../utils/imageUtils';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -28,6 +30,7 @@ const CATEGORY_DATA = {
     { id: '6', name: 'Pepper Steak', sub: 'Seasoned grilled steak', price: '5,000', image: 'https://images.unsplash.com/photo-1432139555190-58524dae6a55?w=400&q=80' },
   ],
   'Drinks': [
+    { id: 'water_item', name: 'Water', sub: 'Drink quality water', price: '100', image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&q=80' },
     { id: '1', name: 'Fresh Chapman', sub: 'Classic Nigerian Chapman', price: '1,000', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80' },
     { id: '2', name: 'Juice', sub: 'Fresh squeezed juice', price: '1,500', image: 'https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400&q=80' },
     { id: '3', name: 'Red Wine', sub: 'Premium red wine', price: '12,000', image: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80' },
@@ -38,7 +41,7 @@ const CATEGORY_DATA = {
   'Fruits': [
     { id: '1', name: 'Fresh Mango', sub: 'Juicy seasonal mango', price: '1,000', image: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80' },
     { id: '2', name: 'Fresh Pepper', sub: 'Hot chili peppers', price: '2,500', image: 'https://images.unsplash.com/photo-1590644365607-1c5a519a7a37?w=400&q=80' },
-    { id: '3', name: 'Pineapple', sub: 'Sweet tropical pineapple', price: '1,500', image: 'https://images.unsplash.com/photo-1550258114-68bd25f3dfc8?w=400&q=80' },
+    { id: '3', name: 'Pineapple', sub: 'Sweet tropical pineapple', price: '1,500', image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=400&q=80' },
     { id: '4', name: 'Watermelon', sub: 'Refreshing watermelon', price: '2,000', image: 'https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?w=400&q=80' },
     { id: '5', name: 'Banana', sub: 'Fresh organic banana', price: '500', image: 'https://images.unsplash.com/photo-1528825871115-3581a5387919?w=400&q=80' },
     { id: '6', name: 'Papaya', sub: 'Sweet tropical papaya', price: '1,200', image: 'https://images.unsplash.com/photo-1517282009859-f000ec3b26fe?w=400&q=80' },
@@ -54,8 +57,30 @@ const CATEGORY_DATA = {
   ],
 };
 
-import { getRestaurants } from '../services/api';
-import { ActivityIndicator } from 'react-native';
+const CategoryCard = ({ item, onPress }) => {
+  return (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <ItemImage 
+        item={item.item || item} 
+        style={styles.cardImage} 
+      />
+      <View style={styles.cardBody}>
+        <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+        <Text style={styles.cardSub} numberOfLines={1}>{item.sub}</Text>
+        <View style={styles.cardFooter}>
+          <Text style={styles.cardPrice}>₦{item.price}</Text>
+          <TouchableOpacity style={styles.addBtn} onPress={onPress}>
+            <Ionicons name="add" size={18} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const CategoryScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
@@ -72,8 +97,10 @@ const CategoryScreen = ({ navigation, route }) => {
     try {
       const res = await getRestaurants();
       if (res.success) {
-        const vendorList = res.data?.vendors || [];
+        const vendorList = Array.isArray(res.data) ? res.data : (res.data?.vendors || []);
         setVendors(vendorList);
+        const fallbackVendorId = vendorList[0]?._id;
+
         if (category === 'Featured vendors') {
           setItems(vendorList.map(v => ({
             id: v._id,
@@ -84,45 +111,92 @@ const CategoryScreen = ({ navigation, route }) => {
             vendorId: v._id
           })));
         } else {
-          const fetchedItems = res.data?.items || [];
-          const filtered = fetchedItems.filter(i => 
-            category === 'Featured orders' ? true : i.category === category
-          ).map(i => ({
+          const fetchedItems = res.items || res.data?.items || [];
+          let filtered = [];
+
+          if (category === 'Featured orders') {
+            filtered = fetchedItems;
+          } else if (category === 'Drinks') {
+            filtered = fetchedItems.filter(i => isDrinkItem(i));
+          } else if (category === 'Cooked Foods') {
+            filtered = fetchedItems.filter(i => {
+              const cat = (i.category || '').toLowerCase();
+              const name = (i.name || '').toLowerCase();
+              return cat.includes('cook') || cat.includes('rice') || cat.includes('soup') || cat.includes('snack') || cat.includes('local') || !i.category || name.includes('wain') || name.includes('rice');
+            });
+          } else if (category === 'Grilled Foods') {
+            filtered = fetchedItems.filter(i => {
+              const cat = (i.category || '').toLowerCase();
+              const name = (i.name || '').toLowerCase();
+              return cat.includes('grill') || cat.includes('barbecue') || cat.includes('suya') || name.includes('suya') || name.includes('grill') || name.includes('skewer');
+            });
+          } else if (category === 'Fruits') {
+            filtered = fetchedItems.filter(i => {
+              const cat = (i.category || '').toLowerCase();
+              const name = (i.name || '').toLowerCase();
+              return cat.includes('fruit') || cat.includes('salad') || name.includes('fruit') || name.includes('mango') || name.includes('pineapple') || name.includes('watermelon');
+            });
+          } else {
+            filtered = fetchedItems.filter(i => {
+              const cat = (i.category || '').toLowerCase();
+              return cat === category.toLowerCase();
+            });
+          }
+
+          let mappedItems = filtered.map(i => ({
             id: i._id,
             name: i.name,
-            sub: i.description,
+            sub: i.description || i.name,
             price: i.price?.toLocaleString(),
-            image: i.image || 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=400&q=80',
-            vendorId: i.vendorId
+            image: getItemImageUrl(i),
+            vendorId: i.vendorId,
+            item: i
           }));
-          setItems(filtered);
+
+          const fallbacks = (CATEGORY_DATA[category] || []).map(f => ({ ...f, vendorId: fallbackVendorId }));
+          if (category === 'Drinks') {
+            fallbacks.forEach(def => {
+              const alreadyHas = mappedItems.some(m => {
+                const mName = (m.name || '').toLowerCase();
+                const defName = def.name.toLowerCase();
+                return mName.includes(defName) || defName.includes(mName);
+              });
+              if (!alreadyHas && mappedItems.length < 6) {
+                mappedItems.push({
+                  id: def.id,
+                  name: def.name,
+                  sub: def.sub,
+                  price: def.price,
+                  image: def.image,
+                  vendorId: fallbackVendorId,
+                  item: def
+                });
+              }
+            });
+          } else if (mappedItems.length === 0 && fallbacks.length > 0) {
+            mappedItems = fallbacks;
+          }
+
+          setItems(mappedItems);
         }
       }
     } catch (e) {
       console.error(e);
+      setItems(CATEGORY_DATA[category] || []);
     } finally {
       setLoading(false);
     }
   };
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId || item.id })}
-      activeOpacity={0.85}
-    >
-      <Image source={{ uri: item.image }} style={styles.cardImage} />
-      <View style={styles.cardBody}>
-        <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.cardSub} numberOfLines={1}>{item.sub}</Text>
-        <View style={styles.cardFooter}>
-          <Text style={styles.cardPrice}>₦{item.price}</Text>
-          <TouchableOpacity style={styles.addBtn}>
-            <Ionicons name="add" size={18} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </TouchableOpacity>
+    <CategoryCard 
+      item={item} 
+      onPress={() => navigation.navigate('CustomerRestaurant', { 
+        restaurantId: item.vendorId || item.id,
+        initialCategory: category,
+        initialItemId: item.id || item._id
+      })} 
+    />
   );
 
   return (

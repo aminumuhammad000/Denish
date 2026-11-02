@@ -5,6 +5,7 @@ const {
   getRestaurants, getRestaurantDetails, placeOrder, getCustomerProfile, 
   updateCustomerProfile, getCustomerOrders, search, addAddress, 
   addPaymentMethod, deleteAddress, deletePaymentMethod, getOrderTracking, 
+  submitOrderReview, getOrderReview,
   getChatThreads, getMessages, sendMessage, initiateCall, getIncomingCall, 
   getCallStatus, respondCall, sendCallSignal, getCallSignals, getCallLogs, initializeFlutterwavePayment, 
   verifyFlutterwavePayment, flutterwaveWebhook,
@@ -12,6 +13,7 @@ const {
   getCustomerWallet, fundCustomerWallet, redeemLoyaltyPoints, handleFlutterwaveCallback
 } = require('../controllers/customerController');
 const { upload } = require('../config/cloudinary');
+const { calculateDistanceHandler, geocodeAddressHandler } = require('../controllers/driverController');
 
 router.get('/platform-settings', getPlatformSettings);
 router.get('/restaurants', getRestaurants);
@@ -28,6 +30,13 @@ router.delete('/address/:addressId', deleteAddress);
 router.post('/add-payment-method', addPaymentMethod);
 router.delete('/payment-method/:paymentId', deletePaymentMethod);
 router.get('/order/:id/tracking', getOrderTracking);
+router.post('/order/:id/review', submitOrderReview);
+router.get('/order/:id/review', getOrderReview);
+router.post('/calculate-distance', calculateDistanceHandler);
+router.get('/calculate-distance', calculateDistanceHandler);
+router.post('/distance', calculateDistanceHandler);
+router.post('/geocode', geocodeAddressHandler);
+router.get('/geocode', geocodeAddressHandler);
 router.get('/orders', getCustomerOrders);
 
 // Notification routes

@@ -130,6 +130,10 @@ var require_Customer = __commonJS({
       referralCode: {
         type: String
       },
+      referredBy: {
+        type: String,
+        default: null
+      },
       address: String,
       addresses: [{
         label: String,
@@ -506,8 +510,18 @@ var require_Vendor = __commonJS({
       },
       isVerified: { type: Boolean, default: false },
       rating: { type: Number, default: 4.8 },
+      ratingsCount: { type: Number, default: 1 },
+      reviews: [{
+        orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
+        customerName: { type: String, default: "Customer" },
+        rating: { type: Number, required: true },
+        comment: { type: String, default: "" },
+        createdAt: { type: Date, default: Date.now }
+      }],
       deliveryTime: { type: String, default: "25-35 min" },
-      deliveryFee: { type: Number, default: 500 }
+      deliveryFee: { type: Number, default: 500 },
+      referralCode: { type: String },
+      referredBy: { type: String, default: null }
     }, { timestamps: true });
     module2.exports = mongoose.model("Vendor", vendorSchema);
   }
@@ -559,6 +573,12 @@ var require_Order = __commonJS({
         enum: ["pending", "preparing", "ready", "on the way", "delivered", "cancelled"],
         default: "pending"
       },
+      rating: { type: Number, min: 1, max: 5 },
+      review: { type: String, default: "" },
+      driverRating: { type: Number, min: 1, max: 5 },
+      driverReview: { type: String, default: "" },
+      isReviewed: { type: Boolean, default: false },
+      reviewedAt: { type: Date },
       processingEmailSent: { type: Boolean, default: false },
       deliveredEmailSent: { type: Boolean, default: false }
     }, { timestamps: true });
@@ -1400,6 +1420,14 @@ var require_Driver = __commonJS({
         type: Boolean,
         default: false
       },
+      rating: {
+        type: Number,
+        default: 4.8
+      },
+      ratingsCount: {
+        type: Number,
+        default: 1
+      },
       earnings: {
         totalEarned: { type: Number, default: 0 },
         availableBalance: { type: Number, default: 0 },
@@ -1414,6 +1442,8 @@ var require_Driver = __commonJS({
           status: { type: String, enum: ["pending", "eligible", "paid"], default: "pending" }
         }]
       },
+      referralCode: { type: String },
+      referredBy: { type: String, default: null },
       resetPasswordOTP: String,
       resetPasswordExpires: Date,
       currentLocation: {
@@ -1520,6 +1550,7 @@ var require_Settings = __commonJS({
         currency: { type: String, default: "NGN" },
         deliveryModel: { type: String, enum: ["flat", "distance"], default: "flat" },
         baseFee: { type: String, default: "500" },
+        deliveryFee: { type: String, default: "500" },
         serviceFee: { type: String, default: "200" },
         commission: { type: String, default: "15" },
         deliveryFeeCommission: { type: String, default: "5" },
@@ -3960,9 +3991,10 @@ var require_authController = __commonJS({
     };
     var vendorSignup = async (req, res) => {
       try {
-        const { name, email, phone, password } = req.body;
+        const { name, email, phone, password, referralCode: enteredReferralCode, referredBy } = req.body;
         const cleanEmail = email ? email.trim() : "";
         const cleanPhone = phone ? phone.trim() : "";
+        const referredByCode = (enteredReferralCode || referredBy || "").trim().toUpperCase() || null;
         if (!cleanEmail) {
           return res.status(400).json({ success: false, error: "Email is required" });
         }
@@ -3970,6 +4002,9 @@ var require_authController = __commonJS({
         if (check.exists) {
           return res.status(400).json({ success: false, error: check.error });
         }
+        const cleanName = (name || "DENISH").replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase() || "DENISH";
+        const codeSuffix = cleanPhone ? cleanPhone.slice(-3) : Math.floor(100 + Math.random() * 900);
+        const referralCode = `${cleanName}${codeSuffix}`;
         const vendor = await Vendor.create({
           name: name ? name.trim() : "",
           email: cleanEmail,
@@ -3981,7 +4016,9 @@ var require_authController = __commonJS({
           about: "",
           logoUrl: "",
           coverUrl: "",
-          status: "Pending"
+          status: "Pending",
+          referralCode,
+          referredBy: referredByCode
         });
         sendWelcomeEmail(cleanEmail, name).catch((err) => console.error("Error sending welcome email to vendor:", err));
         res.status(201).json({ success: true, token: "fake-jwt-token-for-" + vendor._id, vendor });
@@ -4010,9 +4047,10 @@ var require_authController = __commonJS({
     };
     var customerSignup = async (req, res) => {
       try {
-        const { name, email, phone, password } = req.body;
+        const { name, email, phone, password, referralCode: enteredReferralCode, referredBy } = req.body;
         const cleanEmail = email ? email.trim() : "";
         const cleanPhone = phone ? phone.trim() : "";
+        const referredByCode = (enteredReferralCode || referredBy || "").trim().toUpperCase() || null;
         if (!cleanEmail) {
           return res.status(400).json({ success: false, error: "Email is required" });
         }
@@ -4028,7 +4066,8 @@ var require_authController = __commonJS({
           email: cleanEmail,
           phone: cleanPhone,
           password,
-          referralCode
+          referralCode,
+          referredBy: referredByCode
         });
         sendWelcomeEmail(cleanEmail, name).catch((err) => console.error("Error sending welcome email to customer:", err));
         res.status(201).json({ success: true, token: "cust-token-" + customer._id, user: customer });
@@ -4057,9 +4096,10 @@ var require_authController = __commonJS({
     };
     var driverSignup = async (req, res) => {
       try {
-        const { name, email, phone, password, vehicleType } = req.body;
+        const { name, email, phone, password, vehicleType, referralCode: enteredReferralCode, referredBy } = req.body;
         const cleanEmail = email ? email.trim() : "";
         const cleanPhone = phone ? phone.trim() : "";
+        const referredByCode = (enteredReferralCode || referredBy || "").trim().toUpperCase() || null;
         if (!cleanEmail) {
           return res.status(400).json({ success: false, error: "Email is required" });
         }
@@ -4067,12 +4107,17 @@ var require_authController = __commonJS({
         if (check.exists) {
           return res.status(400).json({ success: false, error: check.error });
         }
+        const cleanName = (name || "DENISH").replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase() || "DENISH";
+        const codeSuffix = cleanPhone ? cleanPhone.slice(-3) : Math.floor(100 + Math.random() * 900);
+        const referralCode = `${cleanName}${codeSuffix}`;
         const driver = await Driver.create({
           name: name ? name.trim() : "Driver",
           email: cleanEmail,
           phone: cleanPhone,
           password,
-          vehicleType: vehicleType || "Motorcycle"
+          vehicleType: vehicleType || "Motorcycle",
+          referralCode,
+          referredBy: referredByCode
         });
         sendWelcomeEmail(cleanEmail, name).catch((err) => console.error("Error sending welcome email to driver:", err));
         res.status(201).json({ success: true, token: "driver-token-" + driver._id, user: driver });
@@ -4321,16 +4366,19 @@ var require_authController = __commonJS({
             password: placeholderPassword,
             profilePic: picture
           };
+          const cleanName = (name || "DENISH").replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase() || "DENISH";
+          const generatedCode = `${cleanName}${Math.floor(100 + Math.random() * 900)}`;
           if (role === "driver") {
             createData.vehicleType = "Motorcycle";
             createData.status = "Pending";
+            createData.referralCode = generatedCode;
           } else if (role === "vendor") {
             createData.logoUrl = picture;
             createData.businessName = name || "Vendor Business";
             createData.status = "Pending";
+            createData.referralCode = generatedCode;
           } else if (role === "customer") {
-            const cleanName = (name || "DENISH").replace(/[^a-zA-Z]/g, "").slice(0, 5).toUpperCase() || "DENISH";
-            createData.referralCode = `${cleanName}${Math.floor(100 + Math.random() * 900)}`;
+            createData.referralCode = generatedCode;
           }
           user = await Model.create(createData);
           sendWelcomeEmail(email, name).catch((err) => console.error("Error sending welcome email:", err));
@@ -4835,11 +4883,39 @@ var require_customerController = __commonJS({
       }
       return null;
     };
+    var sanitizeItemImage = (item) => {
+      if (!item) return item;
+      const itemObj = item.toObject ? item.toObject() : { ...item };
+      const img = (itemObj.image || "").trim();
+      const isInvalid = !img || img.startsWith("blob:") || img.startsWith("file:") || img.includes("suya.jpg") || img.includes("placeholder.com") || !img.startsWith("http://") && !img.startsWith("https://");
+      if (isInvalid) {
+        const combined = `${itemObj.name || ""} ${itemObj.category || ""} ${itemObj.description || ""}`.toLowerCase();
+        if (combined.includes("water")) {
+          itemObj.image = "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&q=80";
+        } else if (combined.includes("suya") || combined.includes("grill") || combined.includes("barbecue")) {
+          itemObj.image = "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80";
+        } else if (combined.includes("wain") || combined.includes("snack") || combined.includes("masa")) {
+          itemObj.image = "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600&q=80";
+        } else if (combined.includes("soup") || combined.includes("stew") || combined.includes("adequas")) {
+          itemObj.image = "https://images.unsplash.com/photo-1547592180-85f173990554?w=600&q=80";
+        } else if (combined.includes("drink") || combined.includes("juice") || combined.includes("wine")) {
+          itemObj.image = "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=600&q=80";
+        } else if (combined.includes("fruit") || combined.includes("mango") || combined.includes("watermelon")) {
+          itemObj.image = "https://images.unsplash.com/photo-1553279768-865429fa0078?w=600&q=80";
+        } else if (combined.includes("rice") || combined.includes("jollof")) {
+          itemObj.image = "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=600&q=80";
+        } else {
+          itemObj.image = "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80";
+        }
+      }
+      return itemObj;
+    };
     var getRestaurants = async (req, res) => {
       try {
         const vendors = await Vendor.find({ status: "Approved" });
         const approvedVendorIds = vendors.map((v) => v._id);
-        const items = await MenuItem.find({ available: true, vendorId: { $in: approvedVendorIds } });
+        const rawItems = await MenuItem.find({ available: true, vendorId: { $in: approvedVendorIds } });
+        const items = rawItems.map(sanitizeItemImage);
         const banners = await Banner.find({ status: "active" });
         res.status(200).json({
           success: true,
@@ -4861,7 +4937,8 @@ var require_customerController = __commonJS({
           vendor = await Vendor.findById(vendorId);
         }
         if (!vendor) return res.status(404).json({ success: false, error: "Restaurant not found" });
-        const items = await MenuItem.find({ vendorId: vendor._id, available: true });
+        const rawItems = await MenuItem.find({ vendorId: vendor._id, available: true });
+        const items = rawItems.map(sanitizeItemImage);
         const menuByCategory = items.reduce((acc, item) => {
           const cat = item.category || "Other";
           if (!acc[cat]) acc[cat] = [];
@@ -4914,9 +4991,9 @@ var require_customerController = __commonJS({
           const num = Number(val);
           return isNaN(num) ? fallback : num;
         };
-        const defaultDeliveryFee = parseSettingNum(platformSettings?.platform?.baseFee, 500);
+        const defaultDeliveryFee = parseSettingNum(platformSettings?.platform?.baseFee ?? platformSettings?.platform?.deliveryFee, 500);
         const defaultServiceFee = parseSettingNum(platformSettings?.platform?.serviceFee, 200);
-        const resolvedDeliveryFee = req.body.deliveryFee !== void 0 ? Number(req.body.deliveryFee) : vendorDoc?.deliveryFee !== void 0 && vendorDoc?.deliveryFee !== null ? Number(vendorDoc.deliveryFee) : defaultDeliveryFee;
+        const resolvedDeliveryFee = req.body.deliveryFee !== void 0 ? Number(req.body.deliveryFee) : defaultDeliveryFee;
         const resolvedServiceFee = req.body.serviceFee !== void 0 ? Number(req.body.serviceFee) : defaultServiceFee;
         const resolvedSubtotal = req.body.subtotal !== void 0 ? Number(req.body.subtotal) : formattedItems.reduce((acc, it) => acc + it.price * it.quantity, 0);
         const calculatedTotal = resolvedSubtotal + resolvedDeliveryFee + resolvedServiceFee;
@@ -5109,11 +5186,128 @@ var require_customerController = __commonJS({
             order,
             estimatedArrival,
             status: order.status,
+            vendorId: order.vendorId?._id || order.vendorId,
+            vendorName: order.vendorId?.businessName || order.vendorName || "Restaurant",
+            isReviewed: order.isReviewed || false,
+            rating: order.rating || null,
+            review: order.review || "",
+            driverRating: order.driverRating || null,
+            driverReview: order.driverReview || "",
             driverId: resolvedDriverId,
             driverName: resolvedDriverName,
             driverPhone: resolvedDriverPhone,
             driverPic: resolvedDriverPic,
             totalAmount: order.totalAmount || order.total || 5700
+          }
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var submitOrderReview = async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { rating, review, driverRating, driverReview } = req.body;
+        const numRating = Number(rating);
+        if (!numRating || numRating < 1 || numRating > 5) {
+          return res.status(400).json({ success: false, error: "Rating must be a number between 1 and 5" });
+        }
+        let order;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+          order = await Order.findById(id).populate("vendorId");
+        } else {
+          order = await Order.findOne({ orderId: id }).populate("vendorId");
+        }
+        if (!order) {
+          return res.status(404).json({ success: false, error: "Order not found" });
+        }
+        order.rating = numRating;
+        order.review = (review || "").trim();
+        if (driverRating !== void 0 && driverRating !== null && driverRating !== "") {
+          order.driverRating = Math.max(1, Math.min(5, Number(driverRating)));
+        }
+        if (driverReview !== void 0) {
+          order.driverReview = String(driverReview).trim();
+        }
+        order.isReviewed = true;
+        order.reviewedAt = /* @__PURE__ */ new Date();
+        await order.save();
+        if (order.vendorId) {
+          const vendorId = order.vendorId._id || order.vendorId;
+          const vendor = await Vendor.findById(vendorId);
+          if (vendor) {
+            if (!Array.isArray(vendor.reviews)) {
+              vendor.reviews = [];
+            }
+            const existingIdx = vendor.reviews.findIndex((r) => r.orderId && r.orderId.toString() === order._id.toString());
+            const reviewEntry = {
+              orderId: order._id,
+              customerName: order.customerName || "Customer",
+              rating: numRating,
+              comment: (review || "").trim(),
+              createdAt: /* @__PURE__ */ new Date()
+            };
+            if (existingIdx > -1) {
+              vendor.reviews[existingIdx] = reviewEntry;
+            } else {
+              vendor.reviews.push(reviewEntry);
+            }
+            const totalRatings = vendor.reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
+            const avgRating = totalRatings / vendor.reviews.length;
+            vendor.rating = Number(avgRating.toFixed(1));
+            vendor.ratingsCount = vendor.reviews.length;
+            await vendor.save();
+          }
+        }
+        if (order.driverId && order.driverRating) {
+          const driver = await Driver.findById(order.driverId);
+          if (driver) {
+            const currentDriverRating = driver.rating || 5;
+            const currentCount = driver.ratingsCount || 1;
+            const newCount = currentCount + 1;
+            const newRating = (currentDriverRating * currentCount + Number(order.driverRating)) / newCount;
+            driver.rating = Number(newRating.toFixed(1));
+            driver.ratingsCount = newCount;
+            await driver.save();
+          }
+        }
+        res.status(200).json({
+          success: true,
+          message: "Review submitted successfully",
+          data: {
+            orderId: order.orderId || order._id,
+            rating: order.rating,
+            review: order.review,
+            driverRating: order.driverRating,
+            isReviewed: true,
+            reviewedAt: order.reviewedAt
+          }
+        });
+      } catch (error) {
+        console.error("submitOrderReview error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    };
+    var getOrderReview = async (req, res) => {
+      try {
+        const { id } = req.params;
+        let order;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+          order = await Order.findById(id);
+        } else {
+          order = await Order.findOne({ orderId: id });
+        }
+        if (!order) return res.status(404).json({ success: false, error: "Order not found" });
+        res.status(200).json({
+          success: true,
+          data: {
+            orderId: order.orderId || order._id,
+            isReviewed: order.isReviewed || false,
+            rating: order.rating || null,
+            review: order.review || "",
+            driverRating: order.driverRating || null,
+            driverReview: order.driverReview || "",
+            reviewedAt: order.reviewedAt || null
           }
         });
       } catch (error) {
@@ -5142,13 +5336,14 @@ var require_customerController = __commonJS({
         const items = await MenuItem.find({
           $or: [
             { name: { $regex: query, $options: "i" } },
-            { description: { $regex: query, $options: "i" } }
+            { description: { $regex: query, $options: "i" } },
+            { category: { $regex: query, $options: "i" } }
           ],
           available: true
         }).populate("vendorId");
         res.status(200).json({
           success: true,
-          data: { vendors, items }
+          data: { vendors, items: items.map(sanitizeItemImage) }
         });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -5994,14 +6189,17 @@ var require_customerController = __commonJS({
           const num = Number(val);
           return isNaN(num) ? fallback : num;
         };
+        const adminDeliveryFee = parseSettingNum(settings.platform?.baseFee ?? settings.platform?.deliveryFee, 500);
+        const adminServiceFee = parseSettingNum(settings.platform?.serviceFee, 200);
         res.status(200).json({
           success: true,
           settings: {
-            baseDeliveryFee: parseSettingNum(settings.platform?.baseFee, 500),
-            serviceFee: parseSettingNum(settings.platform?.serviceFee, 200),
+            baseDeliveryFee: adminDeliveryFee,
+            deliveryFee: adminDeliveryFee,
+            serviceFee: adminServiceFee,
             commission: parseSettingNum(settings.platform?.commission, 15),
             deliveryFeeCommission: parseSettingNum(settings.platform?.deliveryFeeCommission, 5),
-            deliveryModel: settings.platform?.deliveryModel || "flat",
+            deliveryModel: "flat",
             currency: settings.platform?.currency || "NGN",
             platformName: settings.platform?.platformName || "Denish"
           }
@@ -6025,6 +6223,8 @@ var require_customerController = __commonJS({
       deleteAddress,
       deletePaymentMethod,
       getOrderTracking,
+      submitOrderReview,
+      getOrderReview,
       getChatThreads,
       getMessages,
       sendMessage,
@@ -6048,268 +6248,6 @@ var require_customerController = __commonJS({
       creditCustomerWalletAtomic,
       verifyFlutterwaveTransaction
     };
-  }
-});
-
-// routes/customerRoutes.js
-var require_customerRoutes = __commonJS({
-  "routes/customerRoutes.js"(exports2, module2) {
-    var express2 = require("express");
-    var router = express2.Router();
-    var {
-      getPlatformSettings,
-      getRestaurants,
-      getRestaurantDetails,
-      placeOrder,
-      getCustomerProfile,
-      updateCustomerProfile,
-      getCustomerOrders,
-      search,
-      addAddress,
-      addPaymentMethod,
-      deleteAddress,
-      deletePaymentMethod,
-      getOrderTracking,
-      getChatThreads,
-      getMessages,
-      sendMessage,
-      initiateCall,
-      getIncomingCall,
-      getCallStatus,
-      respondCall,
-      sendCallSignal,
-      getCallSignals,
-      getCallLogs,
-      initializeFlutterwavePayment,
-      verifyFlutterwavePayment,
-      flutterwaveWebhook: flutterwaveWebhook2,
-      getCustomerNotifications,
-      markCustomerNotificationRead,
-      markAllCustomerNotificationsRead,
-      getCustomerWallet,
-      fundCustomerWallet,
-      redeemLoyaltyPoints,
-      handleFlutterwaveCallback: handleFlutterwaveCallback2
-    } = require_customerController();
-    var { upload } = require_cloudinary();
-    router.get("/platform-settings", getPlatformSettings);
-    router.get("/restaurants", getRestaurants);
-    router.get("/restaurant/:id", getRestaurantDetails);
-    router.get("/search", search);
-    router.post("/order", placeOrder);
-    router.get("/profile", getCustomerProfile);
-    router.put("/profile", updateCustomerProfile);
-    router.get("/wallet", getCustomerWallet);
-    router.post("/wallet/fund", fundCustomerWallet);
-    router.post("/loyalty/redeem", redeemLoyaltyPoints);
-    router.post("/add-address", addAddress);
-    router.delete("/address/:addressId", deleteAddress);
-    router.post("/add-payment-method", addPaymentMethod);
-    router.delete("/payment-method/:paymentId", deletePaymentMethod);
-    router.get("/order/:id/tracking", getOrderTracking);
-    router.get("/orders", getCustomerOrders);
-    router.get("/notifications", getCustomerNotifications);
-    router.patch("/notifications/read-all", markAllCustomerNotificationsRead);
-    router.patch("/notifications/:id/read", markCustomerNotificationRead);
-    router.get("/chats", getChatThreads);
-    router.get("/messages", getMessages);
-    router.post("/messages", sendMessage);
-    router.post("/call/initiate", initiateCall);
-    router.get("/call/incoming", getIncomingCall);
-    router.get("/call/status/:callId", getCallStatus);
-    router.post("/call/respond", respondCall);
-    router.post("/call/signal", sendCallSignal);
-    router.get("/call/signals/:callId", getCallSignals);
-    router.get("/call/logs", getCallLogs);
-    router.post("/flw/initialize", initializeFlutterwavePayment);
-    router.post("/flw/verify", verifyFlutterwavePayment);
-    router.post("/flw/webhook", flutterwaveWebhook2);
-    router.get("/flw/callback", handleFlutterwaveCallback2);
-    router.post("/upload-profile-pic", upload.single("image"), (req, res) => {
-      try {
-        const imageUrl = req.file ? req.file.path : null;
-        res.status(200).json({ success: true, imageUrl });
-      } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-    module2.exports = router;
-  }
-});
-
-// controllers/paymentController.js
-var require_paymentController = __commonJS({
-  "controllers/paymentController.js"(exports2, module2) {
-    var axios = require("axios");
-    var { getFlutterwaveAuthHeader } = require_flutterwave();
-    var { FALLBACK_BANKS } = require_payoutService();
-    var FLW_BASE_URL = "https://api.flutterwave.com/v3";
-    var FLW_V2_URL = "https://api.ravepay.co/flwv3-pug/getpaidx/api/resolve_account";
-    var getBanks = async (req, res) => {
-      try {
-        const authHeader = await getFlutterwaveAuthHeader();
-        const response = await axios.get(`${FLW_BASE_URL}/banks/NG`, {
-          headers: {
-            Authorization: authHeader,
-            "User-Agent": "Denish/1.0",
-            "Accept": "application/json"
-          },
-          timeout: 8e3
-        });
-        if (response.data && response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
-          const banks = response.data.data.map((bank) => ({
-            ...bank,
-            code: bank.code
-          }));
-          return res.status(200).json({ success: true, data: banks });
-        }
-      } catch (error) {
-        console.warn("Flutterwave getBanks notice, using verified Nigerian bank list:", error.message);
-      }
-      return res.status(200).json({ success: true, data: FALLBACK_BANKS });
-    };
-    var verifyAccount = async (req, res) => {
-      const publicKey = process.env.FLW_PUBLIC_KEY;
-      const bankCode = req.query.bankCode || req.body?.bankCode || req.body?.destbankcode;
-      const accountNumber = req.query.accountNumber || req.body?.accountNumber || req.body?.recipientaccount;
-      const country = req.query.country || req.body?.country || "NG";
-      if (!bankCode || !accountNumber) {
-        return res.status(400).json({ success: false, message: "bankCode and accountNumber are required" });
-      }
-      try {
-        const authHeader = await getFlutterwaveAuthHeader();
-        const requestBody = {
-          account_number: accountNumber,
-          account_bank: bankCode,
-          country: country || "NG"
-        };
-        const response = await axios.post(`${FLW_BASE_URL}/accounts/resolve`, requestBody, {
-          headers: {
-            Authorization: authHeader,
-            "Content-Type": "application/json"
-          }
-        });
-        if (response.data && response.data.status === "success" && response.data.data) {
-          const accountData = response.data.data;
-          const accountName = accountData.account_name || accountData.customer_name || accountData.accountname || "";
-          if (accountName) {
-            return res.status(200).json({
-              success: true,
-              data: {
-                accountName,
-                account_name: accountName,
-                accountNumber: accountData.account_number || accountNumber,
-                bankCode
-              }
-            });
-          }
-        }
-      } catch (v3Error) {
-        console.warn("Flutterwave V3 verifyAccount warning:", v3Error.response?.data?.message || v3Error.message);
-      }
-      if (publicKey) {
-        try {
-          const response = await axios.post(FLW_V2_URL, {
-            recipientaccount: accountNumber,
-            destbankcode: bankCode,
-            PBFPubKey: publicKey,
-            currency: country === "GH" ? "GHS" : void 0,
-            country: country === "GH" ? "GH" : void 0
-          }, {
-            headers: { "Content-Type": "application/json" }
-          });
-          const resData = response.data;
-          if (resData && resData.status === "success" && resData.data && resData.data.data) {
-            const inner = resData.data.data;
-            if (inner.responsecode === "00" && inner.accountname) {
-              return res.status(200).json({
-                success: true,
-                data: {
-                  accountName: inner.accountname,
-                  account_name: inner.accountname,
-                  accountNumber: inner.accountnumber || accountNumber,
-                  bankCode
-                }
-              });
-            } else if (inner.responsemessage) {
-              return res.status(400).json({
-                success: false,
-                message: inner.responsemessage,
-                data: null
-              });
-            }
-          }
-        } catch (v2Error) {
-          console.warn("Flutterwave V2 verifyAccount warning:", v2Error.response?.data?.message || v2Error.message);
-        }
-      }
-      if (/^\d{10}$/.test(accountNumber)) {
-        try {
-          const Driver = require_Driver();
-          const Vendor = require_Vendor();
-          const driverMatch = await Driver.findOne({ "bank.accountNumber": accountNumber });
-          if (driverMatch && driverMatch.bank?.accountName) {
-            return res.status(200).json({
-              success: true,
-              data: {
-                accountName: driverMatch.bank.accountName,
-                account_name: driverMatch.bank.accountName,
-                accountNumber,
-                bankCode
-              }
-            });
-          }
-          const vendorMatch = await Vendor.findOne({ "payoutAccount.accountNumber": accountNumber });
-          if (vendorMatch && vendorMatch.payoutAccount?.accountName) {
-            return res.status(200).json({
-              success: true,
-              data: {
-                accountName: vendorMatch.payoutAccount.accountName,
-                account_name: vendorMatch.payoutAccount.accountName,
-                accountNumber,
-                bankCode
-              }
-            });
-          }
-        } catch (dbErr) {
-          console.warn("DB lookup warning in verifyAccount fallback:", dbErr.message);
-        }
-        return res.status(200).json({
-          success: true,
-          data: {
-            accountName: accountNumber === "0690000034" ? "Ade Bond" : "Verified Merchant Account",
-            account_name: accountNumber === "0690000034" ? "Ade Bond" : "Verified Merchant Account",
-            accountNumber,
-            bankCode
-          }
-        });
-      }
-      return res.status(400).json({
-        success: false,
-        message: "Sorry, recipient account could not be validated. Please check the 10-digit account number.",
-        data: null
-      });
-    };
-    module2.exports = {
-      getBanks,
-      verifyAccount
-    };
-  }
-});
-
-// routes/paymentRoutes.js
-var require_paymentRoutes = __commonJS({
-  "routes/paymentRoutes.js"(exports2, module2) {
-    var express2 = require("express");
-    var router = express2.Router();
-    var { getBanks, verifyAccount } = require_paymentController();
-    var { flutterwaveWebhook: flutterwaveWebhook2 } = require_customerController();
-    router.get("/banks", getBanks);
-    router.get("/verify-account", verifyAccount);
-    router.post("/verify-account", verifyAccount);
-    router.post("/flw-webhook", flutterwaveWebhook2);
-    router.post("/webhook", flutterwaveWebhook2);
-    module2.exports = router;
   }
 });
 
@@ -6412,6 +6350,67 @@ var require_geoapifyRoutingService = __commonJS({
       let destLon = params.destLon ?? params.destLng ?? params.destinationLon ?? params.destinationLng ?? params.toLon ?? params.toLng ?? params.destination?.longitude ?? params.destination?.lon ?? params.destination?.lng ?? params.destination?.x;
       return { originLat, originLon, destLat, destLon };
     }
+    async function fetchGoogleMapsDistance(origin, destination, googleApiKey, timeout = 8e3) {
+      const originStr = `${origin.latitude},${origin.longitude}`;
+      const destStr = `${destination.latitude},${destination.longitude}`;
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&mode=driving&key=${encodeURIComponent(googleApiKey.trim())}`;
+      const response = await axios.get(url, {
+        timeout,
+        headers: { Accept: "application/json" }
+      });
+      const data = response.data;
+      if (!data || data.status !== "OK" || !Array.isArray(data.routes) || data.routes.length === 0) {
+        throw new Error(`Google Maps API error: ${data?.status || "NO_ROUTE"} ${data?.error_message || ""}`.trim());
+      }
+      const route = data.routes[0];
+      const leg = route?.legs?.[0];
+      if (!leg || !leg.distance || typeof leg.distance.value !== "number") {
+        throw new Error("Google Maps response is missing leg distance metric.");
+      }
+      const distanceMeters = Math.round(leg.distance.value);
+      const distanceKm = parseFloat((distanceMeters / 1e3).toFixed(2));
+      const durationSeconds = Math.round(leg.duration?.value || 0);
+      const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
+      return {
+        success: true,
+        distanceMeters,
+        distanceKm,
+        durationSeconds,
+        durationMinutes,
+        formattedDistance: leg.distance.text || `${distanceKm.toFixed(2)} km`,
+        formattedDuration: leg.duration?.text || `${durationMinutes} mins`,
+        mode: "drive",
+        routeSource: "google_maps",
+        isFallback: false,
+        coordinates: { origin, destination },
+        overview_polyline: route.overview_polyline?.points || null,
+        cached: false
+      };
+    }
+    async function geocodeWithGoogle(address, googleApiKey, timeout = 8e3) {
+      if (!address || typeof address !== "string" || !address.trim()) {
+        throw new Error("Address string is required for geocoding.");
+      }
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address.trim())}&key=${encodeURIComponent(googleApiKey.trim())}`;
+      const response = await axios.get(url, {
+        timeout,
+        headers: { Accept: "application/json" }
+      });
+      const data = response.data;
+      if (!data || data.status !== "OK" || !Array.isArray(data.results) || data.results.length === 0) {
+        throw new Error(`Google Geocoding error: ${data?.status || "ZERO_RESULTS"} ${data?.error_message || ""}`.trim());
+      }
+      const loc = data.results[0]?.geometry?.location;
+      if (!loc || typeof loc.lat !== "number" || typeof loc.lng !== "number") {
+        throw new Error("Google Geocoding response missing geometry coordinates.");
+      }
+      return {
+        latitude: loc.lat,
+        longitude: loc.lng,
+        formattedAddress: data.results[0].formatted_address || address,
+        source: "google_geocoding"
+      };
+    }
     async function calculateDrivingDistance(options = {}) {
       const { originLat, originLon, destLat, destLon } = extractCoordinatePairs(options);
       const mode = options.mode || "drive";
@@ -6463,6 +6462,20 @@ var require_geoapifyRoutingService = __commonJS({
             cached: true,
             routeSource: "cache"
           };
+        }
+      }
+      const googleApiKey = options.googleApiKey || process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
+      if (googleApiKey && googleApiKey.trim()) {
+        try {
+          const googleResult = await fetchGoogleMapsDistance(origin, destination, googleApiKey, timeout);
+          if (googleResult && googleResult.success) {
+            if (useCache) {
+              routingCache.set(origin.latitude, origin.longitude, destination.latitude, destination.longitude, googleResult, mode);
+            }
+            return googleResult;
+          }
+        } catch (googleError) {
+          console.warn(`[RoutingService] Google Maps API failed (${googleError.message}), falling back to Geoapify...`);
         }
       }
       if (!apiKey || !apiKey.trim()) {
@@ -6584,6 +6597,8 @@ var require_geoapifyRoutingService = __commonJS({
     }
     module2.exports = {
       calculateDrivingDistance,
+      fetchGoogleMapsDistance,
+      geocodeWithGoogle,
       validateCoordinates,
       calculateHaversineDistanceMeters,
       extractCoordinatePairs,
@@ -6978,6 +6993,32 @@ var require_driverController = __commonJS({
         return res.status(500).json({ success: false, error: error.message });
       }
     };
+    var geocodeAddressHandler = async (req, res) => {
+      try {
+        const { geocodeWithGoogle } = require_geoapifyRoutingService();
+        const address = req.query.address || req.body.address;
+        if (!address) {
+          return res.status(400).json({ success: false, error: "Address is required for geocoding" });
+        }
+        const googleApiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
+        if (googleApiKey && googleApiKey.trim()) {
+          const result = await geocodeWithGoogle(address, googleApiKey);
+          return res.status(200).json({ success: true, data: result });
+        }
+        return res.status(200).json({
+          success: true,
+          data: {
+            latitude: 6.4549,
+            longitude: 3.3947,
+            formattedAddress: address,
+            source: "default_city_center"
+          }
+        });
+      } catch (error) {
+        console.error("geocodeAddressHandler error:", error);
+        return res.status(500).json({ success: false, error: error.message });
+      }
+    };
     var updateDriverLocationHandler = async (req, res) => {
       try {
         const { latitude, longitude, address } = req.body;
@@ -7246,8 +7287,281 @@ var require_driverController = __commonJS({
       sendDriverMessage,
       updateOrderStatus,
       calculateDistanceHandler,
+      geocodeAddressHandler,
       updateDriverLocationHandler
     };
+  }
+});
+
+// routes/customerRoutes.js
+var require_customerRoutes = __commonJS({
+  "routes/customerRoutes.js"(exports2, module2) {
+    var express2 = require("express");
+    var router = express2.Router();
+    var {
+      getPlatformSettings,
+      getRestaurants,
+      getRestaurantDetails,
+      placeOrder,
+      getCustomerProfile,
+      updateCustomerProfile,
+      getCustomerOrders,
+      search,
+      addAddress,
+      addPaymentMethod,
+      deleteAddress,
+      deletePaymentMethod,
+      getOrderTracking,
+      submitOrderReview,
+      getOrderReview,
+      getChatThreads,
+      getMessages,
+      sendMessage,
+      initiateCall,
+      getIncomingCall,
+      getCallStatus,
+      respondCall,
+      sendCallSignal,
+      getCallSignals,
+      getCallLogs,
+      initializeFlutterwavePayment,
+      verifyFlutterwavePayment,
+      flutterwaveWebhook: flutterwaveWebhook2,
+      getCustomerNotifications,
+      markCustomerNotificationRead,
+      markAllCustomerNotificationsRead,
+      getCustomerWallet,
+      fundCustomerWallet,
+      redeemLoyaltyPoints,
+      handleFlutterwaveCallback: handleFlutterwaveCallback2
+    } = require_customerController();
+    var { upload } = require_cloudinary();
+    var { calculateDistanceHandler, geocodeAddressHandler } = require_driverController();
+    router.get("/platform-settings", getPlatformSettings);
+    router.get("/restaurants", getRestaurants);
+    router.get("/restaurant/:id", getRestaurantDetails);
+    router.get("/search", search);
+    router.post("/order", placeOrder);
+    router.get("/profile", getCustomerProfile);
+    router.put("/profile", updateCustomerProfile);
+    router.get("/wallet", getCustomerWallet);
+    router.post("/wallet/fund", fundCustomerWallet);
+    router.post("/loyalty/redeem", redeemLoyaltyPoints);
+    router.post("/add-address", addAddress);
+    router.delete("/address/:addressId", deleteAddress);
+    router.post("/add-payment-method", addPaymentMethod);
+    router.delete("/payment-method/:paymentId", deletePaymentMethod);
+    router.get("/order/:id/tracking", getOrderTracking);
+    router.post("/order/:id/review", submitOrderReview);
+    router.get("/order/:id/review", getOrderReview);
+    router.post("/calculate-distance", calculateDistanceHandler);
+    router.get("/calculate-distance", calculateDistanceHandler);
+    router.post("/distance", calculateDistanceHandler);
+    router.post("/geocode", geocodeAddressHandler);
+    router.get("/geocode", geocodeAddressHandler);
+    router.get("/orders", getCustomerOrders);
+    router.get("/notifications", getCustomerNotifications);
+    router.patch("/notifications/read-all", markAllCustomerNotificationsRead);
+    router.patch("/notifications/:id/read", markCustomerNotificationRead);
+    router.get("/chats", getChatThreads);
+    router.get("/messages", getMessages);
+    router.post("/messages", sendMessage);
+    router.post("/call/initiate", initiateCall);
+    router.get("/call/incoming", getIncomingCall);
+    router.get("/call/status/:callId", getCallStatus);
+    router.post("/call/respond", respondCall);
+    router.post("/call/signal", sendCallSignal);
+    router.get("/call/signals/:callId", getCallSignals);
+    router.get("/call/logs", getCallLogs);
+    router.post("/flw/initialize", initializeFlutterwavePayment);
+    router.post("/flw/verify", verifyFlutterwavePayment);
+    router.post("/flw/webhook", flutterwaveWebhook2);
+    router.get("/flw/callback", handleFlutterwaveCallback2);
+    router.post("/upload-profile-pic", upload.single("image"), (req, res) => {
+      try {
+        const imageUrl = req.file ? req.file.path : null;
+        res.status(200).json({ success: true, imageUrl });
+      } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    module2.exports = router;
+  }
+});
+
+// controllers/paymentController.js
+var require_paymentController = __commonJS({
+  "controllers/paymentController.js"(exports2, module2) {
+    var axios = require("axios");
+    var { getFlutterwaveAuthHeader } = require_flutterwave();
+    var { FALLBACK_BANKS } = require_payoutService();
+    var FLW_BASE_URL = "https://api.flutterwave.com/v3";
+    var FLW_V2_URL = "https://api.ravepay.co/flwv3-pug/getpaidx/api/resolve_account";
+    var getBanks = async (req, res) => {
+      try {
+        const authHeader = await getFlutterwaveAuthHeader();
+        const response = await axios.get(`${FLW_BASE_URL}/banks/NG`, {
+          headers: {
+            Authorization: authHeader,
+            "User-Agent": "Denish/1.0",
+            "Accept": "application/json"
+          },
+          timeout: 8e3
+        });
+        if (response.data && response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
+          const banks = response.data.data.map((bank) => ({
+            ...bank,
+            code: bank.code
+          }));
+          return res.status(200).json({ success: true, data: banks });
+        }
+      } catch (error) {
+        console.warn("Flutterwave getBanks notice, using verified Nigerian bank list:", error.message);
+      }
+      return res.status(200).json({ success: true, data: FALLBACK_BANKS });
+    };
+    var verifyAccount = async (req, res) => {
+      const publicKey = process.env.FLW_PUBLIC_KEY;
+      const bankCode = req.query.bankCode || req.body?.bankCode || req.body?.destbankcode;
+      const accountNumber = req.query.accountNumber || req.body?.accountNumber || req.body?.recipientaccount;
+      const country = req.query.country || req.body?.country || "NG";
+      if (!bankCode || !accountNumber) {
+        return res.status(400).json({ success: false, message: "bankCode and accountNumber are required" });
+      }
+      try {
+        const authHeader = await getFlutterwaveAuthHeader();
+        const requestBody = {
+          account_number: accountNumber,
+          account_bank: bankCode,
+          country: country || "NG"
+        };
+        const response = await axios.post(`${FLW_BASE_URL}/accounts/resolve`, requestBody, {
+          headers: {
+            Authorization: authHeader,
+            "Content-Type": "application/json"
+          }
+        });
+        if (response.data && response.data.status === "success" && response.data.data) {
+          const accountData = response.data.data;
+          const accountName = accountData.account_name || accountData.customer_name || accountData.accountname || "";
+          if (accountName) {
+            return res.status(200).json({
+              success: true,
+              data: {
+                accountName,
+                account_name: accountName,
+                accountNumber: accountData.account_number || accountNumber,
+                bankCode
+              }
+            });
+          }
+        }
+      } catch (v3Error) {
+        console.warn("Flutterwave V3 verifyAccount warning:", v3Error.response?.data?.message || v3Error.message);
+      }
+      if (publicKey) {
+        try {
+          const response = await axios.post(FLW_V2_URL, {
+            recipientaccount: accountNumber,
+            destbankcode: bankCode,
+            PBFPubKey: publicKey,
+            currency: country === "GH" ? "GHS" : void 0,
+            country: country === "GH" ? "GH" : void 0
+          }, {
+            headers: { "Content-Type": "application/json" }
+          });
+          const resData = response.data;
+          if (resData && resData.status === "success" && resData.data && resData.data.data) {
+            const inner = resData.data.data;
+            if (inner.responsecode === "00" && inner.accountname) {
+              return res.status(200).json({
+                success: true,
+                data: {
+                  accountName: inner.accountname,
+                  account_name: inner.accountname,
+                  accountNumber: inner.accountnumber || accountNumber,
+                  bankCode
+                }
+              });
+            } else if (inner.responsemessage) {
+              return res.status(400).json({
+                success: false,
+                message: inner.responsemessage,
+                data: null
+              });
+            }
+          }
+        } catch (v2Error) {
+          console.warn("Flutterwave V2 verifyAccount warning:", v2Error.response?.data?.message || v2Error.message);
+        }
+      }
+      if (/^\d{10}$/.test(accountNumber)) {
+        try {
+          const Driver = require_Driver();
+          const Vendor = require_Vendor();
+          const driverMatch = await Driver.findOne({ "bank.accountNumber": accountNumber });
+          if (driverMatch && driverMatch.bank?.accountName) {
+            return res.status(200).json({
+              success: true,
+              data: {
+                accountName: driverMatch.bank.accountName,
+                account_name: driverMatch.bank.accountName,
+                accountNumber,
+                bankCode
+              }
+            });
+          }
+          const vendorMatch = await Vendor.findOne({ "payoutAccount.accountNumber": accountNumber });
+          if (vendorMatch && vendorMatch.payoutAccount?.accountName) {
+            return res.status(200).json({
+              success: true,
+              data: {
+                accountName: vendorMatch.payoutAccount.accountName,
+                account_name: vendorMatch.payoutAccount.accountName,
+                accountNumber,
+                bankCode
+              }
+            });
+          }
+        } catch (dbErr) {
+          console.warn("DB lookup warning in verifyAccount fallback:", dbErr.message);
+        }
+        return res.status(200).json({
+          success: true,
+          data: {
+            accountName: accountNumber === "0690000034" ? "Ade Bond" : "Verified Merchant Account",
+            account_name: accountNumber === "0690000034" ? "Ade Bond" : "Verified Merchant Account",
+            accountNumber,
+            bankCode
+          }
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: "Sorry, recipient account could not be validated. Please check the 10-digit account number.",
+        data: null
+      });
+    };
+    module2.exports = {
+      getBanks,
+      verifyAccount
+    };
+  }
+});
+
+// routes/paymentRoutes.js
+var require_paymentRoutes = __commonJS({
+  "routes/paymentRoutes.js"(exports2, module2) {
+    var express2 = require("express");
+    var router = express2.Router();
+    var { getBanks, verifyAccount } = require_paymentController();
+    var { flutterwaveWebhook: flutterwaveWebhook2 } = require_customerController();
+    router.get("/banks", getBanks);
+    router.get("/verify-account", verifyAccount);
+    router.post("/verify-account", verifyAccount);
+    router.post("/flw-webhook", flutterwaveWebhook2);
+    router.post("/webhook", flutterwaveWebhook2);
+    module2.exports = router;
   }
 });
 
@@ -7270,6 +7584,7 @@ var require_driverRoutes = __commonJS({
       sendDriverMessage,
       updateOrderStatus,
       calculateDistanceHandler,
+      geocodeAddressHandler,
       updateDriverLocationHandler
     } = require_driverController();
     var { upload } = require_cloudinary();
@@ -7283,6 +7598,8 @@ var require_driverRoutes = __commonJS({
     router.get("/calculate-distance", calculateDistanceHandler);
     router.post("/distance", calculateDistanceHandler);
     router.get("/distance", calculateDistanceHandler);
+    router.post("/geocode", geocodeAddressHandler);
+    router.get("/geocode", geocodeAddressHandler);
     router.post("/location", updateDriverLocationHandler);
     router.put("/location", updateDriverLocationHandler);
     router.get("/notifications", getDriverNotifications);
@@ -7632,6 +7949,16 @@ var require_adminController = __commonJS({
         let settings = await Settings.findOne();
         if (!settings) {
           settings = new Settings();
+        }
+        if (req.body && req.body.platform) {
+          const incomingFee = req.body.platform.baseFee !== void 0 && req.body.platform.baseFee !== null && req.body.platform.baseFee !== "" ? req.body.platform.baseFee : req.body.platform.deliveryFee;
+          if (incomingFee !== void 0 && incomingFee !== null && incomingFee !== "") {
+            req.body.platform.baseFee = String(incomingFee).trim();
+            req.body.platform.deliveryFee = String(incomingFee).trim();
+          }
+          if (req.body.platform.serviceFee !== void 0 && req.body.platform.serviceFee !== null && req.body.platform.serviceFee !== "") {
+            req.body.platform.serviceFee = String(req.body.platform.serviceFee).trim();
+          }
         }
         const mergeDeep = (target, source) => {
           const output = { ...target || {} };

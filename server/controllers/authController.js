@@ -110,9 +110,10 @@ const vendorLogin = async (req, res) => {
 
 const vendorSignup = async (req, res) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password, referralCode: enteredReferralCode, referredBy } = req.body;
     const cleanEmail = email ? email.trim() : '';
     const cleanPhone = phone ? phone.trim() : '';
+    const referredByCode = (enteredReferralCode || referredBy || '').trim().toUpperCase() || null;
 
     if (!cleanEmail) {
       return res.status(400).json({ success: false, error: 'Email is required' });
@@ -123,6 +124,10 @@ const vendorSignup = async (req, res) => {
     if (check.exists) {
       return res.status(400).json({ success: false, error: check.error });
     }
+
+    const cleanName = (name || 'DENISH').replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase() || 'DENISH';
+    const codeSuffix = cleanPhone ? cleanPhone.slice(-3) : Math.floor(100 + Math.random() * 900);
+    const referralCode = `${cleanName}${codeSuffix}`;
 
     const vendor = await Vendor.create({ 
       name: name ? name.trim() : '', 
@@ -135,7 +140,9 @@ const vendorSignup = async (req, res) => {
       about: '',
       logoUrl: '',
       coverUrl: '',
-      status: 'Pending'
+      status: 'Pending',
+      referralCode,
+      referredBy: referredByCode
     });
     
     // Send welcome email in the background
@@ -172,9 +179,10 @@ const customerLogin = async (req, res) => {
 
 const customerSignup = async (req, res) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password, referralCode: enteredReferralCode, referredBy } = req.body;
     const cleanEmail = email ? email.trim() : '';
     const cleanPhone = phone ? phone.trim() : '';
+    const referredByCode = (enteredReferralCode || referredBy || '').trim().toUpperCase() || null;
 
     if (!cleanEmail) {
       return res.status(400).json({ success: false, error: 'Email is required' });
@@ -195,7 +203,8 @@ const customerSignup = async (req, res) => {
       email: cleanEmail, 
       phone: cleanPhone, 
       password, 
-      referralCode 
+      referralCode,
+      referredBy: referredByCode
     });
 
     // Send welcome email in the background
@@ -232,9 +241,10 @@ const driverLogin = async (req, res) => {
 
 const driverSignup = async (req, res) => {
   try {
-    const { name, email, phone, password, vehicleType } = req.body;
+    const { name, email, phone, password, vehicleType, referralCode: enteredReferralCode, referredBy } = req.body;
     const cleanEmail = email ? email.trim() : '';
     const cleanPhone = phone ? phone.trim() : '';
+    const referredByCode = (enteredReferralCode || referredBy || '').trim().toUpperCase() || null;
 
     if (!cleanEmail) {
       return res.status(400).json({ success: false, error: 'Email is required' });
@@ -246,12 +256,18 @@ const driverSignup = async (req, res) => {
       return res.status(400).json({ success: false, error: check.error });
     }
 
+    const cleanName = (name || 'DENISH').replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase() || 'DENISH';
+    const codeSuffix = cleanPhone ? cleanPhone.slice(-3) : Math.floor(100 + Math.random() * 900);
+    const referralCode = `${cleanName}${codeSuffix}`;
+
     const driver = await Driver.create({ 
       name: name ? name.trim() : 'Driver', 
       email: cleanEmail, 
       phone: cleanPhone, 
       password, 
-      vehicleType: vehicleType || 'Motorcycle' 
+      vehicleType: vehicleType || 'Motorcycle',
+      referralCode,
+      referredBy: referredByCode
     });
 
     // Send welcome email in the background
@@ -551,16 +567,20 @@ const googleAuth = async (req, res) => {
         profilePic: picture,
       };
 
+      const cleanName = (name || 'DENISH').replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase() || 'DENISH';
+      const generatedCode = `${cleanName}${Math.floor(100 + Math.random() * 900)}`;
+
       if (role === 'driver') {
         createData.vehicleType = 'Motorcycle';
         createData.status = 'Pending';
+        createData.referralCode = generatedCode;
       } else if (role === 'vendor') {
         createData.logoUrl = picture;
         createData.businessName = name || 'Vendor Business';
         createData.status = 'Pending';
+        createData.referralCode = generatedCode;
       } else if (role === 'customer') {
-        const cleanName = (name || 'DENISH').replace(/[^a-zA-Z]/g, '').slice(0, 5).toUpperCase() || 'DENISH';
-        createData.referralCode = `${cleanName}${Math.floor(100 + Math.random() * 900)}`;
+        createData.referralCode = generatedCode;
       }
 
       user = await Model.create(createData);

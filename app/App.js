@@ -29,6 +29,9 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
       div[data-is-scrollable="true"], [role="region"] {
         overflow-y: auto !important;
       }
+      input, textarea {
+        color: #1a1a1a !important;
+      }
     `;
     document.head.appendChild(style);
   }

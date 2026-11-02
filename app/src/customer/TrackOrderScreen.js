@@ -6,7 +6,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
-import { fetchOrderTracking } from '../services/api';
+import { fetchOrderTracking, submitOrderReview } from '../services/api';
+import GoogleMapView from '../components/GoogleMapView';
 
 const { width, height } = Dimensions.get('window');
 
@@ -20,6 +21,9 @@ const TrackOrderScreen = ({ navigation, route }) => {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [rating, setRating] = useState(5);
   const [review, setReview] = useState('');
+  const [driverRating, setDriverRating] = useState(5);
+  const [driverReview, setDriverReview] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     loadTracking();
@@ -30,9 +34,13 @@ const TrackOrderScreen = ({ navigation, route }) => {
   const loadTracking = async () => {
     try {
       const res = await fetchOrderTracking(orderId);
-      if (res.success) {
+      if (res.success && res.data) {
         setTrackingData(res.data);
         setArrivalTime(res.data.estimatedArrival);
+        if (res.data.rating) setRating(Number(res.data.rating));
+        if (res.data.review) setReview(res.data.review);
+        if (res.data.driverRating) setDriverRating(Number(res.data.driverRating));
+        if (res.data.driverReview) setDriverReview(res.data.driverReview);
       }
     } catch (err) {
       console.error('Tracking fetch error:', err);
@@ -61,9 +69,40 @@ const TrackOrderScreen = ({ navigation, route }) => {
     });
   };
 
-  const handleReviewSubmit = () => {
-    Alert.alert('Success', 'Thank you for your feedback!');
-    setShowReviewModal(false);
+  const handleReviewSubmit = async () => {
+    if (!rating || rating < 1 || rating > 5) {
+      Alert.alert('Rating Required', 'Please select a rating between 1 and 5 stars.');
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      const res = await submitOrderReview(orderId, {
+        rating,
+        review: review.trim(),
+        driverRating: trackingData?.driverName ? driverRating : undefined,
+        driverReview: trackingData?.driverName ? driverReview.trim() : undefined,
+      });
+
+      if (res?.success) {
+        setTrackingData(prev => ({
+          ...prev,
+          isReviewed: true,
+          rating,
+          review: review.trim(),
+          driverRating: trackingData?.driverName ? driverRating : undefined,
+          driverReview: trackingData?.driverName ? driverReview.trim() : undefined,
+        }));
+        setShowReviewModal(false);
+        Alert.alert('Review Submitted ⭐', 'Thank you for rating your order and sharing your feedback!');
+      } else {
+        Alert.alert('Unable to Submit', res?.error || 'Failed to submit review. Please try again.');
+      }
+    } catch (err) {
+      console.error('Submit review error:', err);
+      Alert.alert('Error', err?.response?.data?.error || err?.message || 'Failed to submit review');
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   if (loading && !trackingData) {
@@ -92,9 +131,13 @@ const TrackOrderScreen = ({ navigation, route }) => {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.mapContainer}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800&q=80' }}
-            style={styles.mapImage}
+          <GoogleMapView 
+            origin={trackingData?.pickupCoordinates || { latitude: 6.4474, longitude: 3.4723 }}
+            destination={trackingData?.deliveryCoordinates || { latitude: 6.4549, longitude: 3.3947 }}
+            driverLocation={trackingData?.driverCoordinates}
+            distanceText={trackingData?.distance || `${arrivalTime || 25} min`}
+            height={height * 0.35}
+            navigationButtonLabel="Live Google Maps"
           />
         </View>
 
@@ -163,8 +206,27 @@ const TrackOrderScreen = ({ navigation, route }) => {
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 15) }]}>
         {currentStatus === 'delivered' ? (
           <View style={{ gap: 10 }}>
-            <TouchableOpacity style={styles.rateBtn} onPress={() => setShowReviewModal(true)}>
-              <Text style={styles.rateBtnText}>Rate & review</Text>
+            {trackingData?.isReviewed && (
+              <View style={styles.reviewedBadge}>
+                <Ionicons name="checkmark-circle" size={16} color="#27A572" />
+                <Text style={styles.reviewedBadgeText}>
+                  You rated this order {trackingData.rating || rating} ★
+                </Text>
+              </View>
+            )}
+            <TouchableOpacity 
+              style={[styles.rateBtn, trackingData?.isReviewed && styles.rateBtnSecondary]} 
+              onPress={() => setShowReviewModal(true)}
+            >
+              <Ionicons 
+                name={trackingData?.isReviewed ? "create-outline" : "star"} 
+                size={18} 
+                color={trackingData?.isReviewed ? Colors.primary : "#FFF"} 
+                style={{ marginRight: 6 }} 
+              />
+              <Text style={[styles.rateBtnText, trackingData?.isReviewed && styles.rateBtnSecondaryText]}>
+                {trackingData?.isReviewed ? 'Update review' : 'Rate & review'}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.orderAgainBtn} onPress={() => navigation.navigate('CustomerHome')}>
               <Text style={styles.orderAgainText}>Order again</Text>
@@ -178,34 +240,71 @@ const TrackOrderScreen = ({ navigation, route }) => {
       </View>
 
       {/* Review Modal */}
-      <Modal visible={showReviewModal} transparent animationType="fade">
+      <Modal visible={showReviewModal} transparent animationType="fade" onRequestClose={() => setShowReviewModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.reviewContent}>
             <TouchableOpacity style={styles.closeModal} onPress={() => setShowReviewModal(false)}>
-              <Ionicons name="close" size={24} color="#CCC" />
+              <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
-            <Text style={styles.reviewMainTitle}>Rate & Review Order</Text>
-            <Text style={styles.reviewSub}>You'll need to sign back in to receive orders.</Text>
-            
-            <View style={styles.starsRow}>
-              {[1, 2, 3, 4, 5].map((s) => (
-                <TouchableOpacity key={s} onPress={() => setRating(s)}>
-                  <Ionicons name="star" size={32} color={s <= rating ? "#FFD700" : "#EEE"} />
-                </TouchableOpacity>
-              ))}
-            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
+              <Text style={styles.reviewMainTitle}>
+                {trackingData?.isReviewed ? 'Update Your Review' : 'Rate & Review Order'}
+              </Text>
+              <Text style={styles.reviewSub}>
+                How was your meal from {trackingData?.vendorName || 'the restaurant'}?
+              </Text>
+              
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <TouchableOpacity key={s} onPress={() => setRating(s)} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+                    <Ionicons name="star" size={34} color={s <= rating ? "#FFB800" : "#E2E8F0"} />
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            <TextInput
-              style={styles.reviewInput}
-              placeholder="write something..."
-              multiline
-              value={review}
-              onChangeText={setReview}
-            />
+              <TextInput
+                style={styles.reviewInput}
+                placeholder="Share your thoughts about the food quality and taste..."
+                placeholderTextColor="#999"
+                multiline
+                value={review}
+                onChangeText={setReview}
+              />
 
-            <TouchableOpacity style={styles.submitReviewBtn} onPress={handleReviewSubmit}>
-              <Text style={styles.submitReviewText}>Submit Review</Text>
-            </TouchableOpacity>
+              {Boolean(trackingData?.driverName) && (
+                <View style={styles.driverReviewBox}>
+                  <Text style={styles.driverReviewHeading}>Rate Delivery ({trackingData.driverName})</Text>
+                  <View style={styles.driverStarsRow}>
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <TouchableOpacity key={s} onPress={() => setDriverRating(s)} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+                        <Ionicons name="star" size={26} color={s <= driverRating ? "#FFB800" : "#E2E8F0"} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TextInput
+                    style={styles.driverReviewInput}
+                    placeholder="Delivery feedback (optional)..."
+                    placeholderTextColor="#999"
+                    value={driverReview}
+                    onChangeText={setDriverReview}
+                  />
+                </View>
+              )}
+
+              <TouchableOpacity 
+                style={[styles.submitReviewBtn, submittingReview && { opacity: 0.7 }]} 
+                onPress={handleReviewSubmit}
+                disabled={submittingReview}
+              >
+                {submittingReview ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.submitReviewText}>
+                    {trackingData?.isReviewed ? 'Update Review' : 'Submit Review'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -255,21 +354,29 @@ const styles = StyleSheet.create({
   stepSub: { fontSize: 12, color: '#999', marginTop: 2 },
   textPending: { color: '#CCC' },
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, backgroundColor: '#FFF' },
-  rateBtn: { backgroundColor: '#FF7D01', padding: 16, borderRadius: 12, alignItems: 'center' },
+  reviewedBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0FAF6', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, gap: 6 },
+  reviewedBadgeText: { fontSize: 13, fontWeight: '600', color: '#27A572' },
+  rateBtn: { backgroundColor: '#FF7D01', padding: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   rateBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  rateBtnSecondary: { backgroundColor: '#FFF5EB', borderWidth: 1, borderColor: '#FFD7B0' },
+  rateBtnSecondaryText: { color: '#FF7D01' },
   orderAgainBtn: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#DDD' },
   orderAgainText: { color: '#333', fontSize: 16, fontWeight: '700' },
   actionBtn: { backgroundColor: '#FF7D01', padding: 18, borderRadius: 12, alignItems: 'center', opacity: 0.5 },
   actionBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  reviewContent: { backgroundColor: '#FFF', width: width * 0.85, borderRadius: 20, padding: 25, position: 'relative' },
-  closeModal: { position: 'absolute', top: 20, right: 20 },
-  reviewMainTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a', textAlign: 'center', marginTop: 10 },
-  reviewSub: { fontSize: 12, color: '#999', textAlign: 'center', marginTop: 8 },
-  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: 20 },
-  reviewInput: { backgroundColor: '#F9F9F9', borderRadius: 10, padding: 15, height: 120, textAlignVertical: 'top', fontSize: 14, color: '#333', borderWidth: 1, borderColor: '#EEE' },
-  submitReviewBtn: { backgroundColor: '#FF7D01', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 20 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  reviewContent: { backgroundColor: '#FFF', width: '100%', maxWidth: 420, maxHeight: height * 0.85, borderRadius: 20, padding: 24, position: 'relative' },
+  closeModal: { position: 'absolute', top: 16, right: 16, zIndex: 10, padding: 4 },
+  reviewMainTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a', textAlign: 'center', marginTop: 5 },
+  reviewSub: { fontSize: 13, color: '#666', textAlign: 'center', marginTop: 6, marginBottom: 4 },
+  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginVertical: 14 },
+  reviewInput: { backgroundColor: '#F9F9F9', borderRadius: 12, padding: 14, height: 100, textAlignVertical: 'top', fontSize: 14, color: '#333', borderWidth: 1, borderColor: '#E8E8E8' },
+  driverReviewBox: { marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+  driverReviewHeading: { fontSize: 13, fontWeight: '600', color: '#555', textAlign: 'center' },
+  driverStarsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginVertical: 10 },
+  driverReviewInput: { backgroundColor: '#F9F9F9', borderRadius: 10, padding: 10, fontSize: 13, color: '#333', borderWidth: 1, borderColor: '#E8E8E8' },
+  submitReviewBtn: { backgroundColor: '#FF7D01', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 18 },
   submitReviewText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 });
 

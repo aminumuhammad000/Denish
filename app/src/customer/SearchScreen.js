@@ -7,8 +7,16 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { searchAll } from '../services/api';
+import { ItemImage } from '../utils/imageUtils';
 
 const { width } = Dimensions.get('window');
+
+const VendorLogo = ({ uri, style }) => {
+  const fallback = 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80';
+  const [img, setImg] = useState(uri || fallback);
+  React.useEffect(() => { setImg(uri || fallback); }, [uri]);
+  return <Image source={{ uri: img }} style={style} onError={() => setImg(fallback)} />;
+};
 
 const SearchScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -119,8 +127,8 @@ const SearchScreen = ({ navigation }) => {
                     style={styles.vendorRow}
                     onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendor._id })}
                   >
-                    <Image 
-                      source={{ uri: vendor.logoUrl || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100' }} 
+                    <VendorLogo 
+                      uri={vendor.logoUrl} 
                       style={styles.vendorLogo} 
                     />
                     <View style={styles.vendorDetails}>
@@ -146,15 +154,19 @@ const SearchScreen = ({ navigation }) => {
                   <TouchableOpacity 
                     key={item._id} 
                     style={styles.itemRow}
-                    onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId?._id })}
+                    onPress={() => navigation.navigate('CustomerRestaurant', { 
+                      restaurantId: item.vendorId?._id || item.vendorId,
+                      initialItemId: item._id,
+                      initialCategory: item.category
+                    })}
                   >
-                    <Image 
-                      source={{ uri: item.image || 'https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=200' }} 
+                    <ItemImage 
+                      item={item} 
                       style={styles.itemImage} 
                     />
                     <View style={styles.itemDetails}>
                       <Text style={styles.itemName}>{item.name}</Text>
-                      <Text style={styles.itemVendor}>at {item.vendorId?.businessName}</Text>
+                      <Text style={styles.itemVendor}>at {item.vendorId?.businessName || 'Restaurant'}</Text>
                       <Text style={styles.itemPrice}>₦{item.price.toLocaleString()}</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color="#EEE" />

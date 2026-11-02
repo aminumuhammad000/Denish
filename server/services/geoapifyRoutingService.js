@@ -146,7 +146,96 @@ function extractCoordinatePairs(params = {}) {
 }
 
 /**
- * Calculates actual driving road distance using Geoapify Routing API.
+ * Tries calculating route distance using Google Maps Directions API.
+ *
+ * @param {{ latitude: number, longitude: number }} origin
+ * @param {{ latitude: number, longitude: number }} destination
+ * @param {string} googleApiKey
+ * @param {number} timeout
+ * @returns {Promise<any>}
+ */
+async function fetchGoogleMapsDistance(origin, destination, googleApiKey, timeout = 8000) {
+  const originStr = `${origin.latitude},${origin.longitude}`;
+  const destStr = `${destination.latitude},${destination.longitude}`;
+  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&mode=driving&key=${encodeURIComponent(googleApiKey.trim())}`;
+
+  const response = await axios.get(url, {
+    timeout,
+    headers: { Accept: 'application/json' },
+  });
+
+  const data = response.data;
+  if (!data || data.status !== 'OK' || !Array.isArray(data.routes) || data.routes.length === 0) {
+    throw new Error(`Google Maps API error: ${data?.status || 'NO_ROUTE'} ${data?.error_message || ''}`.trim());
+  }
+
+  const route = data.routes[0];
+  const leg = route?.legs?.[0];
+  if (!leg || !leg.distance || typeof leg.distance.value !== 'number') {
+    throw new Error('Google Maps response is missing leg distance metric.');
+  }
+
+  const distanceMeters = Math.round(leg.distance.value);
+  const distanceKm = parseFloat((distanceMeters / 1000).toFixed(2));
+  const durationSeconds = Math.round(leg.duration?.value || 0);
+  const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
+
+  return {
+    success: true,
+    distanceMeters,
+    distanceKm,
+    durationSeconds,
+    durationMinutes,
+    formattedDistance: leg.distance.text || `${distanceKm.toFixed(2)} km`,
+    formattedDuration: leg.duration?.text || `${durationMinutes} mins`,
+    mode: 'drive',
+    routeSource: 'google_maps',
+    isFallback: false,
+    coordinates: { origin, destination },
+    overview_polyline: route.overview_polyline?.points || null,
+    cached: false,
+  };
+}
+
+/**
+ * Geocodes an address string to coordinates using Google Maps Geocoding API.
+ *
+ * @param {string} address
+ * @param {string} googleApiKey
+ * @param {number} timeout
+ * @returns {Promise<{ latitude: number, longitude: number, formattedAddress: string, source: string }>}
+ */
+async function geocodeWithGoogle(address, googleApiKey, timeout = 8000) {
+  if (!address || typeof address !== 'string' || !address.trim()) {
+    throw new Error('Address string is required for geocoding.');
+  }
+
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address.trim())}&key=${encodeURIComponent(googleApiKey.trim())}`;
+  const response = await axios.get(url, {
+    timeout,
+    headers: { Accept: 'application/json' },
+  });
+
+  const data = response.data;
+  if (!data || data.status !== 'OK' || !Array.isArray(data.results) || data.results.length === 0) {
+    throw new Error(`Google Geocoding error: ${data?.status || 'ZERO_RESULTS'} ${data?.error_message || ''}`.trim());
+  }
+
+  const loc = data.results[0]?.geometry?.location;
+  if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') {
+    throw new Error('Google Geocoding response missing geometry coordinates.');
+  }
+
+  return {
+    latitude: loc.lat,
+    longitude: loc.lng,
+    formattedAddress: data.results[0].formatted_address || address,
+    source: 'google_geocoding',
+  };
+}
+
+/**
+ * Calculates actual driving road distance using Google Maps or Geoapify Routing API with Haversine fallback.
  *
  * @param {Object} options
  * @param {number|string} [options.originLat]
@@ -241,7 +330,23 @@ async function calculateDrivingDistance(options = {}) {
     }
   }
 
-  // 4. Verify API Key
+  // 4. Try Google Maps Directions API if key is available
+  const googleApiKey = options.googleApiKey || process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
+  if (googleApiKey && googleApiKey.trim()) {
+    try {
+      const googleResult = await fetchGoogleMapsDistance(origin, destination, googleApiKey, timeout);
+      if (googleResult && googleResult.success) {
+        if (useCache) {
+          routingCache.set(origin.latitude, origin.longitude, destination.latitude, destination.longitude, googleResult, mode);
+        }
+        return googleResult;
+      }
+    } catch (googleError) {
+      console.warn(`[RoutingService] Google Maps API failed (${googleError.message}), falling back to Geoapify...`);
+    }
+  }
+
+  // 5. Verify Geoapify API Key
   if (!apiKey || !apiKey.trim()) {
     if (allowFallback) {
       const fallbackMeters = calculateHaversineDistanceMeters(
@@ -381,6 +486,8 @@ async function calculateDrivingDistance(options = {}) {
 
 module.exports = {
   calculateDrivingDistance,
+  fetchGoogleMapsDistance,
+  geocodeWithGoogle,
   validateCoordinates,
   calculateHaversineDistanceMeters,
   extractCoordinatePairs,

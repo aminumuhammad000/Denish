@@ -107,7 +107,12 @@ const VendorLoginScreen = ({ navigation }) => {
                   value={password}
                   onChangeText={setPassword}
                   placeholder="••••••"
+                  placeholderTextColor="#999"
                   secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  autoComplete="password"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
                   <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#999" />
@@ -232,6 +237,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
+    color: '#1a1a1a',
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -246,6 +252,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
     fontSize: 14,
+    color: '#1a1a1a',
   },
   forgotPassword: {
     fontSize: 11,

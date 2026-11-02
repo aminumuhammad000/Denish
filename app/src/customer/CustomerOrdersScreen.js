@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
-  Image, ActivityIndicator, Modal, FlatList, Dimensions
+  Image, ActivityIndicator, Modal, FlatList, Dimensions, Alert, TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { getCustomerOrders } from '../services/api';
+import { getCustomerOrders, submitOrderReview } from '../services/api';
 import { Colors } from '../constants/Colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCart } from '../context/CartContext';
 import CustomerBottomTab from './components/CustomerBottomTab';
 
 const { width, height } = Dimensions.get('window');
@@ -34,20 +35,85 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+const OrderVendorImage = ({ uri, style }) => {
+  const fallback = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200';
+  const [img, setImg] = useState(uri || fallback);
+  useEffect(() => { setImg(uri || fallback); }, [uri]);
+  return <Image source={{ uri: img }} style={style} onError={() => setImg(fallback)} />;
+};
+
 const CustomerOrdersScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const { addToCart } = useCart();
   const [activeTab, setActiveTab] = useState('All');
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [reviewingOrder, setReviewingOrder] = useState(null);
+  const [orderRating, setOrderRating] = useState(5);
+  const [orderReviewText, setOrderReviewText] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   const tabs = ['All', 'Active', 'Delivered', 'Cancelled'];
 
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  const handleOpenReview = (order) => {
+    if (!order) return;
+    setReviewingOrder(order);
+    setOrderRating(order.rating ? Number(order.rating) : 5);
+    setOrderReviewText(order.review || '');
+    setReviewModalVisible(true);
+  };
+
+  const handleSubmitOrderReview = async () => {
+    if (!reviewingOrder) return;
+    if (!orderRating || orderRating < 1 || orderRating > 5) {
+      Alert.alert('Rating Required', 'Please select a star rating between 1 and 5.');
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      const orderId = reviewingOrder._id || reviewingOrder.orderId;
+      const res = await submitOrderReview(orderId, {
+        rating: orderRating,
+        review: orderReviewText.trim(),
+      });
+      if (res?.success) {
+        setOrders(prev => prev.map(o => {
+          if (o._id === orderId) {
+            return {
+              ...o,
+              isReviewed: true,
+              rating: orderRating,
+              review: orderReviewText.trim(),
+            };
+          }
+          return o;
+        }));
+        setSelectedOrder(prev => (prev && prev._id === orderId ? {
+          ...prev,
+          isReviewed: true,
+          rating: orderRating,
+          review: orderReviewText.trim(),
+        } : prev));
+        setReviewModalVisible(false);
+        Alert.alert('Thank You ⭐', 'Your review has been submitted successfully.');
+      } else {
+        Alert.alert('Error', res?.error || 'Failed to submit review.');
+      }
+    } catch (err) {
+      console.error('Submit review error:', err);
+      Alert.alert('Error', err?.response?.data?.error || err?.message || 'Failed to submit review');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -82,10 +148,28 @@ const CustomerOrdersScreen = ({ navigation }) => {
     setModalVisible(true);
   };
 
+  const handleReorder = (order) => {
+    if (!order || !Array.isArray(order.items) || order.items.length === 0) return;
+    const restId = order.vendorId?._id || order.vendorId?.id || order.vendorId || 'demo';
+    const restName = order.vendorId?.businessName || order.vendorId?.name || 'Restaurant';
+    order.items.forEach(item => {
+      addToCart(item, restId, item.quantity || 1, item.instructions || '', restName);
+    });
+    setModalVisible(false);
+    Alert.alert(
+      'Order Selected 🎉',
+      `Items from ${restName} have been added to your cart. Your previous selections are retained!`,
+      [
+        { text: 'Keep Browsing', style: 'cancel' },
+        { text: 'View Cart', onPress: () => navigation.navigate('Cart') }
+      ]
+    );
+  };
+
   const renderOrderItem = ({ item }) => (
     <TouchableOpacity style={styles.orderCard} onPress={() => openOrderDetails(item)}>
-      <Image 
-        source={{ uri: item.vendorId?.logoUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200' }} 
+      <OrderVendorImage 
+        uri={item.vendorId?.logoUrl} 
         style={styles.vendorImg} 
       />
       <View style={styles.orderInfo}>
@@ -100,7 +184,37 @@ const CustomerOrdersScreen = ({ navigation }) => {
           <Text style={styles.orderDate}>
             {new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}, {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
-          <Text style={styles.orderAmount}>₦{(item.totalAmount || item.total || 0).toLocaleString()}</Text>
+          <View style={styles.orderFooterRight}>
+            <Text style={styles.orderAmount}>₦{(item.totalAmount || item.total || 0).toLocaleString()}</Text>
+            {item.status?.toLowerCase() === 'delivered' && (
+              <TouchableOpacity 
+                style={[styles.reorderPill, item.isReviewed ? styles.reviewedPill : styles.ratePill]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleOpenReview(item);
+                }}
+              >
+                <Ionicons 
+                  name={item.isReviewed ? "star" : "star-outline"} 
+                  size={12} 
+                  color={item.isReviewed ? "#B45309" : "#D97706"} 
+                />
+                <Text style={[styles.reorderPillText, item.isReviewed ? styles.reviewedPillText : styles.ratePillText]}>
+                  {item.isReviewed ? `${item.rating}★` : 'Rate'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity 
+              style={styles.reorderPill}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleReorder(item);
+              }}
+            >
+              <Ionicons name="repeat-outline" size={13} color={Colors.primary} />
+              <Text style={styles.reorderPillText}>Order again</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
       <Ionicons name="chevron-forward" size={20} color="#CCC" style={{ marginLeft: 5 }} />
@@ -180,8 +294,8 @@ const CustomerOrdersScreen = ({ navigation }) => {
             </Text>
 
             <View style={styles.modalVendorRow}>
-              <Image 
-                source={{ uri: selectedOrder?.vendorId?.logoUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200' }} 
+              <OrderVendorImage 
+                uri={selectedOrder?.vendorId?.logoUrl} 
                 style={styles.modalVendorImg} 
               />
               <View>
@@ -211,14 +325,94 @@ const CustomerOrdersScreen = ({ navigation }) => {
               <Text style={styles.modalInfoLabel}>Payment: <Text style={styles.modalInfoValue}>Visa ---- 4242</Text></Text>
             </View>
 
+            {selectedOrder?.status?.toLowerCase() === 'delivered' && (
+              <TouchableOpacity 
+                style={[styles.rateModalBtn, selectedOrder?.isReviewed && styles.rateModalBtnReviewed]} 
+                onPress={() => handleOpenReview(selectedOrder)}
+              >
+                <Ionicons 
+                  name={selectedOrder?.isReviewed ? "star" : "star-outline"} 
+                  size={16} 
+                  color={selectedOrder?.isReviewed ? "#B45309" : "#FFF"} 
+                  style={{ marginRight: 6 }} 
+                />
+                <Text style={[styles.rateModalBtnText, selectedOrder?.isReviewed && styles.rateModalBtnReviewedText]}>
+                  {selectedOrder?.isReviewed ? `You Rated ${selectedOrder.rating} ★ (Edit Review)` : 'Rate & review this order'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity 
+                style={styles.reorderBtn} 
+                onPress={() => handleReorder(selectedOrder)}
+              >
+                <Ionicons name="repeat-outline" size={17} color="#FFF" style={{ marginRight: 6 }} />
+                <Text style={styles.reorderBtnText}>Order again</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.trackBtn} 
+                onPress={() => {
+                  setModalVisible(false);
+                  navigation.navigate('TrackOrder', { orderId: selectedOrder?._id || selectedOrder?.orderId });
+                }}
+              >
+                <Text style={styles.trackBtnText}>Track order</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Review Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={reviewModalVisible}
+        onRequestClose={() => setReviewModalVisible(false)}
+      >
+        <View style={styles.reviewModalOverlay}>
+          <View style={styles.reviewModalBox}>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setReviewModalVisible(false)}>
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+
+            <Text style={styles.reviewModalTitle}>
+              {reviewingOrder?.isReviewed ? 'Update Your Review' : 'Rate & Review Order'}
+            </Text>
+            <Text style={styles.reviewModalSub}>
+              How was your meal from {reviewingOrder?.vendorId?.businessName || reviewingOrder?.vendorName || 'the restaurant'}?
+            </Text>
+
+            <View style={styles.reviewStarsRow}>
+              {[1, 2, 3, 4, 5].map(s => (
+                <TouchableOpacity key={s} onPress={() => setOrderRating(s)} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+                  <Ionicons name="star" size={32} color={s <= orderRating ? "#FFB800" : "#E2E8F0"} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              style={styles.reviewInput}
+              placeholder="Share details of your experience with the food and delivery..."
+              placeholderTextColor="#999"
+              multiline
+              value={orderReviewText}
+              onChangeText={setOrderReviewText}
+            />
+
             <TouchableOpacity 
-              style={styles.trackBtn} 
-              onPress={() => {
-                setModalVisible(false);
-                navigation.navigate('TrackOrder', { orderId: selectedOrder?._id || selectedOrder?.orderId });
-              }}
+              style={[styles.reviewSubmitBtn, submittingReview && { opacity: 0.7 }]}
+              onPress={handleSubmitOrderReview}
+              disabled={submittingReview}
             >
-              <Text style={styles.trackBtnText}>Track order</Text>
+              {submittingReview ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.reviewSubmitText}>
+                  {reviewingOrder?.isReviewed ? 'Update Review' : 'Submit Review'}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -308,11 +502,120 @@ const styles = StyleSheet.create({
   modalTotalRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderColor: '#F0F0F0', paddingTop: 12, marginTop: 5 },
   modalTotalLabel: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
   modalTotalPrice: { fontSize: 16, fontWeight: '800', color: '#1a1a1a' },
-  modalInfoBox: { backgroundColor: '#F8F9FA', borderRadius: 12, padding: 15, marginBottom: 25 },
+  orderFooterRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  reorderPill: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#FFF2F0', 
+    paddingHorizontal: 10, 
+    paddingVertical: 4, 
+    borderRadius: 12,
+    gap: 4
+  },
+  reorderPillText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
+
+  modalInfoBox: { backgroundColor: '#F8F9FA', borderRadius: 12, padding: 15, marginBottom: 20 },
   modalInfoLabel: { fontSize: 13, color: '#999', marginBottom: 8 },
   modalInfoValue: { color: '#333', fontWeight: '500' },
-  trackBtn: { backgroundColor: Colors.primary, padding: 16, borderRadius: 14, alignItems: 'center' },
-  trackBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  modalButtonsRow: { flexDirection: 'row', gap: 10 },
+  reorderBtn: { flex: 1, backgroundColor: '#10B981', padding: 15, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  reorderBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  trackBtn: { flex: 1, backgroundColor: Colors.primary, padding: 15, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  trackBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+
+  reviewedPill: {
+    backgroundColor: '#FEF3C7',
+  },
+  reviewedPillText: {
+    color: '#B45309',
+  },
+  ratePill: {
+    backgroundColor: '#FEF3C7',
+  },
+  ratePillText: {
+    color: '#D97706',
+  },
+  rateModalBtn: {
+    backgroundColor: Colors.primary,
+    padding: 13,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  rateModalBtnReviewed: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  rateModalBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  rateModalBtnReviewedText: {
+    color: '#92400E',
+  },
+
+  reviewModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  reviewModalBox: {
+    backgroundColor: '#FFF',
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 22,
+    position: 'relative',
+  },
+  reviewModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    textAlign: 'center',
+    marginTop: 5,
+  },
+  reviewModalSub: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  reviewStarsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    marginVertical: 14,
+  },
+  reviewInput: {
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    padding: 14,
+    height: 100,
+    textAlignVertical: 'top',
+    fontSize: 14,
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  reviewSubmitBtn: {
+    backgroundColor: Colors.primary,
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  reviewSubmitText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
 
   bottomTab: {
     position: 'absolute',

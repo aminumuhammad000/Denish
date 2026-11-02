@@ -41,7 +41,7 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-const OrdersScreen = () => {
+const OrdersScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);

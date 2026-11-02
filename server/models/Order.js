@@ -42,6 +42,12 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'preparing', 'ready', 'on the way', 'delivered', 'cancelled'], 
     default: 'pending' 
   },
+  rating: { type: Number, min: 1, max: 5 },
+  review: { type: String, default: '' },
+  driverRating: { type: Number, min: 1, max: 5 },
+  driverReview: { type: String, default: '' },
+  isReviewed: { type: Boolean, default: false },
+  reviewedAt: { type: Date },
   processingEmailSent: { type: Boolean, default: false },
   deliveredEmailSent: { type: Boolean, default: false },
 }, { timestamps: true });

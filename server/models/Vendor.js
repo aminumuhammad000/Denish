@@ -60,8 +60,18 @@ const vendorSchema = new mongoose.Schema({
   },
   isVerified: { type: Boolean, default: false },
   rating: { type: Number, default: 4.8 },
+  ratingsCount: { type: Number, default: 1 },
+  reviews: [{
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
+    customerName: { type: String, default: 'Customer' },
+    rating: { type: Number, required: true },
+    comment: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now }
+  }],
   deliveryTime: { type: String, default: '25-35 min' },
   deliveryFee: { type: Number, default: 500 },
+  referralCode: { type: String },
+  referredBy: { type: String, default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Vendor', vendorSchema);

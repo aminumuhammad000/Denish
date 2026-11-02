@@ -22,6 +22,7 @@ const DriverSignupScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -43,7 +44,7 @@ const DriverSignupScreen = ({ navigation }) => {
     setErrorMsg('');
     try {
       // Pass 'Bike' as default to satisfy initial signup API
-      const response = await driverSignup(name, email, phone, password, 'Bike');
+      const response = await driverSignup(name, email, phone, password, 'Bike', referralCode ? referralCode.trim().toUpperCase() : undefined);
       if (response && response.success) {
         navigation.navigate('DriverStep1Personal');
       } else {
@@ -138,6 +139,22 @@ const DriverSignupScreen = ({ navigation }) => {
               </View>
             </View>
 
+            <View style={styles.inputGroup}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Referral Code</Text>
+                <Text style={styles.optionalBadge}>Optional</Text>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. DRIVE123"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                value={referralCode}
+                onChangeText={setReferralCode}
+              />
+            </View>
+
             {(errorMsg || googleErrorMsg) ? <Text style={styles.errorText}>{errorMsg || googleErrorMsg}</Text> : null}
 
             <TouchableOpacity 
@@ -215,6 +232,16 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     gap: 8,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  optionalBadge: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '500',
   },
   label: {
     fontSize: 14,

@@ -207,7 +207,7 @@ const VendorHomeScreen = ({ navigation }) => {
       <ScrollView 
         showsVerticalScrollIndicator={false} 
         style={[styles.scroll, isPending && { opacity: 0.9 }]}
-        contentContainerStyle={{ paddingBottom: 110 }}
+        contentContainerStyle={{ paddingBottom: 85 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -224,7 +224,7 @@ const VendorHomeScreen = ({ navigation }) => {
                 <TouchableOpacity onPress={() => navigation.navigate('VendorProfile')} activeOpacity={0.8}>
                   <View style={styles.avatar}>
                     <Image
-                      source={{ uri: data.logoUrl || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80' }}
+                      source={{ uri: (data.logoUrl && !data.logoUrl.startsWith('blob:')) ? data.logoUrl : 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&q=80' }}
                       style={styles.avatarImg}
                     />
                   </View>
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#F0F0F0',
-    marginBottom: 100,
+    marginBottom: 16,
   },
   earningsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   earningsSubtitle: { fontSize: 12, color: '#888' },
@@ -648,10 +648,17 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   growthText: { color: '#27AE60', fontSize: 11, fontWeight: 'bold' },
-  chartContainer: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 80 },
+  chartContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'flex-end', 
+    justifyContent: 'space-between', 
+    height: 90,
+    paddingTop: 10,
+    paddingHorizontal: 6,
+  },
   chartBarCol: { alignItems: 'center', flex: 1 },
-  chartBar: { width: 22, borderRadius: 4, marginBottom: 6 },
-  chartBarLabel: { fontSize: 10, color: '#AAA' },
+  chartBar: { width: 22, borderRadius: 5, marginBottom: 6 },
+  chartBarLabel: { fontSize: 11, color: '#999', fontWeight: '500' },
   // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowRadius: 20, shadowOpacity: 0.2, elevation: 10 },

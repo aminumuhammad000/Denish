@@ -45,6 +45,14 @@ const driverSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  rating: {
+    type: Number,
+    default: 4.8,
+  },
+  ratingsCount: {
+    type: Number,
+    default: 1,
+  },
   earnings: {
     totalEarned: { type: Number, default: 0 },
     availableBalance: { type: Number, default: 0 },
@@ -59,6 +67,8 @@ const driverSchema = new mongoose.Schema({
       status: { type: String, enum: ['pending', 'eligible', 'paid'], default: 'pending' },
     }]
   },
+  referralCode: { type: String },
+  referredBy: { type: String, default: null },
   resetPasswordOTP: String,
   resetPasswordExpires: Date,
   currentLocation: {

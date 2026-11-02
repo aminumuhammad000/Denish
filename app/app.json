@@ -18,9 +18,16 @@
       },
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ],
-      "package": "com.denish.app"
+      "package": "com.denish.app",
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -35,9 +42,10 @@
       "expo-font",
       "expo-asset"
     ],
+    "owner": "aminuamee",
     "extra": {
       "eas": {
-        "projectId": "26e7493c-193a-4879-9684-96dc0b93d28b"
+        "projectId": "84eae0d6-ba4c-4200-aa2e-01c311218864"
       }
     }
   }

@@ -370,7 +370,7 @@ const CustomerProfileScreen = ({ navigation }) => {
         {/* User Info Card */}
         <View style={styles.userCard}>
           <Image 
-            source={{ uri: profile?.profilePic || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200' }} 
+            source={{ uri: (profile?.profilePic && !profile.profilePic.startsWith('blob:')) ? profile.profilePic : 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200' }} 
             style={styles.avatar} 
           />
           <View style={styles.userInfo}>

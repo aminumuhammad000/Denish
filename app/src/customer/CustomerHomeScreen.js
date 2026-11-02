@@ -22,6 +22,17 @@ import { getRestaurants, getCustomerProfile, fetchIncomingCall, getAppNotificati
 import { getAuthSession } from '../services/authStorage';
 import CustomerBottomTab from './components/CustomerBottomTab';
 import { useCart } from '../context/CartContext';
+import { getItemImageUrl, getFoodFallbackImage, isDrinkItem, ItemImage } from '../utils/imageUtils';
+
+const BannerImage = ({ uri, style }) => {
+  const fallback = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&q=80';
+  const isValid = uri && typeof uri === 'string' && (uri.startsWith('http://') || uri.startsWith('https://')) && !uri.startsWith('blob:');
+  const [img, setImg] = useState(isValid ? uri : fallback);
+  React.useEffect(() => {
+    setImg(isValid ? uri : fallback);
+  }, [uri]);
+  return <Image source={{ uri: img }} style={style} onError={() => setImg(fallback)} />;
+};
 
 const SectionHeader = ({ title, showViewAll = false, onPress }) => (
   <View style={styles.sectionHeader}>
@@ -30,38 +41,52 @@ const SectionHeader = ({ title, showViewAll = false, onPress }) => (
   </View>
 );
 
-const SquareCard = ({ name, sub, rating, price, image, onPress, cardWidth }) => (
-  <TouchableOpacity style={[styles.squareCard, cardWidth ? { width: cardWidth } : null]} onPress={onPress}>
-    <Image source={{ uri: image }} style={styles.squareImage} />
-    <View style={styles.squareInfo}>
-      <Text style={styles.cardTitle} numberOfLines={1}>{name}</Text>
-      <View style={styles.cardRow}>
-        <Text style={styles.cardSub} numberOfLines={1}>{sub}</Text>
-        {rating && (
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={12} color="#FFD700" />
-            <Text style={styles.ratingText}>{rating}</Text>
-          </View>
-        )}
-      </View>
-      {price && <Text style={styles.cardPrice}>₦{price}</Text>}
-    </View>
-  </TouchableOpacity>
-);
+const SquareCard = ({ name, sub, rating, price, image, item, onPress, cardWidth }) => {
+  const resolvedItem = item || { name, sub, image };
 
-const ListCard = ({ name, sub, price, image, onPress }) => (
-  <TouchableOpacity style={styles.listCard} onPress={onPress}>
-    <Image source={{ uri: image }} style={styles.listImage} />
-    <View style={styles.listInfo}>
-      <Text style={styles.listTitle}>{name}</Text>
-      <Text style={styles.listSub} numberOfLines={1}>{sub}</Text>
-      <Text style={styles.listPrice}>₦{price}</Text>
-    </View>
-    <TouchableOpacity style={styles.addBtn} onPress={onPress}>
-      <Ionicons name="add" size={20} color={Colors.primary} />
+  return (
+    <TouchableOpacity style={[styles.squareCard, cardWidth ? { width: cardWidth } : null]} onPress={onPress}>
+      <ItemImage 
+        item={resolvedItem} 
+        style={styles.squareImage} 
+      />
+      <View style={styles.squareInfo}>
+        <Text style={styles.cardTitle} numberOfLines={1}>{name}</Text>
+        <View style={styles.cardRow}>
+          <Text style={styles.cardSub} numberOfLines={1}>{sub}</Text>
+          {rating && (
+            <View style={styles.ratingRow}>
+              <Ionicons name="star" size={12} color="#FFD700" />
+              <Text style={styles.ratingText}>{rating}</Text>
+            </View>
+          )}
+        </View>
+        {price && <Text style={styles.cardPrice}>₦{price}</Text>}
+      </View>
     </TouchableOpacity>
-  </TouchableOpacity>
-);
+  );
+};
+
+const ListCard = ({ name, sub, price, image, item, onPress }) => {
+  const resolvedItem = item || { name, sub, image };
+
+  return (
+    <TouchableOpacity style={styles.listCard} onPress={onPress}>
+      <ItemImage 
+        item={resolvedItem} 
+        style={styles.listImage} 
+      />
+      <View style={styles.listInfo}>
+        <Text style={styles.listTitle}>{name}</Text>
+        <Text style={styles.listSub} numberOfLines={1}>{sub}</Text>
+        <Text style={styles.listPrice}>₦{price}</Text>
+      </View>
+      <TouchableOpacity style={styles.addBtn} onPress={onPress}>
+        <Ionicons name="add" size={20} color={Colors.primary} />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+};
 
 const CustomerHomeScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
@@ -212,6 +237,124 @@ const CustomerHomeScreen = ({ navigation }) => {
         { _id: '1', label: 'Home', addr: profile?.address || '15 Admiralty Way, Lekki, Lagos', tag: 'Default' },
         { _id: '2', label: 'Work', addr: '42 Marina Street, Lagos Island', tag: 'Work' }
       ];
+
+  const getDisplayDrinks = () => {
+    const realDrinks = items.filter(i => isDrinkItem(i));
+    const fallbackVendorId = vendors[0]?._id;
+    const defaultDrinks = [
+      {
+        _id: 'default_water',
+        name: 'Water',
+        description: 'Drink quality water',
+        price: 100,
+        image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&q=80',
+        vendorId: fallbackVendorId,
+      },
+      {
+        _id: 'default_chapman',
+        name: 'Fresh Chapman',
+        description: 'Classic refreshing Chapman',
+        price: 1000,
+        image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80',
+        vendorId: fallbackVendorId,
+      },
+      {
+        _id: 'default_juice',
+        name: 'Fruit Juice',
+        description: 'Fresh squeezed orange juice',
+        price: 1500,
+        image: 'https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400&q=80',
+        vendorId: fallbackVendorId,
+      },
+      {
+        _id: 'default_wine',
+        name: 'Red Wine',
+        description: 'Premium aged red wine',
+        price: 12000,
+        image: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80',
+        vendorId: fallbackVendorId,
+      },
+      {
+        _id: 'default_zobo',
+        name: 'Zobo Drink',
+        description: 'Nigerian hibiscus drink',
+        price: 800,
+        image: 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400&q=80',
+        vendorId: fallbackVendorId,
+      },
+    ];
+
+    if (realDrinks.length === 0) {
+      return defaultDrinks;
+    }
+
+    const combinedList = [...realDrinks];
+    defaultDrinks.forEach(def => {
+      const alreadyHas = combinedList.some(r => {
+        const rName = (r.name || '').toLowerCase();
+        const defName = def.name.toLowerCase();
+        return rName.includes(defName) || defName.includes(rName);
+      });
+      if (!alreadyHas && combinedList.length < 5) {
+        combinedList.push(def);
+      }
+    });
+
+    return combinedList;
+  };
+
+  const getDisplayFruits = () => {
+    const realFruits = items.filter(i => {
+      const cat = (i.category || '').toLowerCase();
+      const name = (i.name || '').toLowerCase();
+      return cat.includes('fruit') || cat.includes('salad') || name.includes('fruit') || name.includes('mango') || name.includes('pineapple') || name.includes('watermelon');
+    });
+    const fallbackVendorId = vendors[0]?._id;
+    const defaultFruits = [
+      {
+        _id: 'default_mango',
+        name: 'Fresh Mango',
+        description: 'Juicy seasonal mango',
+        price: 1000,
+        image: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80',
+        vendorId: fallbackVendorId,
+      },
+      {
+        _id: 'default_pineapple',
+        name: 'Pineapple',
+        description: 'Sweet tropical pineapple',
+        price: 1500,
+        image: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=400&q=80',
+        vendorId: fallbackVendorId,
+      },
+      {
+        _id: 'default_watermelon',
+        name: 'Watermelon',
+        description: 'Refreshing sliced watermelon',
+        price: 2000,
+        image: 'https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?w=400&q=80',
+        vendorId: fallbackVendorId,
+      },
+    ];
+
+    if (realFruits.length === 0) {
+      return defaultFruits;
+    }
+
+    const combinedList = [...realFruits];
+    defaultFruits.forEach(def => {
+      const alreadyHas = combinedList.some(r => {
+        const rName = (r.name || '').toLowerCase();
+        const defName = def.name.toLowerCase();
+        return rName.includes(defName) || defName.includes(rName);
+      });
+      if (!alreadyHas && combinedList.length < 4) {
+        combinedList.push(def);
+      }
+    });
+
+    return combinedList;
+  };
 
   return (
     <View style={styles.container}>
@@ -370,8 +513,8 @@ const CustomerHomeScreen = ({ navigation }) => {
                 return (
                   <View key={item._id || index} style={[styles.bannerCard, { width: bannerWidth }]}>
                     <View style={styles.bannerWrapper}>
-                      <Image 
-                        source={{ uri: item.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&q=80' }} 
+                      <BannerImage 
+                        uri={item.image} 
                         style={styles.bannerFullImg} 
                       />
                       <View style={[styles.bannerGradient, { backgroundColor: bgGradient }]}>
@@ -448,15 +591,24 @@ const CustomerHomeScreen = ({ navigation }) => {
           {/* Cooked Foods */}
           <SectionHeader title="Cooked Foods" showViewAll onPress={() => navigation.navigate('Category', { category: 'Cooked Foods' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
-             {items.filter(i => i.category === 'Cooked Foods' || !i.category).map(item => (
+             {items.filter(i => {
+               const cat = (i.category || '').toLowerCase();
+               const name = (i.name || '').toLowerCase();
+               return cat.includes('cook') || cat.includes('rice') || cat.includes('soup') || cat.includes('snack') || cat.includes('local') || !i.category || name.includes('wain') || name.includes('rice');
+             }).map(item => (
                <SquareCard 
                  key={item._id}
+                 item={item}
                  cardWidth={cardWidth}
                  name={item.name} 
                  sub={item.description} 
                  price={item.price?.toLocaleString()} 
-                 image={item.image || "https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=400&q=80"} 
-                 onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
+                 image={getItemImageUrl(item)} 
+                 onPress={() => navigation.navigate('CustomerRestaurant', { 
+                   restaurantId: item.vendorId,
+                   initialItemId: item._id,
+                   initialCategory: item.category || 'Cooked Foods'
+                 })} 
                />
              ))}
           </ScrollView>
@@ -464,15 +616,24 @@ const CustomerHomeScreen = ({ navigation }) => {
           {/* Grilled Foods */}
           <SectionHeader title="Grilled Foods" showViewAll onPress={() => navigation.navigate('Category', { category: 'Grilled Foods' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
-             {items.filter(i => i.category === 'Grilled Foods').map(item => (
+             {items.filter(i => {
+               const cat = (i.category || '').toLowerCase();
+               const name = (i.name || '').toLowerCase();
+               return cat.includes('grill') || cat.includes('barbecue') || cat.includes('suya') || name.includes('suya') || name.includes('grill') || name.includes('skewer');
+             }).map(item => (
                <SquareCard 
                  key={item._id}
+                 item={item}
                  cardWidth={cardWidth}
                  name={item.name} 
                  sub={item.description} 
                  price={item.price?.toLocaleString()} 
-                 image={item.image || "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80"} 
-                 onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
+                 image={getItemImageUrl(item)} 
+                 onPress={() => navigation.navigate('CustomerRestaurant', { 
+                   restaurantId: item.vendorId,
+                   initialItemId: item._id,
+                   initialCategory: item.category || 'Cooked Foods'
+                 })} 
                />
              ))}
           </ScrollView>
@@ -480,14 +641,19 @@ const CustomerHomeScreen = ({ navigation }) => {
           {/* Featured Orders */}
           <SectionHeader title="Featured orders" showViewAll onPress={() => navigation.navigate('Category', { category: 'Featured orders' })} />
           <View style={[styles.list, isWeb && styles.listWeb]}>
-             {items.slice(0, 4).map(item => (
+             {items.slice(0, 6).map(item => (
                <View key={item._id} style={isWeb && { width: '48%', minWidth: 280 }}>
                  <ListCard 
+                   item={item}
                    name={item.name} 
                    sub={item.description} 
                    price={item.price?.toLocaleString()} 
-                   image={item.image || "https://images.unsplash.com/photo-1512152272829-e3139592d56f?w=600&q=80"} 
-                   onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
+                   image={getItemImageUrl(item)} 
+                   onPress={() => navigation.navigate('CustomerRestaurant', { 
+                     restaurantId: item.vendorId,
+                     initialItemId: item._id,
+                     initialCategory: item.category || 'Featured orders'
+                   })} 
                  />
                </View>
              ))}
@@ -496,49 +662,43 @@ const CustomerHomeScreen = ({ navigation }) => {
           {/* Drinks */}
           <SectionHeader title="Drinks" showViewAll onPress={() => navigation.navigate('Category', { category: 'Drinks' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
-             {items.filter(i => i.category === 'Drinks').length > 0 ? (
-               items.filter(i => i.category === 'Drinks').map(item => (
-                 <SquareCard 
-                   key={item._id}
-                   cardWidth={cardWidth}
-                   name={item.name} 
-                   sub={item.description} 
-                   price={item.price?.toLocaleString()} 
-                   image={item.image || "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80"} 
-                   onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
-                 />
-               ))
-             ) : (
-               <>
-                 <SquareCard cardWidth={cardWidth} name="Fresh Chapman" sub="Classic refreshing Chapman" price="1,000" image="https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-                 <SquareCard cardWidth={cardWidth} name="Fruit Juice" sub="Fresh squeezed orange juice" price="1,500" image="https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-                 <SquareCard cardWidth={cardWidth} name="Red Wine" sub="Premium aged red wine" price="12,000" image="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-               </>
-             )}
+             {getDisplayDrinks().map(item => (
+                <SquareCard 
+                  key={item._id || item.id}
+                  item={item}
+                  cardWidth={cardWidth}
+                  name={item.name} 
+                  sub={item.description || item.sub} 
+                  price={item.price?.toLocaleString()} 
+                  image={getItemImageUrl(item)} 
+                  onPress={() => navigation.navigate('CustomerRestaurant', { 
+                    restaurantId: item.vendorId || vendors[0]?._id,
+                    initialItemId: item._id || item.id,
+                    initialCategory: 'Drinks'
+                  })} 
+                />
+              ))}
           </ScrollView>
 
           {/* Fruits */}
           <SectionHeader title="Fruits" showViewAll onPress={() => navigation.navigate('Category', { category: 'Fruits' })} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontal}>
-             {items.filter(i => i.category === 'Fruits').length > 0 ? (
-               items.filter(i => i.category === 'Fruits').map(item => (
-                 <SquareCard 
-                   key={item._id}
-                   cardWidth={cardWidth}
-                   name={item.name} 
-                   sub={item.description} 
-                   price={item.price?.toLocaleString()} 
-                   image={item.image || "https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80"} 
-                   onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: item.vendorId })} 
-                 />
-               ))
-             ) : (
-               <>
-                 <SquareCard cardWidth={cardWidth} name="Fresh Mango" sub="Juicy seasonal mango" price="1,000" image="https://images.unsplash.com/photo-1553279768-865429fa0078?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-                 <SquareCard cardWidth={cardWidth} name="Pineapple" sub="Sweet tropical pineapple" price="1,500" image="https://images.unsplash.com/photo-1550258114-68bd25f3dfc8?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-                 <SquareCard cardWidth={cardWidth} name="Watermelon" sub="Refreshing sliced watermelon" price="2,000" image="https://images.unsplash.com/photo-1589984662646-e7b2e4962f18?w=400&q=80" onPress={() => navigation.navigate('CustomerRestaurant', { restaurantId: vendors[0]?._id })} />
-               </>
-             )}
+             {getDisplayFruits().map(item => (
+                <SquareCard 
+                  key={item._id || item.id}
+                  item={item}
+                  cardWidth={cardWidth}
+                  name={item.name} 
+                  sub={item.description || item.sub} 
+                  price={item.price?.toLocaleString()} 
+                  image={getItemImageUrl(item)} 
+                  onPress={() => navigation.navigate('CustomerRestaurant', { 
+                    restaurantId: item.vendorId || vendors[0]?._id,
+                    initialItemId: item._id || item.id,
+                    initialCategory: 'Fruits'
+                  })} 
+                />
+              ))}
           </ScrollView>
 
         </View>
@@ -590,7 +750,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     paddingHorizontal: 15, 
-    height: 45, 
+    height: 52,
+    marginHorizontal: 16,
+    marginTop: 8,
     gap: 10 
   },
   searchInput: { flex: 1, fontSize: 13, color: '#333' },

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { getVendorMenu, toggleVendorMenuItem, deleteVendorMenuItem } from '../../services/api';
+import { ItemImage } from '../../utils/imageUtils';
 
 const MenuScreen = ({ navigation }) => {
   const [selectedCat, setSelectedCat] = useState('All');
@@ -149,10 +150,9 @@ const MenuScreen = ({ navigation }) => {
         {filteredItems.map((item) => (
           <View key={item._id} style={styles.itemCard}>
             <View style={styles.imageContainer}>
-              <Image 
-                source={{ uri: item.image || 'https://via.placeholder.com/150' }} 
+              <ItemImage 
+                item={item} 
                 style={styles.itemImage}
-                defaultSource={{ uri: 'https://via.placeholder.com/150' }}
               />
               {!item.available && (
                 <View style={styles.unavailableOverlay}>

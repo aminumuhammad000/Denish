@@ -237,14 +237,20 @@ const CallingScreen = ({ route, navigation }) => {
             const sigs = await fetchCallSignalsApi(callId);
             if (sigs && sigs.success) {
               if (sigs.answer && !pc.currentRemoteDescription) {
-                await pc.setRemoteDescription(new RTCSessionDescription(sigs.answer));
+                const RTCSess = window.RTCSessionDescription || global.RTCSessionDescription;
+                if (RTCSess) {
+                  await pc.setRemoteDescription(new RTCSess(sigs.answer));
+                }
                 setAudioStreamConnected(true);
               }
               if (sigs.receiverCandidates && sigs.receiverCandidates.length > 0) {
-                for (const cand of sigs.receiverCandidates) {
-                  try {
-                    await pc.addIceCandidate(new RTCIceCandidate(cand));
-                  } catch (e) {}
+                const RTCCand = window.RTCIceCandidate || global.RTCIceCandidate;
+                if (RTCCand) {
+                  for (const cand of sigs.receiverCandidates) {
+                    try {
+                      await pc.addIceCandidate(new RTCCand(cand));
+                    } catch (e) {}
+                  }
                 }
               }
             }
@@ -257,7 +263,10 @@ const CallingScreen = ({ route, navigation }) => {
           try {
             const sigs = await fetchCallSignalsApi(callId);
             if (sigs && sigs.success && sigs.offer && !pc.currentRemoteDescription) {
-              await pc.setRemoteDescription(new RTCSessionDescription(sigs.offer));
+              const RTCSess = window.RTCSessionDescription || global.RTCSessionDescription;
+              if (RTCSess) {
+                await pc.setRemoteDescription(new RTCSess(sigs.offer));
+              }
               const answer = await pc.createAnswer();
               await pc.setLocalDescription(answer);
               await sendCallSignalApi({
@@ -269,10 +278,13 @@ const CallingScreen = ({ route, navigation }) => {
               setAudioStreamConnected(true);
             }
             if (sigs.callerCandidates && sigs.callerCandidates.length > 0) {
-              for (const cand of sigs.callerCandidates) {
-                try {
-                  await pc.addIceCandidate(new RTCIceCandidate(cand));
-                } catch (e) {}
+              const RTCCand = window.RTCIceCandidate || global.RTCIceCandidate;
+              if (RTCCand) {
+                for (const cand of sigs.callerCandidates) {
+                  try {
+                    await pc.addIceCandidate(new RTCCand(cand));
+                  } catch (e) {}
+                }
               }
             }
           } catch (e) {}

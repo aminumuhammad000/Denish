@@ -22,6 +22,7 @@ const SignupScreen = ({ navigation }) => {
   const [emailError, setEmailError] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -45,7 +46,7 @@ const SignupScreen = ({ navigation }) => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const response = await customerSignup(name, email, phone, password);
+      const response = await customerSignup(name, email, phone, password, referralCode ? referralCode.trim().toUpperCase() : undefined);
       if (response && response.success) {
         await setAuthSession({
           role: 'customer',
@@ -136,10 +137,14 @@ const SignupScreen = ({ navigation }) => {
                   <TextInput
                     style={styles.passwordInput}
                     placeholder="At least 6 characters"
-                    placeholderTextColor="#666"
+                    placeholderTextColor="#999"
                     secureTextEntry={!showPassword}
                     value={password}
                     onChangeText={setPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="password"
+                    autoComplete="password"
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                     <Ionicons 
@@ -149,6 +154,22 @@ const SignupScreen = ({ navigation }) => {
                     />
                   </TouchableOpacity>
                 </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.label}>Referral Code</Text>
+                  <Text style={styles.optionalBadge}>Optional</Text>
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. DENISH123"
+                  placeholderTextColor="#999"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  value={referralCode}
+                  onChangeText={setReferralCode}
+                />
               </View>
 
               {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
@@ -240,6 +261,16 @@ const styles = StyleSheet.create({
   inputGroup: {
     gap: 8,
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  optionalBadge: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '500',
+  },
   label: {
     fontSize: 14,
     fontWeight: '600',
@@ -252,6 +283,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     fontSize: 16,
+    color: '#1a1a1a',
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -266,6 +298,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 14,
     fontSize: 16,
+    color: '#1a1a1a',
   },
   button: {
     backgroundColor: Colors.primary,

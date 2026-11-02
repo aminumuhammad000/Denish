@@ -284,6 +284,19 @@ const updateSettings = async (req, res) => {
       settings = new Settings();
     }
 
+    if (req.body && req.body.platform) {
+      const incomingFee = req.body.platform.baseFee !== undefined && req.body.platform.baseFee !== null && req.body.platform.baseFee !== ''
+        ? req.body.platform.baseFee
+        : req.body.platform.deliveryFee;
+      if (incomingFee !== undefined && incomingFee !== null && incomingFee !== '') {
+        req.body.platform.baseFee = String(incomingFee).trim();
+        req.body.platform.deliveryFee = String(incomingFee).trim();
+      }
+      if (req.body.platform.serviceFee !== undefined && req.body.platform.serviceFee !== null && req.body.platform.serviceFee !== '') {
+        req.body.platform.serviceFee = String(req.body.platform.serviceFee).trim();
+      }
+    }
+
     const mergeDeep = (target, source) => {
       const output = { ...(target || {}) };
       Object.entries(source || {}).forEach(([key, value]) => {

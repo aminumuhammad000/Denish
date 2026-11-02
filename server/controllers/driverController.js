@@ -473,6 +473,35 @@ const calculateDistanceHandler = async (req, res) => {
   }
 };
 
+// ─── GEOCODE Address to GPS Coordinates ─────────────────────────────────────
+const geocodeAddressHandler = async (req, res) => {
+  try {
+    const { geocodeWithGoogle } = require('../services/geoapifyRoutingService');
+    const address = req.query.address || req.body.address;
+    if (!address) {
+      return res.status(400).json({ success: false, error: 'Address is required for geocoding' });
+    }
+    const googleApiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY;
+    if (googleApiKey && googleApiKey.trim()) {
+      const result = await geocodeWithGoogle(address, googleApiKey);
+      return res.status(200).json({ success: true, data: result });
+    }
+    // Fallback known coordinates or city resolution
+    return res.status(200).json({
+      success: true,
+      data: {
+        latitude: 6.4549,
+        longitude: 3.3947,
+        formattedAddress: address,
+        source: 'default_city_center'
+      }
+    });
+  } catch (error) {
+    console.error('geocodeAddressHandler error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 // ─── UPDATE Driver GPS Location ──────────────────────────────────────────────
 const updateDriverLocationHandler = async (req, res) => {
   try {
@@ -779,5 +808,6 @@ module.exports = {
   sendDriverMessage,
   updateOrderStatus,
   calculateDistanceHandler,
+  geocodeAddressHandler,
   updateDriverLocationHandler,
 };

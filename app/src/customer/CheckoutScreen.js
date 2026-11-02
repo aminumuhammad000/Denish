@@ -15,6 +15,7 @@ const { width, height } = Dimensions.get('window');
 
 const CheckoutScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { cartItems, restaurantId, getTotal, clearCart, platformSettings } = useCart();
   
   const [loading, setLoading] = useState(false);
@@ -27,7 +28,9 @@ const CheckoutScreen = ({ navigation, route }) => {
       ? Number(route.params.deliveryFee)
       : (platformSettings?.baseDeliveryFee !== undefined && platformSettings?.baseDeliveryFee !== null
           ? Number(platformSettings.baseDeliveryFee)
-          : 500)
+          : (platformSettings?.deliveryFee !== undefined && platformSettings?.deliveryFee !== null
+              ? Number(platformSettings.deliveryFee)
+              : 500))
   );
   const [serviceFee, setServiceFee] = useState(
     route?.params?.serviceFee !== undefined && route?.params?.serviceFee !== null
@@ -37,9 +40,25 @@ const CheckoutScreen = ({ navigation, route }) => {
           : 200)
   );
 
-  const rawSubtotal = getTotal();
-  const subtotal = rawSubtotal;
-  const total = subtotal + deliveryFee + serviceFee;
+  const targetVendorId = route?.params?.restaurantId || restaurantId;
+  const restaurantName = route?.params?.restaurantName || '';
+  const activeCheckoutItems = (route?.params?.items && route?.params?.items.length > 0)
+    ? route.params.items
+    : (targetVendorId ? cartItems.filter(i => (i.restaurantId || i.restId) === targetVendorId) : cartItems);
+
+  const rawSubtotal = activeCheckoutItems.reduce((acc, item) => {
+    let price = Number(item.price);
+    if (typeof item.price === 'string') {
+      price = parseFloat(item.price.replace(/,/g, '')) || 0;
+    } else if (isNaN(price)) {
+      price = 0;
+    }
+    return acc + (price * (item.quantity || 1));
+  }, 0);
+  const subtotal = Number(rawSubtotal) || 0;
+  const safeDeliveryFee = Number(deliveryFee) || 0;
+  const safeServiceFee = Number(serviceFee) || 0;
+  const total = subtotal + safeDeliveryFee + safeServiceFee;
   
   const isCardExpired = (expiryStr) => {
     if (!expiryStr) return false;
@@ -109,20 +128,11 @@ const CheckoutScreen = ({ navigation, route }) => {
               setServiceFee(parsedServiceFee);
             }
           }
-          if (platRes.settings.baseDeliveryFee !== undefined && platRes.settings.baseDeliveryFee !== null) {
-            const parsedBaseFee = Number(platRes.settings.baseDeliveryFee);
-            if (!isNaN(parsedBaseFee) && (route?.params?.deliveryFee === undefined || route?.params?.deliveryFee === null)) {
+          const platDeliveryFee = platRes.settings.baseDeliveryFee ?? platRes.settings.deliveryFee;
+          if (platDeliveryFee !== undefined && platDeliveryFee !== null) {
+            const parsedBaseFee = Number(platDeliveryFee);
+            if (!isNaN(parsedBaseFee)) {
               setDeliveryFee(parsedBaseFee);
-            }
-          }
-        }
-        if (restaurantId && (route?.params?.deliveryFee === undefined || route?.params?.deliveryFee === null)) {
-          const restRes = await getCustomerRestaurantDetails(restaurantId);
-          const vendorObj = restRes?.data?.vendor || restRes?.data;
-          if (vendorObj?.deliveryFee !== undefined && vendorObj?.deliveryFee !== null && vendorObj?.deliveryFee !== '' && isMounted) {
-            const parsedVendorFee = Number(vendorObj.deliveryFee);
-            if (!isNaN(parsedVendorFee)) {
-              setDeliveryFee(parsedVendorFee);
             }
           }
         }
@@ -135,7 +145,7 @@ const CheckoutScreen = ({ navigation, route }) => {
       fetchProfile();
     }
     return () => { isMounted = false; };
-  }, [isFocused, restaurantId]);
+  }, [isFocused]);
 
   const fetchProfile = async () => {
     try {
@@ -277,22 +287,24 @@ const CheckoutScreen = ({ navigation, route }) => {
     setLoading(true);
     try {
       const orderPayload = {
-        vendorId: restaurantId,
-        items: cartItems.map(item => {
-          let price = item.price;
-          if (typeof price === 'string') {
-            price = parseFloat(price.replace(/,/g, '')) || 0;
+        vendorId: targetVendorId,
+        items: activeCheckoutItems.map(item => {
+          let price = Number(item.price);
+          if (typeof item.price === 'string') {
+            price = parseFloat(item.price.replace(/,/g, '')) || 0;
+          } else if (isNaN(price)) {
+            price = 0;
           }
           return {
             menuItemId: item.id || item._id,
             name: item.name,
             price: price,
-            quantity: item.quantity
+            quantity: item.quantity || 1
           };
         }),
         subtotal: subtotal,
-        deliveryFee: deliveryFee,
-        serviceFee: serviceFee,
+        deliveryFee: safeDeliveryFee,
+        serviceFee: safeServiceFee,
         total: total,
         totalAmount: total,
         deliveryAddress: selectedAddrObj.addr,
@@ -327,7 +339,8 @@ const CheckoutScreen = ({ navigation, route }) => {
           
           // Verify live payment transaction status
           const verifyRes = await verifyFlutterwaveCheckout({ tx_ref: flwRes.data.tx_ref });
-          if (!verifyRes.success || verifyRes.data?.status !== 'successful') {
+          const flwPayStatus = verifyRes.data?.status?.toLowerCase();
+          if (!verifyRes.success || !['successful', 'succeeded', 'success'].includes(flwPayStatus)) {
             throw new Error('Payment was not completed on Flutterwave');
           }
         } else {
@@ -340,7 +353,11 @@ const CheckoutScreen = ({ navigation, route }) => {
       // Place the verified order
       const res = await placeCustomerOrder(orderPayload);
       if (res && res.success) {
-        clearCart();
+        if (targetVendorId) {
+          clearCart(targetVendorId);
+        } else {
+          clearCart();
+        }
         const createdOrderId = res.data?._id || res.data?.orderId || res.data?.id || 'ORD-NEW';
         Alert.alert('Order Placed Successfully 🎉', 'Your payment was successful and your order has been confirmed!', [
           {
@@ -475,20 +492,20 @@ const CheckoutScreen = ({ navigation, route }) => {
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryValue}>₦{subtotal.toLocaleString()}</Text>
+            <Text style={styles.summaryValue}>₦{(Number(subtotal) || 0).toLocaleString()}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Delivery</Text>
-            <Text style={styles.summaryValue}>₦{Number(deliveryFee).toLocaleString()}</Text>
+            <Text style={styles.summaryValue}>₦{(Number(safeDeliveryFee) || 0).toLocaleString()}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Service fee</Text>
-            <Text style={styles.summaryValue}>₦{Number(serviceFee).toLocaleString()}</Text>
+            <Text style={styles.summaryValue}>₦{(Number(safeServiceFee) || 0).toLocaleString()}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>₦{total.toLocaleString()}</Text>
+            <Text style={styles.totalValue}>₦{(Number(total) || 0).toLocaleString()}</Text>
           </View>
         </View>
       </ScrollView>

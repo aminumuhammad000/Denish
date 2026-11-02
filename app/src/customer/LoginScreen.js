@@ -134,9 +134,14 @@ const LoginScreen = ({ navigation }) => {
                   <TextInput
                     style={styles.passwordInput}
                     placeholder="••••••"
+                    placeholderTextColor="#999"
                     secureTextEntry={!showPassword}
                     value={password}
                     onChangeText={setPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="password"
+                    autoComplete="password"
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                     <Ionicons

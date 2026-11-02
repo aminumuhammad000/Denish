@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { addVendorMenuItem, updateVendorMenuItem, uploadItemImage } from '../../services/api';
+import { getFoodFallbackImage, isInvalidImageUrl } from '../../utils/imageUtils';
 
 const ItemFormScreen = ({ navigation, route }) => {
   const { isEdit, item, categories = ['Rice', 'Soups', 'Grills', 'Drinks', 'Snacks', 'Desserts', 'Sides'] } = route.params || {};
@@ -50,12 +51,28 @@ const ItemFormScreen = ({ navigation, route }) => {
     try {
       let imageUrl = form.image;
 
-      // If it's a new local image, upload it first
-      if (form.image && form.image.startsWith('file://')) {
-        const uploadRes = await uploadItemImage(form.image);
-        if (uploadRes.success) {
-          imageUrl = uploadRes.imageUrl;
+      // If it's a new local or web blob image, upload it first
+      const isLocalOrBlob = form.image && (
+        form.image.startsWith('file://') ||
+        form.image.startsWith('blob:') ||
+        form.image.startsWith('data:') ||
+        form.image.startsWith('content://') ||
+        !form.image.startsWith('http')
+      );
+      if (isLocalOrBlob) {
+        try {
+          const uploadRes = await uploadItemImage(form.image);
+          if (uploadRes && uploadRes.success && uploadRes.imageUrl) {
+            imageUrl = uploadRes.imageUrl;
+          } else {
+            imageUrl = getFoodFallbackImage(form);
+          }
+        } catch (uploadErr) {
+          console.warn('Image upload error, using food category fallback:', uploadErr);
+          imageUrl = getFoodFallbackImage(form);
         }
+      } else if (isInvalidImageUrl(imageUrl)) {
+        imageUrl = getFoodFallbackImage(form);
       }
 
       const payload = {
@@ -171,7 +188,11 @@ const ItemFormScreen = ({ navigation, route }) => {
             <Text style={styles.inputLabel}>Image</Text>
             <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage}>
               {form.image ? (
-                 <Image source={{ uri: form.image }} style={styles.previewImage} />
+                 <Image 
+                   source={{ uri: form.image }} 
+                   style={styles.previewImage} 
+                   onError={() => setForm(prev => ({ ...prev, image: getFoodFallbackImage(prev) }))}
+                 />
               ) : (
                 <>
                   <Ionicons name="camera-outline" size={24} color="#999" />

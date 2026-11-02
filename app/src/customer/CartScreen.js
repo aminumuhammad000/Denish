@@ -1,24 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TouchableOpacity,
-  Image, ActivityIndicator, Dimensions, Platform
+  ActivityIndicator, Dimensions, Alert
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useCart } from '../context/CartContext';
-import { placeCustomerOrder, getPlatformSettings, getCustomerRestaurantDetails } from '../services/api';
+import { getPlatformSettings } from '../services/api';
+import { ItemImage } from '../utils/imageUtils';
 
 const { width } = Dimensions.get('window');
 
 const CartScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { cartItems, restaurantId, getTotal, clearCart, removeFromCart, addToCart, platformSettings } = useCart();
+  const { 
+    cartItems, 
+    restaurantId, 
+    getTotal, 
+    clearCart, 
+    removeFromCart, 
+    deleteFromCart, 
+    addToCart, 
+    getOrdersByRestaurant,
+    platformSettings 
+  } = useCart();
   const [loading, setLoading] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(
     platformSettings?.baseDeliveryFee !== undefined && platformSettings?.baseDeliveryFee !== null
       ? Number(platformSettings.baseDeliveryFee)
-      : 500
+      : (platformSettings?.deliveryFee !== undefined && platformSettings?.deliveryFee !== null
+          ? Number(platformSettings.deliveryFee)
+          : 500)
   );
   const [serviceFee, setServiceFee] = useState(
     platformSettings?.serviceFee !== undefined && platformSettings?.serviceFee !== null
@@ -26,12 +39,28 @@ const CartScreen = ({ navigation }) => {
       : 200
   );
 
+  const orderGroups = useMemo(() => {
+    return getOrdersByRestaurant ? getOrdersByRestaurant() : [];
+  }, [cartItems, restaurantId, getOrdersByRestaurant]);
+
+  const [selectedRestId, setSelectedRestId] = useState(
+    restaurantId || (orderGroups[0]?.restaurantId || null)
+  );
+
+  useEffect(() => {
+    if (orderGroups.length > 0) {
+      const exists = orderGroups.some(g => g.restaurantId === selectedRestId);
+      if (!exists) {
+        setSelectedRestId(orderGroups[0].restaurantId);
+      }
+    }
+  }, [orderGroups, selectedRestId]);
+
   useEffect(() => {
     let isMounted = true;
     const fetchFees = async () => {
       try {
         const platRes = await getPlatformSettings();
-        let activeBaseFee = 500;
         if (platRes?.success && platRes.settings && isMounted) {
           if (platRes.settings.serviceFee !== undefined && platRes.settings.serviceFee !== null) {
             const parsedServiceFee = Number(platRes.settings.serviceFee);
@@ -39,21 +68,11 @@ const CartScreen = ({ navigation }) => {
               setServiceFee(parsedServiceFee);
             }
           }
-          if (platRes.settings.baseDeliveryFee !== undefined && platRes.settings.baseDeliveryFee !== null) {
-            const parsedBaseFee = Number(platRes.settings.baseDeliveryFee);
+          const platDeliveryFee = platRes.settings.baseDeliveryFee ?? platRes.settings.deliveryFee;
+          if (platDeliveryFee !== undefined && platDeliveryFee !== null) {
+            const parsedBaseFee = Number(platDeliveryFee);
             if (!isNaN(parsedBaseFee)) {
-              activeBaseFee = parsedBaseFee;
               setDeliveryFee(parsedBaseFee);
-            }
-          }
-        }
-        if (restaurantId) {
-          const restRes = await getCustomerRestaurantDetails(restaurantId);
-          const vendorObj = restRes?.data?.vendor || restRes?.data;
-          if (vendorObj?.deliveryFee !== undefined && vendorObj?.deliveryFee !== null && vendorObj?.deliveryFee !== '' && isMounted) {
-            const parsedVendorFee = Number(vendorObj.deliveryFee);
-            if (!isNaN(parsedVendorFee)) {
-              setDeliveryFee(parsedVendorFee);
             }
           }
         }
@@ -63,14 +82,70 @@ const CartScreen = ({ navigation }) => {
     };
     fetchFees();
     return () => { isMounted = false; };
-  }, [restaurantId]);
+  }, []);
 
-  const subtotal = getTotal();
+  useEffect(() => {
+    if (platformSettings) {
+      const platDeliveryFee = platformSettings.baseDeliveryFee ?? platformSettings.deliveryFee;
+      if (platDeliveryFee !== undefined && platDeliveryFee !== null) {
+        const parsedBaseFee = Number(platDeliveryFee);
+        if (!isNaN(parsedBaseFee)) {
+          setDeliveryFee(parsedBaseFee);
+        }
+      }
+      if (platformSettings.serviceFee !== undefined && platformSettings.serviceFee !== null) {
+        const parsedServiceFee = Number(platformSettings.serviceFee);
+        if (!isNaN(parsedServiceFee)) {
+          setServiceFee(parsedServiceFee);
+        }
+      }
+    }
+  }, [platformSettings]);
+
+  const currentGroup = orderGroups.find(g => g.restaurantId === selectedRestId) || orderGroups[0];
+  const activeItems = currentGroup ? currentGroup.items : cartItems;
+  const currentRestId = currentGroup?.restaurantId || restaurantId;
+  const currentRestName = currentGroup?.restaurantName || 'Restaurant';
+
+  const subtotal = activeItems.reduce((acc, item) => {
+    let price = Number(item.price) || 0;
+    return acc + (price * (item.quantity || 1));
+  }, 0);
   const total = subtotal + deliveryFee + serviceFee;
 
+  const handleClear = () => {
+    if (orderGroups.length > 1 && currentGroup) {
+      Alert.alert(
+        'Clear Order',
+        `Do you want to clear the order for ${currentRestName} or clear all orders?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: `Clear ${currentRestName}`, 
+            style: 'destructive',
+            onPress: () => clearCart(currentRestId) 
+          },
+          { 
+            text: 'Clear All', 
+            style: 'destructive', 
+            onPress: () => clearCart() 
+          }
+        ]
+      );
+    } else {
+      clearCart();
+    }
+  };
+
   const handleCheckout = () => {
-    if (cartItems.length > 0) {
-      navigation.navigate('Checkout', { deliveryFee, serviceFee });
+    if (activeItems.length > 0) {
+      navigation.navigate('Checkout', { 
+        deliveryFee, 
+        serviceFee,
+        restaurantId: currentRestId,
+        restaurantName: currentRestName,
+        items: activeItems
+      });
     }
   };
 
@@ -109,39 +184,81 @@ const CartScreen = ({ navigation }) => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Cart</Text>
-          <Text style={styles.headerSubtitle}>{cartItems.length} items</Text>
+          <Text style={styles.headerSubtitle}>
+            {orderGroups.length > 1 
+              ? `${activeItems.length} items (${currentRestName})` 
+              : `${cartItems.length} items`}
+          </Text>
         </View>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={handleClear} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text style={styles.clearCartText}>Clear</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        {/* Order Selector (when items from multiple orders/restaurants are retained) */}
+        {orderGroups.length > 1 && (
+          <View style={styles.orderSelectorBox}>
+            <View style={styles.orderSelectorHeader}>
+              <Text style={styles.orderSelectorTitle}>Your Retained Orders ({orderGroups.length})</Text>
+              <Text style={styles.orderSelectorSubtitle}>Select an order to review or place</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.orderTabsScroll}>
+              {orderGroups.map((grp, idx) => {
+                const isSelected = grp.restaurantId === selectedRestId;
+                const count = grp.items.reduce((s, it) => s + (it.quantity || 1), 0);
+                return (
+                  <TouchableOpacity
+                    key={grp.restaurantId || idx}
+                    style={[styles.orderTabPill, isSelected && styles.activeOrderTabPill]}
+                    onPress={() => setSelectedRestId(grp.restaurantId)}
+                  >
+                    <Ionicons 
+                      name="restaurant" 
+                      size={13} 
+                      color={isSelected ? '#FFF' : Colors.primary} 
+                      style={{ marginRight: 5 }} 
+                    />
+                    <Text style={[styles.orderTabPillText, isSelected && styles.activeOrderTabPillText]}>
+                      {grp.restaurantName} ({count})
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <View style={styles.orderRetainBanner}>
+              <Ionicons name="checkmark-circle-outline" size={14} color="#10B981" />
+              <Text style={styles.orderRetainBannerText}>
+                Previous order retained! You can place this order without losing your other selected order.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Cart Items */}
         <View style={styles.itemsContainer}>
-          {cartItems.map((item, idx) => (
-            <View key={`${item._id}-${idx}`} style={styles.itemCard}>
-              <Image 
-                source={{ uri: item.image || 'https://images.unsplash.com/photo-1567620905732-2d1ec7bb7445?w=400' }} 
-                style={styles.itemImage} 
-              />
+          {activeItems.map((item, idx) => (
+            <View key={`${item._id || item.id || idx}-${idx}`} style={styles.itemCard}>
+              <ItemImage item={item} style={styles.itemImage} />
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 <Text style={styles.itemDesc} numberOfLines={1}>
-                  {item.instructions || 'Smoky party-style jollof with chicken'}
+                  {item.instructions || item.description || 'Authentic local recipe'}
                 </Text>
-                <Text style={styles.itemPrice}>₦{item.price.toLocaleString()}</Text>
+                <Text style={styles.itemPrice}>₦{Number(item.price)?.toLocaleString()}</Text>
                 
                 <View style={styles.quantityRow}>
                   <View style={styles.quantitySelector}>
                     <TouchableOpacity 
                       style={styles.qtyBtn} 
-                      onPress={() => removeFromCart(item._id)}
+                      onPress={() => removeFromCart(item._id || item.id, currentRestId)}
                     >
                       <Ionicons name="remove" size={16} color="#333" />
                     </TouchableOpacity>
                     <Text style={styles.qtyText}>{item.quantity}</Text>
                     <TouchableOpacity 
                       style={styles.qtyBtnPlus} 
-                      onPress={() => addToCart(item, restaurantId)}
+                      onPress={() => addToCart(item, currentRestId, 1, item.instructions, currentRestName)}
                     >
                       <Ionicons name="add" size={16} color={Colors.primary} />
                     </TouchableOpacity>
@@ -150,7 +267,7 @@ const CartScreen = ({ navigation }) => {
               </View>
               <TouchableOpacity 
                 style={styles.deleteBtn}
-                onPress={() => removeFromCart(item._id)}
+                onPress={() => deleteFromCart(item._id || item.id, currentRestId)}
               >
                 <Ionicons name="trash-outline" size={18} color="#FF4D4D" />
               </TouchableOpacity>
@@ -190,7 +307,11 @@ const CartScreen = ({ navigation }) => {
           {loading ? (
             <ActivityIndicator color="#FFF" />
           ) : (
-            <Text style={styles.checkoutBtnText}>Checkout ₦{total.toLocaleString()}</Text>
+            <Text style={styles.checkoutBtnText}>
+              {orderGroups.length > 1 
+                ? `Place Order for ${currentRestName} • ₦${total.toLocaleString()}`
+                : `Checkout ₦${total.toLocaleString()}`}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -211,8 +332,74 @@ const styles = StyleSheet.create({
   headerCenter: { alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a1a' },
   headerSubtitle: { fontSize: 12, color: '#999', marginTop: 2 },
+  clearCartText: { fontSize: 14, fontWeight: '600', color: '#FF4D4D' },
   
   scroll: { padding: 12, paddingBottom: 100 },
+
+  // Multi-order Selector
+  orderSelectorBox: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  orderSelectorHeader: {
+    marginBottom: 8,
+  },
+  orderSelectorTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  orderSelectorSubtitle: {
+    fontSize: 11,
+    color: '#747475',
+    marginTop: 1,
+  },
+  orderTabsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  orderTabPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+  },
+  activeOrderTabPill: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  orderTabPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  activeOrderTabPillText: {
+    color: '#FFF',
+    fontWeight: '700',
+  },
+  orderRetainBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderColor: '#F4F4F4',
+    gap: 6,
+  },
+  orderRetainBannerText: {
+    fontSize: 11,
+    color: '#059669',
+    flex: 1,
+  },
   
   itemsContainer: { gap: 10 },
   itemCard: { 

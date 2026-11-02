@@ -42,6 +42,7 @@ const TraceStep = ({ number, title, subtitle, status }) => {
 };
 
 import { updateOrderStatus, getDriverDeliveries } from '../services/api';
+import GoogleMapView from '../components/GoogleMapView';
 
 const DriverOrderTracking = ({ route, navigation }) => {
   const { orderId } = route?.params || {};
@@ -110,30 +111,15 @@ const DriverOrderTracking = ({ route, navigation }) => {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* MAP PLACEHOLDER */}
+        {/* GOOGLE MAPS ROUTE & NAVIGATION */}
         <View style={styles.mapWrapper}>
-           <View style={styles.mapContainer}>
-             {/* Stylized Map Background */}
-             <View style={styles.mapGrid}>
-               {/* Simplified map lines */}
-               <View style={[styles.mapLine, { top: '20%', width: '100%', height: 2 }]} />
-               <View style={[styles.mapLine, { top: '50%', width: '100%', height: 2 }]} />
-               <View style={[styles.mapLine, { left: '30%', height: '100%', width: 2 }]} />
-               <View style={[styles.mapLine, { left: '70%', height: '100%', width: 2 }]} />
-               
-               {/* Route Line */}
-               <View style={styles.routeLine} />
-               
-               {/* Markers */}
-               <View style={[styles.marker, { top: '35%', left: '38%' }]}>
-                  <View style={styles.pulse} />
-                  <View style={[styles.markerDot, { backgroundColor: '#FF8C00' }]} />
-               </View>
-               <View style={[styles.marker, { top: '55%', left: '68%' }]}>
-                  <View style={[styles.markerDot, { backgroundColor: '#10B981' }]} />
-               </View>
-             </View>
-           </View>
+          <GoogleMapView 
+            origin={displayOrder.pickupCoordinates || { latitude: 6.4474, longitude: 3.4723 }}
+            destination={displayOrder.dropoffCoordinates || { latitude: 6.4549, longitude: 3.3947 }}
+            distanceText={displayOrder.distance || '3.5 km'}
+            height={200}
+            navigationButtonLabel="Start GPS Navigation"
+          />
         </View>
 
         {/* TRACKING TIMELINE */}

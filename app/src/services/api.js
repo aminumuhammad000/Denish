@@ -163,9 +163,11 @@ export const vendorLogin = async (email, password) => {
   }
 };
 
-export const vendorSignup = async (name, email, phone, password) => {
+export const vendorSignup = async (name, email, phone, password, referralCode) => {
   try {
-    const response = await api.post('/auth/vendor/signup', { name, email, phone, password });
+    const payload = { name, email, phone, password };
+    if (referralCode) payload.referralCode = referralCode;
+    const response = await api.post('/auth/vendor/signup', payload);
     return response.data;
   } catch (error) {
     console.error('API vendorSignup error:', error);
@@ -183,9 +185,11 @@ export const customerLogin = async (email, password) => {
   }
 };
 
-export const customerSignup = async (name, email, phone, password) => {
+export const customerSignup = async (name, email, phone, password, referralCode) => {
   try {
-    const response = await api.post('/auth/customer/signup', { name, email, phone, password });
+    const payload = { name, email, phone, password };
+    if (referralCode) payload.referralCode = referralCode;
+    const response = await api.post('/auth/customer/signup', payload);
     return response.data;
   } catch (error) {
     console.error('API customerSignup error:', error);
@@ -203,9 +207,11 @@ export const driverLogin = async (email, password) => {
   }
 };
 
-export const driverSignup = async (name, email, phone, password, vehicleType) => {
+export const driverSignup = async (name, email, phone, password, vehicleType, referralCode) => {
   try {
-    const response = await api.post('/auth/driver/signup', { name, email, phone, password, vehicleType });
+    const payload = { name, email, phone, password, vehicleType };
+    if (referralCode) payload.referralCode = referralCode;
+    const response = await api.post('/auth/driver/signup', payload);
     return response.data;
   } catch (error) {
     console.error('API driverSignup error:', error);
@@ -616,6 +622,26 @@ export const fetchOrderTracking = async (orderId) => {
   }
 };
 
+export const submitOrderReview = async (orderId, reviewData) => {
+  try {
+    const response = await api.post(`/customer/order/${orderId}/review`, reviewData);
+    return response.data;
+  } catch (error) {
+    console.error('API submitOrderReview error:', error);
+    throw error;
+  }
+};
+
+export const getOrderReview = async (orderId) => {
+  try {
+    const response = await api.get(`/customer/order/${orderId}/review`);
+    return response.data;
+  } catch (error) {
+    console.error('API getOrderReview error:', error);
+    throw error;
+  }
+};
+
 export const uploadCustomerProfilePic = async (uri) => {
   try {
     const formData = new FormData();
@@ -773,6 +799,16 @@ export const calculateRoadDistance = async (origin, destination) => {
     return response.data;
   } catch (error) {
     console.error('API calculateRoadDistance error:', error);
+    throw error;
+  }
+};
+
+export const geocodeAddress = async (address) => {
+  try {
+    const response = await api.post('/customer/geocode', { address });
+    return response.data;
+  } catch (error) {
+    console.error('API geocodeAddress error:', error);
     throw error;
   }
 };

@@ -22,6 +22,7 @@ interface PlatformState {
   currency: string;
   deliveryModel: "flat" | "distance";
   baseFee: string;
+  deliveryFee?: string;
   serviceFee: string;
   commission: string;
   autoCancelMin: number;
@@ -242,7 +243,7 @@ const normalizeSettings = (serverSettings?: any): SettingsState => {
       platformName: base.platform?.platformName || initialSettings.platform.platformName,
       currency: base.platform?.currency || initialSettings.platform.currency,
       deliveryModel: base.platform?.deliveryModel === "distance" ? "distance" : "flat",
-      baseFee: String(base.platform?.baseFee ?? initialSettings.platform.baseFee),
+      baseFee: String(base.platform?.baseFee ?? base.platform?.deliveryFee ?? initialSettings.platform.baseFee),
       serviceFee: String(base.platform?.serviceFee ?? initialSettings.platform.serviceFee),
       commission: String(base.platform?.commission ?? initialSettings.platform.commission),
       autoCancelMin: Number(base.platform?.autoCancelMin ?? initialSettings.platform.autoCancelMin),
@@ -542,7 +543,11 @@ export default function SettingsPage() {
       }));
       return;
     } else {
-      const res = await updateSettingsOnServer({ [section]: draftSettings[section] });
+      const payload: any = { ...draftSettings[section] };
+      if (section === "platform") {
+        payload.deliveryFee = draftSettings.platform.baseFee;
+      }
+      const res = await updateSettingsOnServer({ [section]: payload });
       if (res && res.success === false) {
         toast.error(res.error || `Failed to update ${section} settings`);
         return;
@@ -972,7 +977,7 @@ export default function SettingsPage() {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-[12px] text-[#191C1C]">
-                    Base delivery fee (₦)
+                    Delivery fee (₦)
                   </label>
                   <input
                     type="text"
@@ -980,8 +985,12 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       handleUpdateDraft("platform", "baseFee", e.target.value)
                     }
+                    placeholder="e.g. 500"
                     className="w-full h-[48px] border border-[#EAEAEA] rounded-[8px] px-4 text-[14px] text-[#191C1C] focus:outline-none"
                   />
+                  <p className="text-[11px] text-[#747475]">
+                    Flat delivery fee charged on orders (manual, not automatic)
+                  </p>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -994,8 +1003,12 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       handleUpdateDraft("platform", "serviceFee", e.target.value)
                     }
+                    placeholder="e.g. 200"
                     className="w-full h-[48px] border border-[#EAEAEA] rounded-[8px] px-4 text-[14px] text-[#191C1C] focus:outline-none"
                   />
+                  <p className="text-[11px] text-[#747475]">
+                    Fixed customer service fee charged on orders (manual, not automatic)
+                  </p>
                 </div>
 
                 <div className="flex flex-col gap-2">

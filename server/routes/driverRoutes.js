@@ -14,6 +14,7 @@ const {
   sendDriverMessage,
   updateOrderStatus,
   calculateDistanceHandler,
+  geocodeAddressHandler,
   updateDriverLocationHandler,
 } = require('../controllers/driverController');
 const { upload } = require('../config/cloudinary');
@@ -30,6 +31,8 @@ router.post('/calculate-distance', calculateDistanceHandler);
 router.get('/calculate-distance', calculateDistanceHandler);
 router.post('/distance', calculateDistanceHandler);
 router.get('/distance', calculateDistanceHandler);
+router.post('/geocode', geocodeAddressHandler);
+router.get('/geocode', geocodeAddressHandler);
 router.post('/location', updateDriverLocationHandler);
 router.put('/location', updateDriverLocationHandler);
 

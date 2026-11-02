@@ -78,11 +78,41 @@ const getCurrentCustomer = async (req) => {
   return null;
 };
 
+const sanitizeItemImage = (item) => {
+  if (!item) return item;
+  const itemObj = item.toObject ? item.toObject() : { ...item };
+  const img = (itemObj.image || '').trim();
+  const isInvalid = !img || img.startsWith('blob:') || img.startsWith('file:') || img.includes('suya.jpg') || img.includes('placeholder.com') || (!img.startsWith('http://') && !img.startsWith('https://'));
+  
+  if (isInvalid) {
+    const combined = `${itemObj.name || ''} ${itemObj.category || ''} ${itemObj.description || ''}`.toLowerCase();
+    if (combined.includes('water')) {
+      itemObj.image = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=600&q=80';
+    } else if (combined.includes('suya') || combined.includes('grill') || combined.includes('barbecue')) {
+      itemObj.image = 'https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=600&q=80';
+    } else if (combined.includes('wain') || combined.includes('snack') || combined.includes('masa')) {
+      itemObj.image = 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600&q=80';
+    } else if (combined.includes('soup') || combined.includes('stew') || combined.includes('adequas')) {
+      itemObj.image = 'https://images.unsplash.com/photo-1547592180-85f173990554?w=600&q=80';
+    } else if (combined.includes('drink') || combined.includes('juice') || combined.includes('wine')) {
+      itemObj.image = 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=600&q=80';
+    } else if (combined.includes('fruit') || combined.includes('mango') || combined.includes('watermelon')) {
+      itemObj.image = 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600&q=80';
+    } else if (combined.includes('rice') || combined.includes('jollof')) {
+      itemObj.image = 'https://images.unsplash.com/photo-1541544741938-0af808871cc0?w=600&q=80';
+    } else {
+      itemObj.image = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&q=80';
+    }
+  }
+  return itemObj;
+};
+
 const getRestaurants = async (req, res) => {
   try {
     const vendors = await Vendor.find({ status: 'Approved' });
     const approvedVendorIds = vendors.map(v => v._id);
-    const items = await MenuItem.find({ available: true, vendorId: { $in: approvedVendorIds } });
+    const rawItems = await MenuItem.find({ available: true, vendorId: { $in: approvedVendorIds } });
+    const items = rawItems.map(sanitizeItemImage);
     const banners = await Banner.find({ status: 'active' });
 
     res.status(200).json({ 
@@ -111,7 +141,8 @@ const getRestaurantDetails = async (req, res) => {
     if (!vendor) return res.status(404).json({ success: false, error: 'Restaurant not found' });
 
     // Fetch the menu items for this vendor
-    const items = await MenuItem.find({ vendorId: vendor._id, available: true });
+    const rawItems = await MenuItem.find({ vendorId: vendor._id, available: true });
+    const items = rawItems.map(sanitizeItemImage);
 
     // Group items by category for the mobile UI
     const menuByCategory = items.reduce((acc, item) => {
@@ -177,12 +208,12 @@ const placeOrder = async (req, res) => {
       const num = Number(val);
       return isNaN(num) ? fallback : num;
     };
-    const defaultDeliveryFee = parseSettingNum(platformSettings?.platform?.baseFee, 500);
+    const defaultDeliveryFee = parseSettingNum(platformSettings?.platform?.baseFee ?? platformSettings?.platform?.deliveryFee, 500);
     const defaultServiceFee = parseSettingNum(platformSettings?.platform?.serviceFee, 200);
 
     const resolvedDeliveryFee = req.body.deliveryFee !== undefined 
       ? Number(req.body.deliveryFee) 
-      : (vendorDoc?.deliveryFee !== undefined && vendorDoc?.deliveryFee !== null ? Number(vendorDoc.deliveryFee) : defaultDeliveryFee);
+      : defaultDeliveryFee;
     const resolvedServiceFee = req.body.serviceFee !== undefined 
       ? Number(req.body.serviceFee) 
       : defaultServiceFee;
@@ -410,11 +441,142 @@ const getOrderTracking = async (req, res) => {
         order,
         estimatedArrival,
         status: order.status,
+        vendorId: order.vendorId?._id || order.vendorId,
+        vendorName: order.vendorId?.businessName || order.vendorName || 'Restaurant',
+        isReviewed: order.isReviewed || false,
+        rating: order.rating || null,
+        review: order.review || '',
+        driverRating: order.driverRating || null,
+        driverReview: order.driverReview || '',
         driverId: resolvedDriverId,
         driverName: resolvedDriverName,
         driverPhone: resolvedDriverPhone,
         driverPic: resolvedDriverPic,
         totalAmount: order.totalAmount || order.total || 5700
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const submitOrderReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rating, review, driverRating, driverReview } = req.body;
+
+    const numRating = Number(rating);
+    if (!numRating || numRating < 1 || numRating > 5) {
+      return res.status(400).json({ success: false, error: 'Rating must be a number between 1 and 5' });
+    }
+
+    let order;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      order = await Order.findById(id).populate('vendorId');
+    } else {
+      order = await Order.findOne({ orderId: id }).populate('vendorId');
+    }
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    // Update order with review data
+    order.rating = numRating;
+    order.review = (review || '').trim();
+    if (driverRating !== undefined && driverRating !== null && driverRating !== '') {
+      order.driverRating = Math.max(1, Math.min(5, Number(driverRating)));
+    }
+    if (driverReview !== undefined) {
+      order.driverReview = String(driverReview).trim();
+    }
+    order.isReviewed = true;
+    order.reviewedAt = new Date();
+    await order.save();
+
+    // Update Vendor rating and add to vendor reviews
+    if (order.vendorId) {
+      const vendorId = order.vendorId._id || order.vendorId;
+      const vendor = await Vendor.findById(vendorId);
+      if (vendor) {
+        if (!Array.isArray(vendor.reviews)) {
+          vendor.reviews = [];
+        }
+        // Check if review for this order already exists
+        const existingIdx = vendor.reviews.findIndex(r => r.orderId && r.orderId.toString() === order._id.toString());
+        const reviewEntry = {
+          orderId: order._id,
+          customerName: order.customerName || 'Customer',
+          rating: numRating,
+          comment: (review || '').trim(),
+          createdAt: new Date()
+        };
+        if (existingIdx > -1) {
+          vendor.reviews[existingIdx] = reviewEntry;
+        } else {
+          vendor.reviews.push(reviewEntry);
+        }
+
+        // Recalculate average rating
+        const totalRatings = vendor.reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
+        const avgRating = totalRatings / vendor.reviews.length;
+        vendor.rating = Number(avgRating.toFixed(1));
+        vendor.ratingsCount = vendor.reviews.length;
+        await vendor.save();
+      }
+    }
+
+    // Update Driver rating if assigned
+    if (order.driverId && order.driverRating) {
+      const driver = await Driver.findById(order.driverId);
+      if (driver) {
+        const currentDriverRating = driver.rating || 5;
+        const currentCount = driver.ratingsCount || 1;
+        const newCount = currentCount + 1;
+        const newRating = ((currentDriverRating * currentCount) + Number(order.driverRating)) / newCount;
+        driver.rating = Number(newRating.toFixed(1));
+        driver.ratingsCount = newCount;
+        await driver.save();
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Review submitted successfully',
+      data: {
+        orderId: order.orderId || order._id,
+        rating: order.rating,
+        review: order.review,
+        driverRating: order.driverRating,
+        isReviewed: true,
+        reviewedAt: order.reviewedAt
+      }
+    });
+  } catch (error) {
+    console.error('submitOrderReview error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const getOrderReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let order;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      order = await Order.findById(id);
+    } else {
+      order = await Order.findOne({ orderId: id });
+    }
+    if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
+    res.status(200).json({
+      success: true,
+      data: {
+        orderId: order.orderId || order._id,
+        isReviewed: order.isReviewed || false,
+        rating: order.rating || null,
+        review: order.review || '',
+        driverRating: order.driverRating || null,
+        driverReview: order.driverReview || '',
+        reviewedAt: order.reviewedAt || null
       }
     });
   } catch (error) {
@@ -447,14 +609,15 @@ const search = async (req, res) => {
     const items = await MenuItem.find({
       $or: [
         { name: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } }
+        { description: { $regex: query, $options: 'i' } },
+        { category: { $regex: query, $options: 'i' } }
       ],
       available: true
     }).populate('vendorId');
 
     res.status(200).json({ 
       success: true, 
-      data: { vendors, items } 
+      data: { vendors, items: items.map(sanitizeItemImage) } 
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -1469,14 +1632,17 @@ const getPlatformSettings = async (req, res) => {
       const num = Number(val);
       return isNaN(num) ? fallback : num;
     };
+    const adminDeliveryFee = parseSettingNum(settings.platform?.baseFee ?? settings.platform?.deliveryFee, 500);
+    const adminServiceFee = parseSettingNum(settings.platform?.serviceFee, 200);
     res.status(200).json({
       success: true,
       settings: {
-        baseDeliveryFee: parseSettingNum(settings.platform?.baseFee, 500),
-        serviceFee: parseSettingNum(settings.platform?.serviceFee, 200),
+        baseDeliveryFee: adminDeliveryFee,
+        deliveryFee: adminDeliveryFee,
+        serviceFee: adminServiceFee,
         commission: parseSettingNum(settings.platform?.commission, 15),
         deliveryFeeCommission: parseSettingNum(settings.platform?.deliveryFeeCommission, 5),
-        deliveryModel: settings.platform?.deliveryModel || 'flat',
+        deliveryModel: 'flat',
         currency: settings.platform?.currency || 'NGN',
         platformName: settings.platform?.platformName || 'Denish'
       }
@@ -1501,6 +1667,8 @@ module.exports = {
   deleteAddress,
   deletePaymentMethod,
   getOrderTracking,
+  submitOrderReview,
+  getOrderReview,
   getChatThreads,
   getMessages,
   sendMessage,

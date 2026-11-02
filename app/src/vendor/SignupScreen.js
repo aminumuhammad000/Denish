@@ -24,6 +24,7 @@ const SignupScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -41,14 +42,15 @@ const SignupScreen = ({ navigation }) => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const response = await vendorSignup(name.trim(), email.trim(), phone.trim(), password);
+      const response = await vendorSignup(name.trim(), email.trim(), phone.trim(), password, referralCode ? referralCode.trim().toUpperCase() : undefined);
       if (response && response.success) {
         const vendorData = response.vendor || {
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim(),
           businessName: name.trim(),
-          category: 'Local dishes'
+          category: 'Local dishes',
+          referredBy: referralCode ? referralCode.trim().toUpperCase() : undefined
         };
 
         // Immediately save authenticated session so all subsequent API calls are tied to this new vendor
@@ -65,7 +67,8 @@ const SignupScreen = ({ navigation }) => {
           businessName: name.trim(),
           email: email.trim(),
           phone: phone.trim(),
-          category: 'Local dishes'
+          category: 'Local dishes',
+          referralCode: referralCode ? referralCode.trim().toUpperCase() : undefined
         });
 
         navigation.navigate('Step1'); // Move to next wizard step
@@ -121,9 +124,36 @@ const SignupScreen = ({ navigation }) => {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Password</Text>
             <View style={styles.passwordContainer}>
-              <TextInput style={styles.passwordInput} value={password} onChangeText={setPassword} placeholder="At least 6 characters" secureTextEntry={!showPass} />
+              <TextInput
+                style={styles.passwordInput}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="At least 6 characters"
+                placeholderTextColor="#999"
+                secureTextEntry={!showPass}
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="password"
+                autoComplete="password"
+              />
               <Ionicons name={showPass ? 'eye-outline' : 'eye-off-outline'} size={20} color="#999" onPress={() => setShowPass(!showPass)} />
             </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Referral code</Text>
+              <Text style={styles.optionalBadge}>Optional</Text>
+            </View>
+            <TextInput
+              style={styles.input}
+              value={referralCode}
+              onChangeText={setReferralCode}
+              placeholder="e.g. VEND123"
+              placeholderTextColor="#999"
+              autoCapitalize="characters"
+              autoCorrect={false}
+            />
           </View>
 
           {(errorMsg || googleErrorMsg) ? <Text style={{ color: 'red', marginBottom: 10, textAlign: 'center' }}>{errorMsg || googleErrorMsg}</Text> : null}
@@ -208,6 +238,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  optionalBadge: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '500',
+  },
   input: {
     backgroundColor: '#FAFBFB',
     borderWidth: 1,
@@ -215,6 +250,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     fontSize: 14,
+    color: '#1a1a1a',
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -229,6 +265,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     fontSize: 14,
+    color: '#1a1a1a',
   },
   forgotPassword: {
     fontSize: 11,

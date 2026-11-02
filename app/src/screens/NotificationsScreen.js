@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   StatusBar,
   Alert,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -46,13 +48,27 @@ const TYPE_CONFIG = {
 };
 
 // ─── Single Notification Card ────────────────────────────────────────────────
-const NotificationCard = ({ item, onPress }) => {
+const NotificationCard = ({ item, onMarkRead, onOpenDetail }) => {
+  const [expanded, setExpanded] = useState(false);
   const cfg = TYPE_CONFIG[item.type] || TYPE_CONFIG.system;
+  const isLong = (item.message || '').length > 70;
+
+  const handleCardPress = () => {
+    onMarkRead(item);
+    onOpenDetail(item);
+  };
+
+  const handleToggleExpand = (e) => {
+    e.stopPropagation();
+    onMarkRead(item);
+    setExpanded(prev => !prev);
+  };
+
   return (
     <TouchableOpacity
       style={[styles.card, !item.read && styles.unreadCard]}
       activeOpacity={0.75}
-      onPress={() => onPress(item)}
+      onPress={handleCardPress}
     >
       <View style={[styles.iconBg, { backgroundColor: cfg.color }]}>
         <Ionicons name={cfg.icon} size={20} color="#FFF" />
@@ -65,9 +81,24 @@ const NotificationCard = ({ item, onPress }) => {
           </Text>
           <Text style={styles.cardTime}>{timeAgo(item.createdAt)}</Text>
         </View>
-        <Text style={styles.cardMessage} numberOfLines={2}>
+        <Text 
+          style={styles.cardMessage} 
+          numberOfLines={expanded ? undefined : 2}
+        >
           {item.message}
         </Text>
+        {isLong && (
+          <TouchableOpacity onPress={handleToggleExpand} style={styles.expandToggleBtn}>
+            <Text style={styles.expandToggleText}>
+              {expanded ? 'Show less' : 'View full message'}
+            </Text>
+            <Ionicons 
+              name={expanded ? 'chevron-up' : 'chevron-down'} 
+              size={13} 
+              color={Colors.primary} 
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {!item.read && <View style={styles.unreadDot} />}
@@ -91,6 +122,7 @@ const NotificationsScreen = ({ navigation, route }) => {
   const [loading, setLoading]           = useState(true);
   const [refreshing, setRefreshing]     = useState(false);
   const [error, setError]               = useState('');
+  const [selectedNotification, setSelectedNotification] = useState(null);
 
   const [currentRole, setCurrentRole]   = useState(route?.params?.role || null);
   const unreadCountRef = useRef(0);
@@ -270,7 +302,14 @@ const NotificationsScreen = ({ navigation, route }) => {
           data={filteredNotifications}
           keyExtractor={item => item._id || item.id || String(Math.random())}
           renderItem={({ item }) => (
-            <NotificationCard item={item} onPress={handleMarkRead} />
+            <NotificationCard 
+              item={item} 
+              onMarkRead={handleMarkRead} 
+              onOpenDetail={(notif) => {
+                handleMarkRead(notif);
+                setSelectedNotification(notif);
+              }}
+            />
           )}
           ListEmptyComponent={renderEmpty}
           contentContainerStyle={[
@@ -288,6 +327,88 @@ const NotificationsScreen = ({ navigation, route }) => {
           }
         />
       )}
+
+      {/* ── Full Notification Message Reader Modal ── */}
+      <Modal
+        visible={!!selectedNotification}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedNotification(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            {/* Modal Header */}
+            <View style={styles.modalHeaderRow}>
+              <View style={[
+                styles.modalIconBg, 
+                { backgroundColor: (TYPE_CONFIG[selectedNotification?.type] || TYPE_CONFIG.system).color }
+              ]}>
+                <Ionicons 
+                  name={(TYPE_CONFIG[selectedNotification?.type] || TYPE_CONFIG.system).icon} 
+                  size={24} 
+                  color="#FFF" 
+                />
+              </View>
+              <View style={styles.modalHeaderInfo}>
+                <View style={styles.modalTypePill}>
+                  <Text style={styles.modalTypePillText}>
+                    {(TYPE_CONFIG[selectedNotification?.type] || TYPE_CONFIG.system).label}
+                  </Text>
+                </View>
+                <Text style={styles.modalTimeText}>
+                  {selectedNotification && new Date(selectedNotification.createdAt).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                  })} • {selectedNotification && new Date(selectedNotification.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.modalCloseBtn}
+                onPress={() => setSelectedNotification(null)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Title */}
+            <Text style={styles.modalTitleText}>{selectedNotification?.title}</Text>
+
+            {/* Full Message Body */}
+            <ScrollView style={styles.modalMessageScroll} showsVerticalScrollIndicator={true}>
+              <Text style={styles.modalFullMessageText}>
+                {selectedNotification?.message}
+              </Text>
+            </ScrollView>
+
+            {/* Modal Actions */}
+            <View style={styles.modalActionsRow}>
+              {selectedNotification?.type === 'order' && (
+                <TouchableOpacity
+                  style={styles.modalActionBtn}
+                  onPress={() => {
+                    setSelectedNotification(null);
+                    navigation.navigate('CustomerOrders');
+                  }}
+                >
+                  <Ionicons name="receipt-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.modalActionBtnText}>View Orders</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[
+                  styles.modalDismissBtn,
+                  selectedNotification?.type !== 'order' && { flex: 1 }
+                ]}
+                onPress={() => setSelectedNotification(null)}
+              >
+                <Text style={styles.modalDismissBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -416,6 +537,18 @@ const styles = StyleSheet.create({
   unreadTitle: { fontWeight: '700', color: '#0F172A' },
   cardTime: { fontSize: 11, color: '#94A3B8', flexShrink: 0 },
   cardMessage: { fontSize: 13, color: '#64748B', lineHeight: 18 },
+  expandToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  expandToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
   unreadDot: {
     position: 'absolute',
     top: 14,
@@ -424,6 +557,122 @@ const styles = StyleSheet.create({
     height: 9,
     borderRadius: 4.5,
     backgroundColor: Colors.primary,
+  },
+
+  // Modal styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 22,
+    padding: 22,
+    width: '100%',
+    maxWidth: 480,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 25,
+    elevation: 8,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalIconBg: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  modalHeaderInfo: {
+    flex: 1,
+  },
+  modalTypePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  modalTypePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    textTransform: 'uppercase',
+  },
+  modalTimeText: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitleText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  modalMessageScroll: {
+    maxHeight: 280,
+    marginVertical: 4,
+    paddingRight: 4,
+  },
+  modalFullMessageText: {
+    fontSize: 14,
+    color: '#334155',
+    lineHeight: 22,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  modalActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalActionBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalDismissBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalDismissBtnText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   // States

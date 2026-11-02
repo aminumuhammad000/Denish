@@ -17,8 +17,14 @@ export const CartProvider = ({ children }) => {
     try {
       const platRes = await getPlatformSettings();
       if (platRes?.success && platRes.settings) {
-        setPlatformSettings(platRes.settings);
-        return platRes.settings;
+        const resolvedDeliveryFee = platRes.settings.baseDeliveryFee ?? platRes.settings.deliveryFee;
+        const normalized = {
+          ...platRes.settings,
+          baseDeliveryFee: resolvedDeliveryFee,
+          deliveryFee: resolvedDeliveryFee,
+        };
+        setPlatformSettings(normalized);
+        return normalized;
       }
     } catch (e) {
       console.warn('Error fetching platform settings in CartContext:', e.message);
@@ -82,30 +88,57 @@ export const CartProvider = ({ children }) => {
     persistCart();
   }, [cartItems, restaurantId, isLoaded]);
 
-  const addToCart = (item, restId, quantity = 1, instructions = '') => {
+  const addToCart = (item, restId, quantity = 1, instructions = '', restaurantName = '') => {
+    if (!item) return;
     let updatedItems = [...cartItems];
-    if (restaurantId && restaurantId !== restId) {
-      updatedItems = [];
-    }
 
-    // Check for existing item with SAME instructions
-    const existingIndex = updatedItems.findIndex(i => i._id === item._id && i.instructions === instructions);
+    const targetId = item._id || item.id;
+    const resolvedRestId = restId || item.restaurantId || item.vendorId?._id || item.vendorId || restaurantId;
+    const resolvedRestName = restaurantName || item.restaurantName || item.vendorId?.businessName || item.vendorId?.name || '';
+
+    // Check for existing item with SAME instructions, SAME ID, and SAME restaurant
+    const existingIndex = updatedItems.findIndex(i => {
+      const iId = i._id || i.id;
+      const iRest = i.restaurantId || i.restId;
+      return iId === targetId && 
+        (i.instructions || '') === (instructions || '') && 
+        (!resolvedRestId || !iRest || iRest === resolvedRestId);
+    });
     
     if (existingIndex > -1) {
       const clonedItems = [...updatedItems];
       clonedItems[existingIndex].quantity += quantity;
+      if (resolvedRestId && !clonedItems[existingIndex].restaurantId) {
+        clonedItems[existingIndex].restaurantId = resolvedRestId;
+      }
+      if (resolvedRestName && !clonedItems[existingIndex].restaurantName) {
+        clonedItems[existingIndex].restaurantName = resolvedRestName;
+      }
       updatedItems = clonedItems;
     } else {
-      updatedItems.push({ ...item, quantity, instructions });
+      updatedItems.push({ 
+        ...item, 
+        _id: targetId,
+        id: targetId,
+        restaurantId: resolvedRestId,
+        restaurantName: resolvedRestName,
+        quantity, 
+        instructions 
+      });
     }
 
-    setRestaurantId(restId);
+    if (resolvedRestId) {
+      setRestaurantId(resolvedRestId);
+    }
     setCartItems(updatedItems);
   };
 
-  const removeFromCart = (itemId) => {
+  const removeFromCart = (itemId, specificRestId = null) => {
+    if (!itemId) return;
     let updatedItems = cartItems.map(item => {
-      if (item._id === itemId) {
+      const match = (item._id && item._id === itemId) || (item.id && item.id === itemId);
+      const restMatch = !specificRestId || (item.restaurantId || item.restId) === specificRestId;
+      if (match && restMatch) {
         return { ...item, quantity: item.quantity - 1 };
       }
       return item;
@@ -114,16 +147,53 @@ export const CartProvider = ({ children }) => {
     setCartItems(updatedItems);
     if (updatedItems.length === 0) {
       setRestaurantId(null);
+    } else if (specificRestId && restaurantId === specificRestId) {
+      const remainingRest = updatedItems.find(i => (i.restaurantId || i.restId) === specificRestId);
+      if (!remainingRest) {
+        setRestaurantId(updatedItems[0].restaurantId || updatedItems[0].restId || null);
+      }
     }
   };
 
-  const clearCart = () => {
-    setCartItems([]);
-    setRestaurantId(null);
+  const deleteFromCart = (itemId, specificRestId = null) => {
+    if (!itemId) return;
+    const updatedItems = cartItems.filter(item => {
+      const match = (item._id && item._id === itemId) || (item.id && item.id === itemId);
+      const restMatch = !specificRestId || (item.restaurantId || item.restId) === specificRestId;
+      return !(match && restMatch);
+    });
+
+    setCartItems(updatedItems);
+    if (updatedItems.length === 0) {
+      setRestaurantId(null);
+    } else if (specificRestId && restaurantId === specificRestId) {
+      const remainingRest = updatedItems.find(i => (i.restaurantId || i.restId) === specificRestId);
+      if (!remainingRest) {
+        setRestaurantId(updatedItems[0].restaurantId || updatedItems[0].restId || null);
+      }
+    }
   };
 
-  const getTotal = () => {
-    return cartItems.reduce((acc, item) => {
+  const clearCart = (specificRestId = null) => {
+    if (specificRestId) {
+      const remainingItems = cartItems.filter(item => (item.restaurantId || item.restId) !== specificRestId);
+      setCartItems(remainingItems);
+      if (remainingItems.length === 0) {
+        setRestaurantId(null);
+      } else {
+        setRestaurantId(remainingItems[0]?.restaurantId || remainingItems[0]?.restId || null);
+      }
+    } else {
+      setCartItems([]);
+      setRestaurantId(null);
+    }
+  };
+
+  const getTotal = (specificRestId = null) => {
+    const itemsToSum = specificRestId 
+      ? cartItems.filter(item => (item.restaurantId || item.restId) === specificRestId)
+      : cartItems;
+    return itemsToSum.reduce((acc, item) => {
       let price = item.price;
       if (typeof price === 'string') {
         price = parseFloat(price.replace(/,/g, '')) || 0;
@@ -134,8 +204,25 @@ export const CartProvider = ({ children }) => {
     }, 0);
   };
 
+  const getOrdersByRestaurant = () => {
+    const ordersMap = {};
+    cartItems.forEach(item => {
+      const restKey = item.restaurantId || item.restId || restaurantId || 'default';
+      const restName = item.restaurantName || (item.vendorId && (item.vendorId.businessName || item.vendorId.name)) || 'Restaurant Order';
+      if (!ordersMap[restKey]) {
+        ordersMap[restKey] = {
+          restaurantId: restKey,
+          restaurantName: restName,
+          items: []
+        };
+      }
+      ordersMap[restKey].items.push(item);
+    });
+    return Object.values(ordersMap);
+  };
+
   return (
-    <CartContext.Provider value={{ cartItems, restaurantId, addToCart, removeFromCart, clearCart, getTotal, isLoaded, platformSettings, fetchPlatformSettings }}>
+    <CartContext.Provider value={{ cartItems, restaurantId, setRestaurantId, addToCart, removeFromCart, deleteFromCart, clearCart, getTotal, getOrdersByRestaurant, isLoaded, platformSettings, fetchPlatformSettings }}>
       {children}
     </CartContext.Provider>
   );
